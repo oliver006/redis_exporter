@@ -5,17 +5,29 @@ Supports Redis 2.x and 3.x
 
 ## Building and running
 
-    go build
-    ./redis_exporter <flags>
+Locally build and run it:
+
+```
+    $ go get
+    $ go build
+    $ ./redis_exporter <flags>
+```
+
+You can also run it via docker: 
+
+```
+    $ docker pull 21zoo/redis_exporter
+    $ docker run -d --name redis_exporter -p 9121:9121 21zoo/redis_exporter
+```
 
 ### Flags
 
 Name               | Description
 -------------------|------------
-redis.addr         | Address of one or more redis nodes, comma separated.
-namespace          | Namespace for the metrics, defaults to "redis".
-web.listen-address | Address to listen on for web interface and telemetry.
-web.telemetry-path | Path under which to expose metrics.
+redis.addr         | Address of one or more redis nodes, comma separated, defaults to `localhost:6379`.
+namespace          | Namespace for the metrics, defaults to `redis`.
+web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
+web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
 
 
 ### What's exported?

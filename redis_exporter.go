@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	addrs         = make([]string, 0)
+	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, comma separated")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
@@ -269,6 +269,12 @@ func (e *Exporter) collectMetrics(metrics chan<- prometheus.Metric) {
 }
 
 func main() {
+	flag.Parse()
+
+	addrs := strings.Split(*redisAddr, ",")
+	if len(addrs) == 0 || len(addrs[0]) == 0 {
+		log.Fatal("Invalid parameter --redis.addr")
+	}
 
 	e := NewRedisExporter(addrs, *namespace)
 	prometheus.MustRegister(e)
@@ -286,16 +292,6 @@ func main() {
 	})
 
 	log.Printf("providing metrics at %s%s", *listenAddress, *metricPath)
+	log.Printf("Connecting to: %#v", addrs)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
-}
-
-func init() {
-	a := flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, comma separated")
-	flag.Parse()
-
-	addrs = strings.Split(*a, ",")
-	if len(addrs) == 0 || len(addrs[0]) == 0 {
-		log.Fatal("need parameter addr with len > 0 to connect to redis db")
-	}
-
 }
