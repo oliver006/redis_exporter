@@ -3,7 +3,7 @@
 Prometheus exporter for Redis metrics.<br>
 Supports Redis 2.x and 3.x
 
-## Building and running
+## Building, configuring, and running
 
 Locally build and run it:
 
@@ -19,6 +19,22 @@ You can also run it via docker:
     $ docker pull 21zoo/redis_exporter
     $ docker run -d --name redis_exporter -p 9121:9121 21zoo/redis_exporter
 ```
+
+Add a block to the `scrape_configs` of your prometheus.yml config file:
+
+```
+scrape_configs:
+
+...
+
+- job_name: redis_exporter
+  target_groups:
+  - targets: ['localhost: 9121']
+
+...
+```
+and adjust the host name accordingly.
+
 
 ### Flags
 
