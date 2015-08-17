@@ -41,10 +41,18 @@ and adjust the host name accordingly.
 Name               | Description
 -------------------|------------
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `localhost:6379`.
+redis.password     | Password to use when authenticating to Redis
 namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
 
+These settings take precedence over any configurations provided by [environment variables](#environment-variables).
+
+### Environment Variables
+
+Name               | Description
+-------------------|------------
+REDIS_PASSWORD     | Password to use when authenticating to Redis
 
 ### What's exported?
 
