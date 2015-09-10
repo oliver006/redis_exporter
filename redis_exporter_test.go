@@ -71,7 +71,7 @@ func deleteKeysFromDB(t *testing.T, db string) error {
 
 func TestCountingKeys(t *testing.T) {
 
-	e := NewRedisExporter(addrs, "test")
+	e := NewRedisExporter(RedisHost{addrs: addrs}, "test")
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
@@ -118,7 +118,7 @@ func TestCountingKeys(t *testing.T) {
 
 func TestExporter(t *testing.T) {
 
-	e := NewRedisExporter(addrs, "test")
+	e := NewRedisExporter(RedisHost{addrs: addrs}, "test")
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)

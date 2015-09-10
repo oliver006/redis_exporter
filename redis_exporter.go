@@ -5,6 +5,7 @@ import (
 	//	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -16,13 +17,19 @@ import (
 
 var (
 	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, comma separated")
+	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password for Redis server")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 )
 
+type RedisHost struct {
+	addrs    []string
+	password string
+}
+
 type Exporter struct {
-	addrs        []string
+	redis        RedisHost
 	namespace    string
 	duration     prometheus.Gauge
 	scrapeErrors prometheus.Gauge
@@ -58,9 +65,9 @@ func (e *Exporter) initGauges() {
 	}, []string{"addr", "db"})
 }
 
-func NewRedisExporter(addrs []string, namespace string) *Exporter {
+func NewRedisExporter(redis RedisHost, namespace string) *Exporter {
 	e := Exporter{
-		addrs:     addrs,
+		redis:     redis,
 		namespace: namespace,
 
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
@@ -219,13 +226,20 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	//var err error
 	errorCount := 0
-	for _, addr := range e.addrs {
+	for _, addr := range e.redis.addrs {
 		//	log.Printf("opening connection to redis node %s", addr)
 		c, err := redis.Dial("tcp", addr)
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
+		}
+		if e.redis.password != "" {
+			if _, err := c.Do("AUTH", e.redis.password); err != nil {
+				log.Printf("redis err: %s", err)
+				errorCount++
+				continue
+			}
 		}
 		info, err := redis.String(c.Do("INFO"))
 		c.Close()
@@ -276,7 +290,7 @@ func main() {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
 
-	e := NewRedisExporter(addrs, *namespace)
+	e := NewRedisExporter(RedisHost{addrs, *redisPassword}, *namespace)
 	prometheus.MustRegister(e)
 
 	http.Handle(*metricPath, prometheus.Handler())
