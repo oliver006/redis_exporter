@@ -21,6 +21,9 @@ var (
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
+	showVersion   = flag.Bool("version", false, "Show version information")
+
+	VERSION = "0.2"
 )
 
 type RedisHost struct {
@@ -306,6 +309,11 @@ func (e *Exporter) collectMetrics(metrics chan<- prometheus.Metric) {
 
 func main() {
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Printf("Redis Metrics Exporter v%s\n", VERSION)
+		return
+	}
 
 	addrs := strings.Split(*redisAddr, ",")
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
