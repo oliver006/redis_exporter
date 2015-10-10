@@ -1,13 +1,18 @@
 package main
 
 /*
+  to run the tests with redis running on anything but localhost:6379 use
+  $ go test   --redis.addr=<host>:<port>
+
   for html coverage report run
-  go test -coverprofile=coverage.out  && go tool cover -html=coverage.out
+  $ go test -coverprofile=coverage.out  && go tool cover -html=coverage.out
 */
 
 import (
+	"flag"
 	"fmt"
 	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,11 +22,12 @@ import (
 var (
 	keys = []string{}
 	ts   = int32(time.Now().Unix())
+	r    = RedisHost{}
 )
 
 func addKeysToDB(t *testing.T, db string) error {
 
-	c, err := redis.Dial("tcp", addrs[0])
+	c, err := redis.Dial("tcp", r.addrs[0])
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
@@ -47,7 +53,7 @@ func addKeysToDB(t *testing.T, db string) error {
 
 func deleteKeysFromDB(t *testing.T, db string) error {
 
-	c, err := redis.Dial("tcp", addrs[0])
+	c, err := redis.Dial("tcp", r.addrs[0])
 	if err != nil {
 		log.Printf("redis err: %s", err)
 		t.Errorf("couldn't setup redis, err: %s ", err)
@@ -71,7 +77,7 @@ func deleteKeysFromDB(t *testing.T, db string) error {
 
 func TestCountingKeys(t *testing.T) {
 
-	e := NewRedisExporter(RedisHost{addrs: addrs}, "test")
+	e := NewRedisExporter(r, "test")
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
@@ -118,7 +124,7 @@ func TestCountingKeys(t *testing.T) {
 
 func TestExporter(t *testing.T) {
 
-	e := NewRedisExporter(RedisHost{addrs: addrs}, "test")
+	e := NewRedisExporter(r, "test")
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
@@ -143,9 +149,15 @@ func TestExporter(t *testing.T) {
 }
 
 func init() {
-
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
 		key := fmt.Sprintf("key-%s-%d", n, ts)
 		keys = append(keys, key)
 	}
+
+	flag.Parse()
+	addrs := strings.Split(*redisAddr, ",")
+	if len(addrs) == 0 || len(addrs[0]) == 0 {
+		log.Fatal("Invalid parameter --redis.addr")
+	}
+	r = RedisHost{addrs: addrs}
 }

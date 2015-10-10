@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-	//	"fmt"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -162,7 +162,7 @@ func includeMetric(name string) bool {
 	return ok
 }
 
-func extractMetrics(info, addr string, scrapes chan<- scrapeResult) error {
+func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 
 	lines := strings.Split(info, "\r\n")
 
@@ -183,14 +183,14 @@ func extractMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 			stats := split[1]
 			split := strings.Split(stats, ",")
 			if len(split) != 3 {
-				log.Printf("wtf stats: %s", stats)
+				log.Printf("unexpected db stats format: %s", stats)
 				continue
 			}
 
 			extract := func(s string) (val float64) {
 				split := strings.Split(s, "=")
 				if len(split) != 2 {
-					log.Printf("couldn't split %s", s)
+					log.Printf("unexpected db stats format: %s", s)
 					return 0
 				}
 				val, err := strconv.ParseFloat(split[1], 64)
@@ -214,7 +214,23 @@ func extractMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 		}
 		scrapes <- scrapeResult{Name: split[0], Addr: addr, Value: val}
 	}
+	return nil
+}
 
+func extractConfigMetrics(config []string, addr string, scrapes chan<- scrapeResult) error {
+
+	if len(config)%2 != 0 {
+		return fmt.Errorf("invalid config: %#v", config)
+	}
+
+	for pos := 0; pos < len(config)/2; pos++ {
+		val, err := strconv.ParseFloat(config[pos*2+1], 64)
+		if err != nil {
+			log.Printf("couldn't parse %s, err: %s", config[pos*2+1], err)
+			continue
+		}
+		scrapes <- scrapeResult{Name: fmt.Sprintf("config_%s", config[pos*2]), Addr: addr, Value: val}
+	}
 	return nil
 }
 
@@ -224,10 +240,8 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 	now := time.Now().UnixNano()
 	e.totalScrapes.Inc()
 
-	//var err error
 	errorCount := 0
 	for _, addr := range e.redis.addrs {
-		//	log.Printf("opening connection to redis node %s", addr)
 		c, err := redis.Dial("tcp", addr)
 		if err != nil {
 			log.Printf("redis err: %s", err)
@@ -242,18 +256,26 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			}
 		}
 		info, err := redis.String(c.Do("INFO"))
-		c.Close()
+		if err == nil {
+			err = extractInfoMetrics(info, addr, scrapes)
+		}
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
-			continue
 		}
-		if err := extractMetrics(info, addr, scrapes); err != nil {
+
+		config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory"))
+		if err == nil {
+			err = extractConfigMetrics(config, addr, scrapes)
+		}
+		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 		}
+
+		c.Close()
 	}
-	//	log.Printf("redis errors: %d   err: %s", errorCount, err)
+
 	e.scrapeErrors.Set(float64(errorCount))
 	e.duration.Set(float64(time.Now().UnixNano()-now) / 1000000000)
 }
@@ -296,12 +318,12 @@ func main() {
 	http.Handle(*metricPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-						<head><title>Redis exporter</title></head>
-						<body>
-						<h1>Redis exporter</h1>
-						<p><a href='` + *metricPath + `'>Metrics</a></p>
-						</body>
-						</html>
+<head><title>Redis exporter</title></head>
+<body>
+<h1>Redis exporter</h1>
+<p><a href='` + *metricPath + `'>Metrics</a></p>
+</body>
+</html>
 						`))
 	})
 
