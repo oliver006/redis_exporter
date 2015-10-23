@@ -185,7 +185,7 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 			db := split[0]
 			stats := split[1]
 			split := strings.Split(stats, ",")
-			if len(split) != 3 {
+			if len(split) != 3 && len(split) != 2 {
 				log.Printf("unexpected db stats format: %s", stats)
 				continue
 			}
@@ -205,7 +205,9 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 
 			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: db, Value: extract(split[0])}
 			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: db, Value: extract(split[1])}
-			scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, DB: db, Value: (extract(split[2]) / 1000)}
+			if len(split) > 2 {
+				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, DB: db, Value: (extract(split[2]) / 1000)}
+			}
 
 			continue
 		}
