@@ -1,11 +1,8 @@
-package main
+package exporter
 
 import (
-	"flag"
 	"fmt"
 	"log"
-	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,22 +12,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-var (
-	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, comma separated")
-	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password for Redis server")
-	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
-	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
-	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
-	showVersion   = flag.Bool("version", false, "Show version information")
-
-	VERSION = "0.2"
-)
-
+// RedisHost represents a set of Redis Hosts to health check.
 type RedisHost struct {
-	addrs    []string
-	password string
+	Addrs    []string
+	Password string
 }
 
+// Exporter implementes the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	redis        RedisHost
 	namespace    string
@@ -68,6 +56,7 @@ func (e *Exporter) initGauges() {
 	}, []string{"addr", "db"})
 }
 
+// NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(redis RedisHost, namespace string) *Exporter {
 	e := Exporter{
 		redis:     redis,
@@ -94,6 +83,7 @@ func NewRedisExporter(redis RedisHost, namespace string) *Exporter {
 	return &e
 }
 
+// Describe outputs Redis metric descriptions.
 func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 
 	for _, m := range e.metrics {
@@ -104,6 +94,7 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.scrapeErrors.Desc()
 }
 
+// Collect fetches new metrics from the RedisHost and updates the appropriate metrics.
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	scrapes := make(chan scrapeResult)
 
@@ -246,15 +237,15 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 	e.totalScrapes.Inc()
 
 	errorCount := 0
-	for _, addr := range e.redis.addrs {
+	for _, addr := range e.redis.Addrs {
 		c, err := redis.Dial("tcp", addr)
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
 		}
-		if e.redis.password != "" {
-			if _, err := c.Do("AUTH", e.redis.password); err != nil {
+		if e.redis.Password != "" {
+			if _, err := c.Do("AUTH", e.redis.Password); err != nil {
 				log.Printf("redis err: %s", err)
 				errorCount++
 				continue
@@ -307,37 +298,4 @@ func (e *Exporter) collectMetrics(metrics chan<- prometheus.Metric) {
 	for _, m := range e.metrics {
 		m.Collect(metrics)
 	}
-}
-
-func main() {
-	flag.Parse()
-
-	if *showVersion {
-		fmt.Printf("Redis Metrics Exporter v%s\n", VERSION)
-		return
-	}
-
-	addrs := strings.Split(*redisAddr, ",")
-	if len(addrs) == 0 || len(addrs[0]) == 0 {
-		log.Fatal("Invalid parameter --redis.addr")
-	}
-
-	e := NewRedisExporter(RedisHost{addrs, *redisPassword}, *namespace)
-	prometheus.MustRegister(e)
-
-	http.Handle(*metricPath, prometheus.Handler())
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-<head><title>Redis exporter</title></head>
-<body>
-<h1>Redis exporter</h1>
-<p><a href='` + *metricPath + `'>Metrics</a></p>
-</body>
-</html>
-						`))
-	})
-
-	log.Printf("providing metrics at %s%s", *listenAddress, *metricPath)
-	log.Printf("Connecting to: %#v", addrs)
-	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
