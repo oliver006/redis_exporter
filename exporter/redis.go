@@ -14,8 +14,8 @@ import (
 
 // RedisHost represents a set of Redis Hosts to health check.
 type RedisHost struct {
-	Addrs    []string
-	Password string
+	Addrs     []string
+	Passwords []string
 }
 
 // Exporter implementes the prometheus.Exporter interface, and exports Redis metrics.
@@ -237,15 +237,15 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 	e.totalScrapes.Inc()
 
 	errorCount := 0
-	for _, addr := range e.redis.Addrs {
+	for idx, addr := range e.redis.Addrs {
 		c, err := redis.Dial("tcp", addr)
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
 		}
-		if e.redis.Password != "" {
-			if _, err := c.Do("AUTH", e.redis.Password); err != nil {
+		if e.redis.Passwords[idx] != "" {
+			if _, err := c.Do("AUTH", e.redis.Passwords[idx]); err != nil {
 				log.Printf("redis err: %s", err)
 				errorCount++
 				continue
