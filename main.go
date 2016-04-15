@@ -13,9 +13,10 @@ import (
 )
 
 var (
-	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, comma separated")
-	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password one one or more redis nodes, comma separated")
+	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
+	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password one one or more redis nodes, separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
+	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	showVersion   = flag.Bool("version", false, "Show version information")
@@ -31,11 +32,11 @@ func main() {
 		return
 	}
 
-	addrs := strings.Split(*redisAddr, ",")
+	addrs := strings.Split(*redisAddr, *separator)
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
-	passwords := strings.Split(*redisPassword, ",")
+	passwords := strings.Split(*redisPassword, *separator)
 	for len(passwords) < len(addrs) {
 		passwords = append(passwords, passwords[0])
 	}
