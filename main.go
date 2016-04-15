@@ -14,7 +14,7 @@ import (
 
 var (
 	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
-	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password one one or more redis nodes, separated by separator")
+	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password for one or more redis nodes, separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
