@@ -1,5 +1,5 @@
 # Redis Metrics Exporter
-[![Circle CI](https://circleci.com/gh/oliver006/redis_exporter/tree/master.svg?style=svg)](https://circleci.com/gh/oliver006/redis_exporter/tree/master)
+[![Circle CI](https://circleci.com/gh/oliver006/redis_exporter.svg?style=shield)](https://circleci.com/gh/oliver006/redis_exporter)
 
 Prometheus exporter for Redis metrics.<br>
 Supports Redis 2.x and 3.x
