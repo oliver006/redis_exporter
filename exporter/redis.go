@@ -244,7 +244,7 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			errorCount++
 			continue
 		}
-		if e.redis.Passwords[idx] != "" {
+		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
 			if _, err := c.Do("AUTH", e.redis.Passwords[idx]); err != nil {
 				log.Printf("redis err: %s", err)
 				errorCount++

@@ -20,8 +20,9 @@ var (
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	showVersion   = flag.Bool("version", false, "Show version information")
+
 	// VERSION of Redis Exporter
-	VERSION = "0.3"
+	VERSION = "0.4"
 )
 
 func main() {

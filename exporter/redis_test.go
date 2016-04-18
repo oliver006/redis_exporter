@@ -27,7 +27,7 @@ var (
 
 func addKeysToDB(t *testing.T, db string) error {
 
-	c, err := redis.Dial("tcp", r.addrs[0])
+	c, err := redis.Dial("tcp", r.Addrs[0])
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
@@ -53,7 +53,7 @@ func addKeysToDB(t *testing.T, db string) error {
 
 func deleteKeysFromDB(t *testing.T, db string) error {
 
-	c, err := redis.Dial("tcp", r.addrs[0])
+	c, err := redis.Dial("tcp", r.Addrs[0])
 	if err != nil {
 		log.Printf("redis err: %s", err)
 		t.Errorf("couldn't setup redis, err: %s ", err)
@@ -154,10 +154,12 @@ func init() {
 		keys = append(keys, key)
 	}
 
+	redisAddr := flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
 	flag.Parse()
 	addrs := strings.Split(*redisAddr, ",")
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
-	r = RedisHost{addrs: addrs}
+	log.Printf("Using redis addrs: %#v", addrs)
+	r = RedisHost{Addrs: addrs}
 }

@@ -1,0 +1,10 @@
+machine:
+  services:
+    - redis
+  environment:
+    IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+
+test:
+  pre:
+    - go vet ./...
+
