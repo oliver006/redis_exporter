@@ -1,5 +1,5 @@
 # Redis Metrics Exporter
-[![Circle CI](https://circleci.com/gh/oliver006/redis_exporter.svg?style=shield)](https://circleci.com/gh/oliver006/redis_exporter)
+[![Circle CI](https://circleci.com/gh/oliver006/redis_exporter.svg?style=shield)](https://circleci.com/gh/oliver006/redis_exporter) [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master)
 
 Prometheus exporter for Redis metrics.<br>
 Supports Redis 2.x and 3.x
