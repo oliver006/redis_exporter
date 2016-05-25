@@ -42,7 +42,7 @@ func main() {
 		passwords = append(passwords, passwords[0])
 	}
 
-	e := exporter.NewRedisExporter(exporter.RedisHost{addrs, passwords}, *namespace)
+	e := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace)
 	prometheus.MustRegister(e)
 
 	http.Handle(*metricPath, prometheus.Handler())
