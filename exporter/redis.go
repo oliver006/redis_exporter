@@ -240,11 +240,13 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
 		c, err := redis.Dial("tcp", addr)
+
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
 		}
+
 		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
 			if _, errInner := c.Do("AUTH", e.redis.Passwords[idx]); errInner != nil {
 				log.Printf("redis err: %s", errInner)
