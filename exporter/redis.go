@@ -14,8 +14,9 @@ import (
 
 // RedisHost represents a set of Redis Hosts to health check.
 type RedisHost struct {
-	Addrs     []string
-	Passwords []string
+	Addrs      []string
+	Passwords  []string
+	ConfigCmds []string
 }
 
 // Exporter implementes the prometheus.Exporter interface, and exports Redis metrics.

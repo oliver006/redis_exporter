@@ -15,6 +15,7 @@ import (
 var (
 	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
 	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password for one or more redis nodes, separated by separator")
+	redisConfigCmd = flag.String("redis.config-cmd", os.Getenv("REDIS_CONFIG_CMD"), "Name of command `CONFIG` (may be renamed as others), separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
@@ -37,12 +38,19 @@ func main() {
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
+
 	passwords := strings.Split(*redisPassword, *separator)
 	for len(passwords) < len(addrs) {
 		passwords = append(passwords, passwords[0])
 	}
 
-	e := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace)
+	configCmds := strings.Split(*redisConfigCmd, *separator)
+	for len(configCmds) < len(addrs) {
+		configCmds = append(configCmds, configCmds[0])
+	}
+
+	e := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords,
+		ConfigCmds: configCmds}, *namespace)
 	prometheus.MustRegister(e)
 
 	http.Handle(*metricPath, prometheus.Handler())
