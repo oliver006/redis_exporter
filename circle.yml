@@ -13,5 +13,5 @@ test:
   override:
     - go test -v -cover -race -coverprofile=/home/ubuntu/coverage.out ./exporter/
   post:
-    - /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=$COVERALLS_REPO_TOKEN
+    - /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=tVWJR40mOG3oS5w2oor2VusXcWO5GMbu7
 
