@@ -252,22 +252,29 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 				continue
 			}
 		}
+
 		info, err := redis.String(c.Do("INFO"))
+
 		if err == nil {
 			err = extractInfoMetrics(info, addr, scrapes)
 		}
+
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 		}
 
-		config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory"))
-		if err == nil {
-			err = extractConfigMetrics(config, addr, scrapes)
-		}
-		if err != nil {
-			log.Printf("redis err: %s", err)
-			errorCount++
+		if len(e.redis.ConfigCmds) > idx && e.redis.ConfigCmds[idx] != "" {
+			config, err := redis.Strings(c.Do(e.redis.ConfigCmds[idx], "GET", "maxmemory"))
+
+			if err == nil {
+				err = extractConfigMetrics(config, addr, scrapes)
+			}
+
+			if err != nil {
+				log.Printf("redis err: %s", err)
+				errorCount++
+			}
 		}
 
 		c.Close()
