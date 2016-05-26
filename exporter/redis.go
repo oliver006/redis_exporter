@@ -14,8 +14,9 @@ import (
 
 // RedisHost represents a set of Redis Hosts to health check.
 type RedisHost struct {
-	Addrs     []string
-	Passwords []string
+	Addrs      []string
+	Passwords  []string
+	ConfigCmds []string
 }
 
 // Exporter implementes the prometheus.Exporter interface, and exports Redis metrics.
@@ -239,34 +240,43 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
 		c, err := redis.Dial("tcp", addr)
+
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
 		}
+
 		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
-			if _, err := c.Do("AUTH", e.redis.Passwords[idx]); err != nil {
-				log.Printf("redis err: %s", err)
+			if _, errInner := c.Do("AUTH", e.redis.Passwords[idx]); errInner != nil {
+				log.Printf("redis err: %s", errInner)
 				errorCount++
 				continue
 			}
 		}
+
 		info, err := redis.String(c.Do("INFO"))
+
 		if err == nil {
 			err = extractInfoMetrics(info, addr, scrapes)
 		}
+
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 		}
 
-		config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory"))
-		if err == nil {
-			err = extractConfigMetrics(config, addr, scrapes)
-		}
-		if err != nil {
-			log.Printf("redis err: %s", err)
-			errorCount++
+		if len(e.redis.ConfigCmds) > idx && e.redis.ConfigCmds[idx] != "" {
+			config, err := redis.Strings(c.Do(e.redis.ConfigCmds[idx], "GET", "maxmemory"))
+
+			if err == nil {
+				err = extractConfigMetrics(config, addr, scrapes)
+			}
+
+			if err != nil {
+				log.Printf("redis err: %s", err)
+				errorCount++
+			}
 		}
 
 		c.Close()

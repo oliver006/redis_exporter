@@ -139,7 +139,7 @@ func TestExporter(t *testing.T) {
 		t.Errorf("need moar metrics, found %d, want > %d", len(e.metrics), want)
 	}
 
-	wantKeys := []string{"db_keys_total", "instantaneous_ops_per_sec", "used_cpu_sys"}
+	wantKeys := []string{"db_keys_total", "instantaneous_ops_per_sec", "used_cpu_sys", "config_maxmemory"}
 
 	for _, k := range wantKeys {
 		if _, ok := e.metrics[k]; !ok {
@@ -155,11 +155,19 @@ func init() {
 	}
 
 	redisAddr := flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
+	redisConfigCmd := flag.String("redis.config-cmd", "CONFIG", "Name of command `CONFIG` (may be renamed as others), separated by separator")
 	flag.Parse()
+
 	addrs := strings.Split(*redisAddr, ",")
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
+
+	configCmds := strings.Split(*redisConfigCmd, ",")
+	for len(configCmds) < len(addrs) {
+		configCmds = append(configCmds, configCmds[0])
+	}
+
 	log.Printf("Using redis addrs: %#v", addrs)
-	r = RedisHost{Addrs: addrs}
+	r = RedisHost{Addrs: addrs, ConfigCmds: configCmds}
 }

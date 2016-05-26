@@ -2,8 +2,17 @@ machine:
   services:
     - redis
   environment:
-    IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+    PKG: github.com/oliver006/redis_exporter
+    GO_PKG_PATH: $HOME/.go_workspace/src/$PKG
 
+dependencies:
+  pre:
+    # workaround: to use the forked version of a package,
+    # we need to create a symlink of current directory in GOPATH,
+    # so that Go won't fetch the upstream version unexpectedly.
+    - rm -rf $GO_PKG_PATH
+    - mkdir -p `dirname $GO_PKG_PATH`
+    - ln -s $PWD $GO_PKG_PATH
 
 test:
   pre:
@@ -14,4 +23,3 @@ test:
     - go test -v -cover -race -coverprofile=/home/ubuntu/coverage.out ./exporter/
   post:
     - /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=tVWJR40mOG3oS5w2oor2VusXcWO5GMbu7
-
