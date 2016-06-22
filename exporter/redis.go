@@ -25,6 +25,7 @@ type Exporter struct {
 	duration     prometheus.Gauge
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
+	numberViewPerWebsite *prometheus.CounterVec
 	metrics      map[string]*prometheus.GaugeVec
 	sync.RWMutex
 }
@@ -77,6 +78,11 @@ func NewRedisExporter(redis RedisHost, namespace string) *Exporter {
 			Name:      "exporter_last_scrape_error",
 			Help:      "The last scrape error status.",
 		}),
+		numberViewPerWebsite: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: namespace,
+			Name:      "number_page_view_per_website",
+			Help:      "Number page view per website",
+		}, []string{"addr", "website"}),
 	}
 
 	e.initGauges()
@@ -92,6 +98,7 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.duration.Desc()
 	ch <- e.totalScrapes.Desc()
 	ch <- e.scrapeErrors.Desc()
+	e.numberViewPerWebsite.Describe(ch)
 }
 
 // Collect fetches new metrics from the RedisHost and updates the appropriate metrics.
@@ -108,6 +115,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.duration
 	ch <- e.totalScrapes
 	ch <- e.scrapeErrors
+	e.numberViewPerWebsite.Collect(ch)
 	e.collectMetrics(ch)
 }
 
@@ -213,6 +221,10 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 	return nil
 }
 
+func extractNumberViewPerWebsite(config []string, addr string, scrapes chan<- scrapeResult) error {
+	return nil
+}
+
 func extractConfigMetrics(config []string, addr string, scrapes chan<- scrapeResult) error {
 
 	if len(config)%2 != 0 {
@@ -269,11 +281,45 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			errorCount++
 		}
 
+		date := time.Now()
+		it := 0
+		for true {
+			result, err := redis.MultiBulk(c.Do("SCAN", strconv.Itoa(it), "MATCH", "counter:pv:*:" + date.Format("20060102"), "count", "100000"))
+			if err != nil {
+				log.Printf("redis err: %s", err)
+				errorCount++
+			}
+			keys, _ := redis.Strings(result[1], nil)
+
+			// move redis cursor
+			it, _ = redis.Int(result[0], nil)
+
+			var args []interface{}
+			for _, k := range keys {
+				args = append(args, k)
+			}
+			result, err = redis.MultiBulk(c.Do("MGET", args...))
+			if err != nil {
+				log.Printf("redis err: %s", err)
+				errorCount++
+			}
+			for i, key := range(keys) {
+				var labels = map[string]string{"addr": addr, "website": strings.Split(key, ":")[2]}
+				val, _ := redis.Int(result[i], nil)
+				e.numberViewPerWebsite.With(labels).Add(float64(val))
+			}
+
+			if it == 0 {
+				break
+			}
+		}
+
 		c.Close()
 	}
 
 	e.scrapeErrors.Set(float64(errorCount))
 	e.duration.Set(float64(time.Now().UnixNano()-now) / 1000000000)
+
 }
 
 func (e *Exporter) setMetrics(scrapes <-chan scrapeResult) {
