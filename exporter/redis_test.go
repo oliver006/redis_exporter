@@ -26,7 +26,7 @@ var (
 	r            = RedisHost{}
 
 	dbNumStr     = "11"
-	dbNumStrFull = fmt.Sprintf("db%d", dbNumStr)
+	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
 )
 
 func setupDBKeys(t *testing.T) error {
