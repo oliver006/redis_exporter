@@ -114,37 +114,55 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 func includeMetric(name string) bool {
 
 	incl := map[string]bool{
-		"uptime_in_seconds":       true,
-		"connected_clients":       true,
-		"blocked_clients":         true,
+		// # Server
+		"uptime_in_seconds": true,
+
+		// # Clients
+		"connected_clients": true,
+		"blocked_clients":   true,
+
+		// # Memory
 		"used_memory":             true,
 		"used_memory_rss":         true,
 		"used_memory_peak":        true,
 		"used_memory_lua":         true,
+		"total_system_memory":     true,
+		"max_memory":              true,
 		"mem_fragmentation_ratio": true,
 
+		// # Persistence
+		"rdb_changes_since_last_save":  true,
+		"rdb_last_bgsave_time_sec":     true,
+		"rdb_current_bgsave_time_sec":  true,
+		"aof_enabled":                  true,
+		"aof_rewrite_in_progress":      true,
+		"aof_rewrite_scheduled":        true,
+		"aof_last_rewrite_time_sec":    true,
+		"aof_current_rewrite_time_sec": true,
+
+		// # Stats
 		"total_connections_received": true,
 		"total_commands_processed":   true,
 		"instantaneous_ops_per_sec":  true,
 		"total_net_input_bytes":      true,
 		"total_net_output_bytes":     true,
 		"rejected_connections":       true,
+		"expired_keys":               true,
+		"evicted_keys":               true,
+		"keyspace_hits":              true,
+		"keyspace_misses":            true,
+		"pubsub_channels":            true,
+		"pubsub_patterns":            true,
 
-		"expired_keys":    true,
-		"evicted_keys":    true,
-		"keyspace_hits":   true,
-		"keyspace_misses": true,
-		"pubsub_channels": true,
-		"pubsub_patterns": true,
+		// # Replication
+		"connected_slaves":  true,
+		"repl_backlog_size": true,
 
-		"connected_slaves": true,
-
+		// # CPU
 		"used_cpu_sys":           true,
 		"used_cpu_user":          true,
 		"used_cpu_sys_children":  true,
 		"used_cpu_user_children": true,
-
-		"repl_backlog_size": true,
 	}
 
 	if strings.HasPrefix(name, "db") {
