@@ -161,14 +161,19 @@ func TestExporterMetrics(t *testing.T) {
 		t.Errorf("need moar metrics, found %d, want > %d", len(e.metrics), want)
 	}
 
-	wantKeys := []string{"db_keys_total", "db_avg_ttl_seconds", "instantaneous_ops_per_sec", "used_cpu_sys"}
+	wantKeys := []string{
+		"db_keys_total",
+		"db_avg_ttl_seconds",
+		"instantaneous_ops_per_sec",
+		"used_cpu_sys",
+		"persistence_loading", // testing renameMap
+	}
 
 	for _, k := range wantKeys {
 		if _, ok := e.metrics[k]; !ok {
 			t.Errorf("missing metrics key: %s", k)
 		}
 	}
-
 }
 
 func TestExporterValues(t *testing.T) {
