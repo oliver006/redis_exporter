@@ -181,9 +181,10 @@ func includeMetric(name string) bool {
 	return ok
 }
 
+/*
+	valid example: db0:keys=1,expires=0,avg_ttl=0
+*/
 func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
-
-	// example: db0:keys=1,expires=0,avg_ttl=0
 	ok = false
 	if !strings.HasPrefix(db, "db") {
 		return
@@ -194,31 +195,41 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 		return
 	}
 
-	extract := func(s string) (val float64) {
+	extract := func(s string) (val float64, err error) {
 		split := strings.Split(s, "=")
 		if len(split) != 2 {
 			log.Printf("unexpected db stats format: %s", s)
-			return 0
+			return 0, fmt.Errorf("nope")
 		}
-		val, _ = strconv.ParseFloat(split[1], 64)
+		val, err = strconv.ParseFloat(split[1], 64)
+		log.Println(split[1], val, err)
 		return
 	}
 
+	var err error
 	ok = true
-	keysTotal = extract(split[0])
-	keysExpiringTotal = extract(split[1])
-	avgTTL = -1
-	if len(split) > 2 {
-		avgTTL = (extract(split[2]) / 1000)
+	if keysTotal, err = extract(split[0]); err != nil {
+		ok = false
+		return
+	}
+	if keysExpiringTotal, err = extract(split[1]); err != nil {
+		ok = false
+		return
 	}
 
+	avgTTL = -1
+	if len(split) > 2 {
+		if avgTTL, err = extract(split[2]); err != nil {
+			ok = false
+			return
+		}
+		avgTTL /= 1000
+	}
 	return
 }
 
 func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
-
 	lines := strings.Split(info, "\r\n")
-
 	for _, line := range lines {
 
 		if (len(line) < 2) || line[0] == '#' || (!strings.Contains(line, ":")) {
@@ -230,7 +241,6 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 		}
 
 		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(split[0], split[1]); ok {
-
 			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: split[0], Value: keysTotal}
 			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: split[0], Value: keysEx}
 			if avgTTL > -1 {
