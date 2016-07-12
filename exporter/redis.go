@@ -38,7 +38,7 @@ type scrapeResult struct {
 
 var (
 	renameMap = map[string]string{
-		"loading": "persistence_loading",
+		"loading": "repl_loading",
 	}
 
 	inclMap = map[string]bool{

@@ -166,7 +166,7 @@ func TestExporterMetrics(t *testing.T) {
 		"db_avg_ttl_seconds",
 		"instantaneous_ops_per_sec",
 		"used_cpu_sys",
-		"persistence_loading", // testing renameMap
+		"repl_loading", // testing renameMap
 	}
 
 	for _, k := range wantKeys {
