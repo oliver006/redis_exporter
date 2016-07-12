@@ -36,6 +36,65 @@ type scrapeResult struct {
 	DB    string
 }
 
+var (
+	renameMap = map[string]string{
+		"loading": "persistence_loading",
+	}
+
+	inclMap = map[string]bool{
+		// # Server
+		"uptime_in_seconds": true,
+
+		// # Clients
+		"connected_clients": true,
+		"blocked_clients":   true,
+
+		// # Memory
+		"used_memory":             true,
+		"used_memory_rss":         true,
+		"used_memory_peak":        true,
+		"used_memory_lua":         true,
+		"total_system_memory":     true,
+		"max_memory":              true,
+		"mem_fragmentation_ratio": true,
+
+		// # Persistence
+		"rdb_changes_since_last_save":  true,
+		"rdb_last_bgsave_time_sec":     true,
+		"rdb_current_bgsave_time_sec":  true,
+		"aof_enabled":                  true,
+		"aof_rewrite_in_progress":      true,
+		"aof_rewrite_scheduled":        true,
+		"aof_last_rewrite_time_sec":    true,
+		"aof_current_rewrite_time_sec": true,
+
+		// # Stats
+		"total_connections_received": true,
+		"total_commands_processed":   true,
+		"instantaneous_ops_per_sec":  true,
+		"total_net_input_bytes":      true,
+		"total_net_output_bytes":     true,
+		"rejected_connections":       true,
+		"expired_keys":               true,
+		"evicted_keys":               true,
+		"keyspace_hits":              true,
+		"keyspace_misses":            true,
+		"pubsub_channels":            true,
+		"pubsub_patterns":            true,
+
+		// # Replication
+		"loading":           true,
+		"connected_slaves":  true,
+		"repl_backlog_size": true,
+
+		// # CPU
+		"used_cpu_sys":           true,
+		"used_cpu_user":          true,
+		"used_cpu_sys_children":  true,
+		"used_cpu_user_children": true,
+	}
+)
+
 func (e *Exporter) initGauges() {
 
 	e.metrics = map[string]*prometheus.GaugeVec{}
@@ -113,53 +172,64 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 func includeMetric(name string) bool {
 
-	incl := map[string]bool{
-		"uptime_in_seconds":       true,
-		"connected_clients":       true,
-		"blocked_clients":         true,
-		"used_memory":             true,
-		"used_memory_rss":         true,
-		"used_memory_peak":        true,
-		"used_memory_lua":         true,
-		"mem_fragmentation_ratio": true,
-
-		"total_connections_received": true,
-		"total_commands_processed":   true,
-		"instantaneous_ops_per_sec":  true,
-		"total_net_input_bytes":      true,
-		"total_net_output_bytes":     true,
-		"rejected_connections":       true,
-
-		"expired_keys":    true,
-		"evicted_keys":    true,
-		"keyspace_hits":   true,
-		"keyspace_misses": true,
-		"pubsub_channels": true,
-		"pubsub_patterns": true,
-
-		"connected_slaves": true,
-
-		"used_cpu_sys":           true,
-		"used_cpu_user":          true,
-		"used_cpu_sys_children":  true,
-		"used_cpu_user_children": true,
-
-		"repl_backlog_size": true,
-	}
-
 	if strings.HasPrefix(name, "db") {
 		return true
 	}
 
-	_, ok := incl[name]
+	_, ok := inclMap[name]
 
 	return ok
 }
 
+/*
+	valid example: db0:keys=1,expires=0,avg_ttl=0
+*/
+func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
+	ok = false
+	if !strings.HasPrefix(db, "db") {
+		return
+	}
+
+	split := strings.Split(stats, ",")
+	if len(split) != 3 && len(split) != 2 {
+		return
+	}
+
+	extract := func(s string) (val float64, err error) {
+		split := strings.Split(s, "=")
+		if len(split) != 2 {
+			log.Printf("unexpected db stats format: %s", s)
+			return 0, fmt.Errorf("nope")
+		}
+		val, err = strconv.ParseFloat(split[1], 64)
+		log.Println(split[1], val, err)
+		return
+	}
+
+	var err error
+	ok = true
+	if keysTotal, err = extract(split[0]); err != nil {
+		ok = false
+		return
+	}
+	if keysExpiringTotal, err = extract(split[1]); err != nil {
+		ok = false
+		return
+	}
+
+	avgTTL = -1
+	if len(split) > 2 {
+		if avgTTL, err = extract(split[2]); err != nil {
+			ok = false
+			return
+		}
+		avgTTL /= 1000
+	}
+	return
+}
+
 func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
-
 	lines := strings.Split(info, "\r\n")
-
 	for _, line := range lines {
 
 		if (len(line) < 2) || line[0] == '#' || (!strings.Contains(line, ":")) {
@@ -170,37 +240,18 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 			continue
 		}
 
-		if strings.HasPrefix(split[0], "db") {
-			// example: db0:keys=1,expires=0,avg_ttl=0
-
-			db := split[0]
-			stats := split[1]
-			split := strings.Split(stats, ",")
-			if len(split) != 3 && len(split) != 2 {
-				log.Printf("unexpected db stats format: %s", stats)
-				continue
+		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(split[0], split[1]); ok {
+			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: split[0], Value: keysTotal}
+			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: split[0], Value: keysEx}
+			if avgTTL > -1 {
+				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, DB: split[0], Value: avgTTL}
 			}
-
-			extract := func(s string) (val float64) {
-				split := strings.Split(s, "=")
-				if len(split) != 2 {
-					log.Printf("unexpected db stats format: %s", s)
-					return 0
-				}
-				val, err := strconv.ParseFloat(split[1], 64)
-				if err != nil {
-					log.Printf("couldn't parse %s, err: %s", split[1], err)
-				}
-				return
-			}
-
-			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: db, Value: extract(split[0])}
-			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: db, Value: extract(split[1])}
-			if len(split) > 2 {
-				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, DB: db, Value: (extract(split[2]) / 1000)}
-			}
-
 			continue
+		}
+
+		metricName := split[0]
+		if newName, ok := renameMap[metricName]; ok {
+			metricName = newName
 		}
 
 		val, err := strconv.ParseFloat(split[1], 64)
@@ -208,7 +259,7 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 			log.Printf("couldn't parse %s, err: %s", split[1], err)
 			continue
 		}
-		scrapes <- scrapeResult{Name: split[0], Addr: addr, Value: val}
+		scrapes <- scrapeResult{Name: metricName, Addr: addr, Value: val}
 	}
 	return nil
 }

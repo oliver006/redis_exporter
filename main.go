@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,17 +18,17 @@ var (
 	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
-	showVersion   = flag.Bool("version", false, "Show version information")
+	showVersion   = flag.Bool("version", false, "Show version information and exit")
 
 	// VERSION of Redis Exporter
-	VERSION = "0.4"
+	VERSION = "0.5"
 )
 
 func main() {
 	flag.Parse()
 
+	log.Printf("Redis Metrics Exporter v%s\n", VERSION)
 	if *showVersion {
-		fmt.Printf("Redis Metrics Exporter v%s\n", VERSION)
 		return
 	}
 
@@ -48,9 +47,9 @@ func main() {
 	http.Handle(*metricPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-<head><title>Redis exporter</title></head>
+<head><title>Redis exporter v` + VERSION + `</title></head>
 <body>
-<h1>Redis exporter</h1>
+<h1>Redis exporter v` + VERSION + `</h1>
 <p><a href='` + *metricPath + `'>Metrics</a></p>
 </body>
 </html>

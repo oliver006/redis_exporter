@@ -20,12 +20,16 @@ import (
 )
 
 var (
-	keys = []string{}
-	ts   = int32(time.Now().Unix())
-	r    = RedisHost{}
+	keys         = []string{}
+	keysExpiring = []string{}
+	ts           = int32(time.Now().Unix())
+	r            = RedisHost{}
+
+	dbNumStr     = "11"
+	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
 )
 
-func addKeysToDB(t *testing.T, db string) error {
+func setupDBKeys(t *testing.T) error {
 
 	c, err := redis.Dial("tcp", r.Addrs[0])
 	if err != nil {
@@ -34,41 +38,54 @@ func addKeysToDB(t *testing.T, db string) error {
 	}
 	defer c.Close()
 
-	_, err = c.Do("SELECT", db)
+	_, err = c.Do("SELECT", dbNumStr)
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
 	}
 
 	for _, key := range keys {
-		_, err = c.Do("SET", key, "123")
+		_, err = c.Do("SET", key, "value")
 		if err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
 		}
 	}
 
+	// setting to expire in 300 seconds, should be plenty for a test run
+	for _, key := range keysExpiring {
+		_, err = c.Do("SETEX", key, "300", "value")
+		if err != nil {
+			t.Errorf("couldn't setup redis, err: %s ", err)
+			return err
+		}
+	}
+
+	time.Sleep(time.Millisecond * 150)
+
 	return nil
 }
 
-func deleteKeysFromDB(t *testing.T, db string) error {
+func deleteKeysFromDB(t *testing.T) error {
 
 	c, err := redis.Dial("tcp", r.Addrs[0])
 	if err != nil {
-		log.Printf("redis err: %s", err)
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
 	}
 	defer c.Close()
 
-	_, err = c.Do("SELECT", db)
+	_, err = c.Do("SELECT", dbNumStr)
 	if err != nil {
-		log.Printf("redis err: %s", err)
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
 	}
 
 	for _, key := range keys {
+		c.Do("DEL", key)
+	}
+
+	for _, key := range keysExpiring {
 		c.Do("DEL", key)
 	}
 
@@ -82,68 +99,140 @@ func TestCountingKeys(t *testing.T) {
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
 
-	var keysDB11 float64
+	var keysTestDB float64 = 0
 	for s := range scrapes {
-		//	log.Printf("NAME: ", s.Name)
-		if s.Name == "db_keys_total" && s.DB == "db11" {
-			keysDB11 = s.Value
+		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
+			keysTestDB = s.Value
 			break
 		}
 	}
 
-	addKeysToDB(t, "11")
-	defer deleteKeysFromDB(t, "11")
+	setupDBKeys(t)
+	defer deleteKeysFromDB(t)
+
 	scrapes = make(chan scrapeResult)
 	go e.scrape(scrapes)
 
-	want := keysDB11 + float64(len(keys))
+	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring))
 
 	for s := range scrapes {
-		// log.Printf("xxx: %s  %s   %f ", s.Name, s.DB, s.Value)
-		if s.Name == "db_keys_total" && s.DB == "db11" {
+		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
 			if want != s.Value {
-				t.Errorf("values not matching, %f != %f", keysDB11, s.Value)
+				t.Errorf("values not matching, %f != %f", keysTestDB, s.Value)
 			}
 			break
 		}
 	}
 
-	deleteKeysFromDB(t, "11")
+	deleteKeysFromDB(t)
 	scrapes = make(chan scrapeResult)
 	go e.scrape(scrapes)
 
 	for s := range scrapes {
-		if s.Name == "db_keys_total" && s.DB == "db11" {
-			if keysDB11 != s.Value {
-				t.Errorf("values not matching, %f != %f", keysDB11, s.Value)
+		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
+			if keysTestDB != s.Value {
+				t.Errorf("values not matching, %f != %f", keysTestDB, s.Value)
+			}
+			break
+		}
+		if s.Name == "db_avg_ttl_seconds" && s.DB == dbNumStrFull {
+			if keysTestDB != s.Value {
+				t.Errorf("values not matching, %f != %f", keysTestDB, s.Value)
 			}
 			break
 		}
 	}
 }
 
-func TestExporter(t *testing.T) {
+func TestExporterMetrics(t *testing.T) {
 
 	e := NewRedisExporter(r, "test")
+
+	setupDBKeys(t)
+	defer deleteKeysFromDB(t)
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
 
-	addKeysToDB(t, "11")
-	defer deleteKeysFromDB(t, "11")
-
 	e.setMetrics(scrapes)
 
-	want := 20
+	want := 25
 	if len(e.metrics) < want {
 		t.Errorf("need moar metrics, found %d, want > %d", len(e.metrics), want)
 	}
 
-	wantKeys := []string{"db_keys_total", "instantaneous_ops_per_sec", "used_cpu_sys"}
+	wantKeys := []string{
+		"db_keys_total",
+		"db_avg_ttl_seconds",
+		"instantaneous_ops_per_sec",
+		"used_cpu_sys",
+		"persistence_loading", // testing renameMap
+	}
 
 	for _, k := range wantKeys {
 		if _, ok := e.metrics[k]; !ok {
 			t.Errorf("missing metrics key: %s", k)
+		}
+	}
+}
+
+func TestExporterValues(t *testing.T) {
+
+	e := NewRedisExporter(r, "test")
+
+	setupDBKeys(t)
+	defer deleteKeysFromDB(t)
+
+	scrapes := make(chan scrapeResult)
+	go e.scrape(scrapes)
+
+	wantValues := map[string]float64{
+		"db_keys_total":          float64(len(keys) + len(keysExpiring)),
+		"db_expiring_keys_total": float64(len(keysExpiring)),
+	}
+
+	for s := range scrapes {
+		if wantVal, ok := wantValues[s.Name]; ok {
+			if dbNumStrFull == s.DB && wantVal != s.Value {
+				t.Errorf("values not matching, %f != %f", wantVal, s.Value)
+			}
+		}
+	}
+}
+
+type tstData struct {
+	db                        string
+	stats                     string
+	keysTotal, keysEx, avgTTL float64
+	ok                        bool
+}
+
+func TestKeyspaceStringParser(t *testing.T) {
+	tsts := []tstData{
+		tstData{db: "xxx", stats: "", ok: false},
+		tstData{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
+		tstData{db: "db0", stats: "xxx", ok: false},
+		tstData{db: "db1", stats: "keys=abcd,expires=0,avg_ttl=0", ok: false},
+		tstData{db: "db2", stats: "keys=1234=1234,expires=0,avg_ttl=0", ok: false},
+
+		tstData{db: "db3", stats: "keys=abcde,expires=0", ok: false},
+		tstData{db: "db3", stats: "keys=213,expires=xxx", ok: false},
+		tstData{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
+
+		tstData{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, ok: true},
+	}
+
+	for _, tst := range tsts {
+		if kt, kx, ttl, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
+
+			if ok != tst.ok {
+				t.Errorf("failed for: db:%s stats:%s", tst.db, tst.stats)
+				continue
+			}
+
+			if ok && (kt != tst.keysTotal || kx != tst.keysEx || ttl != tst.avgTTL) {
+				t.Errorf("values not matching, db:%s stats:%s   %f %f %f", tst.db, tst.stats, kt, kx, ttl)
+			}
 		}
 	}
 }
@@ -154,7 +243,13 @@ func init() {
 		keys = append(keys, key)
 	}
 
+	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
+		key := fmt.Sprintf("key-exp-%s-%d", n, ts)
+		keysExpiring = append(keysExpiring, key)
+	}
+
 	redisAddr := flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
+
 	flag.Parse()
 	addrs := strings.Split(*redisAddr, ",")
 	if len(addrs) == 0 || len(addrs[0]) == 0 {

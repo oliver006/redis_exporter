@@ -1,5 +1,5 @@
-FROM alpine:3.2
-MAINTAINER Oliver <o@21zoo.com>
+FROM alpine:3.4
+MAINTAINER Oliver <oliver@21zoo.com>
 
 ENV GOPATH /go
 COPY . /go/src/github.com/oliver006/redis_exporter
