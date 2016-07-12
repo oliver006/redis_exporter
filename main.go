@@ -47,9 +47,9 @@ func main() {
 	http.Handle(*metricPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-<head><title>Redis exporter</title></head>
+<head><title>Redis exporter v` + VERSION + `</title></head>
 <body>
-<h1>Redis exporter</h1>
+<h1>Redis exporter v` + VERSION + `</h1>
 <p><a href='` + *metricPath + `'>Metrics</a></p>
 </body>
 </html>
