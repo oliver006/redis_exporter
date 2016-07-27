@@ -1,0 +1,17 @@
+machine:
+  services:
+    - redis
+  environment:
+    IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+
+
+test:
+  pre:
+    - go vet ./...
+    - go get github.com/mattn/goveralls
+    - go get golang.org/x/tools/cmd/cover
+  override:
+    - go test -v -cover -race -coverprofile=/home/ubuntu/coverage.out ./exporter/
+  post:
+    - /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=tVWJR40mOG3oS5w2oor2VusXcWO5GMbu7
+
