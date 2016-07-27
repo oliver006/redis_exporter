@@ -202,7 +202,10 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 			return 0, fmt.Errorf("nope")
 		}
 		val, err = strconv.ParseFloat(split[1], 64)
-		log.Println(split[1], val, err)
+		if err != nil {
+                        log.Printf("couldn't parse %s, err: %s", split[1], err)
+                        return 0, fmt.Errorf("nope")
+                }
 		return
 	}
 
