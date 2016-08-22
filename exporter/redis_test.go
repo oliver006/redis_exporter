@@ -99,7 +99,7 @@ func TestCountingKeys(t *testing.T) {
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
 
-	var keysTestDB float64 = 0
+	var keysTestDB float64
 	for s := range scrapes {
 		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
 			keysTestDB = s.Value
