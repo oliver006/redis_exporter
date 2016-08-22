@@ -92,9 +92,33 @@ func deleteKeysFromDB(t *testing.T) error {
 	return nil
 }
 
+func TestNewRedisExporter(t *testing.T) {
+	cases := []struct {
+		addrs []string
+		ok    bool
+	}{
+		{addrs: []string{""}, ok: false},
+		{addrs: []string{"localhost"}, ok: false},
+		{addrs: []string{"localhost:1234"}, ok: true},
+		{addrs: []string{"localhost:1234", "another.one:6379"}, ok: true},
+		{addrs: []string{"another.one:6379", "redis.somewhere.com"}, ok: false},
+	}
+
+	for _, test := range cases {
+		rh := RedisHost{Addrs: test.addrs}
+		_, err := NewRedisExporter(rh, "redis")
+		if err == nil && !test.ok {
+			t.Error("expected error but got nil")
+		}
+		if err != nil && test.ok {
+			t.Errorf("expected no error but got %s", err)
+		}
+	}
+}
+
 func TestCountingKeys(t *testing.T) {
 
-	e := NewRedisExporter(r, "test")
+	e, _ := NewRedisExporter(r, "test")
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
@@ -146,7 +170,7 @@ func TestCountingKeys(t *testing.T) {
 
 func TestExporterMetrics(t *testing.T) {
 
-	e := NewRedisExporter(r, "test")
+	e, _ := NewRedisExporter(r, "test")
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -178,7 +202,7 @@ func TestExporterMetrics(t *testing.T) {
 
 func TestExporterValues(t *testing.T) {
 
-	e := NewRedisExporter(r, "test")
+	e, _ := NewRedisExporter(r, "test")
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)

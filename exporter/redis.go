@@ -116,7 +116,14 @@ func (e *Exporter) initGauges() {
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
-func NewRedisExporter(redis RedisHost, namespace string) *Exporter {
+func NewRedisExporter(redis RedisHost, namespace string) (*Exporter, error) {
+	for _, addr := range redis.Addrs {
+		parts := strings.Split(addr, ":")
+		if len(parts) != 2 {
+			return nil, fmt.Errorf("Invalid parameter --redis.addr: %s", addr)
+		}
+	}
+
 	e := Exporter{
 		redis:     redis,
 		namespace: namespace,
@@ -139,7 +146,7 @@ func NewRedisExporter(redis RedisHost, namespace string) *Exporter {
 	}
 
 	e.initGauges()
-	return &e
+	return &e, nil
 }
 
 // Describe outputs Redis metric descriptions.

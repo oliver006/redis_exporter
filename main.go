@@ -33,15 +33,15 @@ func main() {
 	}
 
 	addrs := strings.Split(*redisAddr, *separator)
-	if len(addrs) == 0 || len(addrs[0]) == 0 {
-		log.Fatal("Invalid parameter --redis.addr")
-	}
 	passwords := strings.Split(*redisPassword, *separator)
 	for len(passwords) < len(addrs) {
 		passwords = append(passwords, passwords[0])
 	}
 
-	e := exporter.NewRedisExporter(exporter.RedisHost{addrs, passwords}, *namespace)
+	e, err := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace)
+	if err != nil {
+		log.Fatal(err)
+	}
 	prometheus.MustRegister(e)
 
 	http.Handle(*metricPath, prometheus.Handler())
