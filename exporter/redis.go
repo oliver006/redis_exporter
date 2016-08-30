@@ -26,6 +26,7 @@ type Exporter struct {
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
 	metrics      map[string]*prometheus.GaugeVec
+    checkKeys    string
 	sync.RWMutex
 }
 
@@ -116,7 +117,7 @@ func (e *Exporter) initGauges() {
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
-func NewRedisExporter(redis RedisHost, namespace string) (*Exporter, error) {
+func NewRedisExporter(redis RedisHost, namespace string, checkKeys string) (*Exporter, error) {
 	for _, addr := range redis.Addrs {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 2 {
@@ -127,6 +128,7 @@ func NewRedisExporter(redis RedisHost, namespace string) (*Exporter, error) {
 	e := Exporter{
 		redis:     redis,
 		namespace: namespace,
+        checkKeys: checkKeys,
 
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -291,6 +293,13 @@ func extractConfigMetrics(config []string, addr string, scrapes chan<- scrapeRes
 	return nil
 }
 
+func extractLengthMetrics( qname string, qlength float64, addr string, scrapes chan<- scrapeResult) error {
+
+  scrapes <- scrapeResult{Name: fmt.Sprintf("queuelength_%s", qname), Addr: addr, Value: qlength}
+  return nil
+}
+
+
 func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	defer close(scrapes)
@@ -329,6 +338,20 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			log.Printf("redis err: %s", err)
 			errorCount++
 		}
+
+        if e.checkKeys != "" {
+          qnames := strings.Split(e.checkKeys, ",")
+          for qindx := range qnames  {
+            llen, err := c.Do("LLEN", qnames[qindx] )
+            if err == nil {
+              err = extractLengthMetrics( qnames[qindx], float64(llen.(int64)), addr, scrapes)
+            }
+            if err != nil {
+              log.Printf("redis err: %s", err)
+              errorCount++
+            }
+          }
+        }
 
 		c.Close()
 	}

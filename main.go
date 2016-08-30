@@ -18,6 +18,7 @@ var (
 	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
+    checkKeys     = flag.String("check.keys", "", "(OPTIONAL) comma-separated list of keys to return LLEN data for")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
 
 	// VERSION of Redis Exporter
@@ -38,7 +39,7 @@ func main() {
 		passwords = append(passwords, passwords[0])
 	}
 
-	e, err := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace)
+	e, err := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace, *checkKeys)
 	if err != nil {
 		log.Fatal(err)
 	}
