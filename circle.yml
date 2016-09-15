@@ -15,3 +15,20 @@ test:
     - go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/
   post:
     - if [ -n "$COVERALLS_TOKEN" ]; then /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=$COVERAGE_PROFILE -service=circle-ci -repotoken=$COVERALLS_TOKEN ;  fi
+
+
+deployment:
+  publish:
+    branch: master
+    commands:
+      - go get github.com/mitchellh/gox
+      - go get github.com/tcnksm/ghr
+      - gox --osarch="darwin/amd64"  -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.darwin-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="darwin/386"    -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.darwin-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="linux/amd64"   -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.linux-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="linux/386"     -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.linux-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="netbsd/amd64"  -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.netbsd-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="netbsd/386"    -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.netbsd-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="windows/amd64" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.windows-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="windows/386"   -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$VERSION.windows-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace `git describe --tags` dist/
