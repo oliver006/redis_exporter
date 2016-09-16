@@ -3,6 +3,7 @@ machine:
     - redis
   environment:
     IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+    COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
 
 
 test:
@@ -11,7 +12,6 @@ test:
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
   override:
-    - go test -v -cover -race -coverprofile=/home/ubuntu/coverage.out ./exporter/
+    - go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/
   post:
-    - /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=/home/ubuntu/coverage.out -service=circle-ci -repotoken=tVWJR40mOG3oS5w2oor2VusXcWO5GMbu7
-
+    - if [ -n "$COVERALLS_TOKEN" ]; then /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=$COVERAGE_PROFILE -service=circle-ci -repotoken=$COVERALLS_TOKEN ;  fi
