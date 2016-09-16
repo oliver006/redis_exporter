@@ -18,10 +18,17 @@ type RedisHost struct {
 	Passwords []string
 }
 
+type dbKeyPair struct {
+	db, key string
+}
+
 // Exporter implementes the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	redis        RedisHost
 	namespace    string
+	keys         []dbKeyPair
+	keyValues    *prometheus.GaugeVec
+	keySizes     *prometheus.GaugeVec
 	duration     prometheus.Gauge
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
@@ -116,7 +123,8 @@ func (e *Exporter) initGauges() {
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
-func NewRedisExporter(redis RedisHost, namespace string) (*Exporter, error) {
+// note to self: next time we add an argument, instead add a RedisExporter struct
+func NewRedisExporter(redis RedisHost, namespace, checkKeys string) (*Exporter, error) {
 	for _, addr := range redis.Addrs {
 		parts := strings.Split(addr, ":")
 		if len(parts) != 2 {
@@ -127,7 +135,16 @@ func NewRedisExporter(redis RedisHost, namespace string) (*Exporter, error) {
 	e := Exporter{
 		redis:     redis,
 		namespace: namespace,
-
+		keyValues: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "key_value",
+			Help:      "The value of \"key\"",
+		}, []string{"db", "key"}),
+		keySizes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "key_size",
+			Help:      "The length or size of \"key\"",
+		}, []string{"db", "key"}),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "exporter_last_scrape_duration_seconds",
@@ -144,7 +161,23 @@ func NewRedisExporter(redis RedisHost, namespace string) (*Exporter, error) {
 			Help:      "The last scrape error status.",
 		}),
 	}
+	for _, k := range strings.Split(checkKeys, ",") {
+		db := "0"
+		key := ""
+		frags := strings.Split(k, ":")
+		switch len(frags) {
+		case 1:
+			db = "0"
+			key = strings.TrimSpace(frags[0])
+		case 2:
+			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
+			key = strings.TrimSpace(frags[1])
+		default:
+			continue
+		}
 
+		e.keys = append(e.keys, dbKeyPair{db, key})
+	}
 	e.initGauges()
 	return &e, nil
 }
@@ -155,6 +188,9 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	for _, m := range e.metrics {
 		m.Describe(ch)
 	}
+	e.keySizes.Describe(ch)
+	e.keyValues.Describe(ch)
+
 	ch <- e.duration.Desc()
 	ch <- e.totalScrapes.Desc()
 	ch <- e.scrapeErrors.Desc()
@@ -170,6 +206,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.initGauges()
 	go e.scrape(scrapes)
 	e.setMetrics(scrapes)
+
+	e.keySizes.Collect(ch)
+	e.keyValues.Collect(ch)
 
 	ch <- e.duration
 	ch <- e.totalScrapes
@@ -205,12 +244,10 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 	extract := func(s string) (val float64, err error) {
 		split := strings.Split(s, "=")
 		if len(split) != 2 {
-			log.Printf("unexpected db stats format: %s", s)
 			return 0, fmt.Errorf("nope")
 		}
 		val, err = strconv.ParseFloat(split[1], 64)
 		if err != nil {
-			log.Printf("couldn't parse %s, err: %s", split[1], err)
 			return 0, fmt.Errorf("nope")
 		}
 		return
@@ -249,7 +286,6 @@ func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
 		if len(split) != 2 || !includeMetric(split[0]) {
 			continue
 		}
-
 		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(split[0], split[1]); ok {
 			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: split[0], Value: keysTotal}
 			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: split[0], Value: keysEx}
@@ -305,6 +341,8 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			errorCount++
 			continue
 		}
+		defer c.Close()
+
 		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
 			if _, err := c.Do("AUTH", e.redis.Passwords[idx]); err != nil {
 				log.Printf("redis err: %s", err)
@@ -330,7 +368,30 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			errorCount++
 		}
 
-		c.Close()
+		for _, k := range e.keys {
+			if _, err := c.Do("SELECT", k.db); err != nil {
+				continue
+			}
+			if tempVal, err := c.Do("GET", k.key); err == nil && tempVal != nil {
+				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
+					e.keyValues.WithLabelValues("db"+k.db, k.key).Set(val)
+				}
+			}
+
+			for _, op := range []string{
+				"HLEN",
+				"LLEN",
+				"SCARD",
+				"ZCARD",
+				"PFCOUNT",
+				"STRLEN",
+			} {
+				if tempVal, err := c.Do(op, k.key); err == nil && tempVal != nil {
+					e.keySizes.WithLabelValues("db"+k.db, k.key).Set(float64(tempVal.(int64)))
+					break
+				}
+			}
+		}
 	}
 
 	e.scrapeErrors.Set(float64(errorCount))

@@ -11,12 +11,17 @@ package exporter
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	"bytes"
 	"github.com/garyburd/redigo/redis"
+	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 var (
@@ -27,6 +32,10 @@ var (
 
 	dbNumStr     = "11"
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
+)
+
+const (
+	TEST_SET_NAME = "test-set"
 )
 
 func setupDBKeys(t *testing.T) error {
@@ -45,7 +54,7 @@ func setupDBKeys(t *testing.T) error {
 	}
 
 	for _, key := range keys {
-		_, err = c.Do("SET", key, "value")
+		_, err = c.Do("SET", key, "1234.56")
 		if err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
@@ -54,14 +63,17 @@ func setupDBKeys(t *testing.T) error {
 
 	// setting to expire in 300 seconds, should be plenty for a test run
 	for _, key := range keysExpiring {
-		_, err = c.Do("SETEX", key, "300", "value")
+		_, err = c.Do("SETEX", key, "300", "1234.56")
 		if err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
 		}
 	}
 
-	time.Sleep(time.Millisecond * 150)
+	c.Do("SADD", TEST_SET_NAME, "test-val-1")
+	c.Do("SADD", TEST_SET_NAME, "test-val-2")
+
+	time.Sleep(time.Millisecond * 50)
 
 	return nil
 }
@@ -89,6 +101,8 @@ func deleteKeysFromDB(t *testing.T) error {
 		c.Do("DEL", key)
 	}
 
+	c.Do("DEL", TEST_SET_NAME)
+
 	return nil
 }
 
@@ -106,7 +120,7 @@ func TestNewRedisExporter(t *testing.T) {
 
 	for _, test := range cases {
 		rh := RedisHost{Addrs: test.addrs}
-		_, err := NewRedisExporter(rh, "redis")
+		_, err := NewRedisExporter(rh, "redis", "")
 		if err == nil && !test.ok {
 			t.Error("expected error but got nil")
 		}
@@ -118,7 +132,7 @@ func TestNewRedisExporter(t *testing.T) {
 
 func TestCountingKeys(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test")
+	e, _ := NewRedisExporter(r, "test", "")
 
 	scrapes := make(chan scrapeResult)
 	go e.scrape(scrapes)
@@ -137,7 +151,8 @@ func TestCountingKeys(t *testing.T) {
 	scrapes = make(chan scrapeResult)
 	go e.scrape(scrapes)
 
-	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring))
+	// +1 for the one SET key
+	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring)) + 1
 
 	for s := range scrapes {
 		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
@@ -170,7 +185,7 @@ func TestCountingKeys(t *testing.T) {
 
 func TestExporterMetrics(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test")
+	e, _ := NewRedisExporter(r, "test", "")
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -202,7 +217,7 @@ func TestExporterMetrics(t *testing.T) {
 
 func TestExporterValues(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test")
+	e, _ := NewRedisExporter(r, "test", "")
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -211,7 +226,7 @@ func TestExporterValues(t *testing.T) {
 	go e.scrape(scrapes)
 
 	wantValues := map[string]float64{
-		"db_keys_total":          float64(len(keys) + len(keysExpiring)),
+		"db_keys_total":          float64(len(keys)+len(keysExpiring)) + 1,   // + 1 for the SET key
 		"db_expiring_keys_total": float64(len(keysExpiring)),
 	}
 
@@ -257,6 +272,131 @@ func TestKeyspaceStringParser(t *testing.T) {
 			if ok && (kt != tst.keysTotal || kx != tst.keysEx || ttl != tst.avgTTL) {
 				t.Errorf("values not matching, db:%s stats:%s   %f %f %f", tst.db, tst.stats, kt, kx, ttl)
 			}
+		}
+	}
+}
+
+func TestKeyValuesAndSizes(t *testing.T) {
+
+	e, _ := NewRedisExporter(r, "test", dbNumStrFull+":"+keys[0])
+
+	setupDBKeys(t)
+	defer deleteKeysFromDB(t)
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	want := map[string]bool{"test_key_size": false, "test_key_value": false}
+
+	for m := range chM {
+
+		switch m.(type) {
+		case prometheus.Gauge:
+			for k := range want {
+				if strings.Contains(m.Desc().String(), k) {
+					want[k] = true
+				}
+			}
+
+		default:
+			log.Printf("default: m: %#v", m)
+		}
+
+	}
+	for k, v := range want {
+		if !v {
+			t.Errorf("didn't find %s", k)
+		}
+
+	}
+}
+
+func TestHTTPEndpoint(t *testing.T) {
+
+	e, _ := NewRedisExporter(r, "test", dbNumStrFull+":"+keys[0])
+
+	setupDBKeys(t)
+	defer deleteKeysFromDB(t)
+	prometheus.MustRegister(e)
+
+	http.Handle("/metrics", prometheus.Handler())
+	go http.ListenAndServe("127.0.0.1:9121", nil)
+	time.Sleep(time.Second)
+	resp, err := http.Get("http://127.0.0.1:9121/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []string{
+		`test_connected_clients`,
+		`test_total_commands_processed`,
+	}
+	for _, test := range tests {
+		if !bytes.Contains(body, []byte(test)) {
+			t.Errorf("want metrics to include %q, have:\n%s", test, body)
+		}
+	}
+}
+
+func TestNonExistingHost(t *testing.T) {
+
+	rr := RedisHost{Addrs: []string{"localhost:12345"}}
+	e, _ := NewRedisExporter(rr, "test", dbNumStrFull+":"+keys[0])
+
+	chM := make(chan prometheus.Metric)
+
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	want := map[string]float64{"test_exporter_last_scrape_error": 1.0, "test_exporter_scrapes_total": 1.0}
+
+	for m := range chM {
+
+		descString := m.Desc().String()
+
+		switch m.(type) {
+		case prometheus.Gauge:
+
+			for k := range want {
+				if strings.Contains(descString, k) {
+
+					g := &dto.Metric{}
+					m.Write(g)
+
+					val := 0.0
+
+					if g.GetGauge() != nil {
+						val = *g.GetGauge().Value
+					} else if g.GetCounter() != nil {
+						val = *g.GetCounter().Value
+					} else {
+						continue
+					}
+					if val == want[k] {
+						want[k] = -1.0
+					}
+				}
+			}
+
+		default:
+			log.Printf("default: m: %#v", m)
+		}
+
+	}
+	for k, v := range want {
+		if v > 0 {
+			t.Errorf("didn't find %s", k)
 		}
 	}
 }
