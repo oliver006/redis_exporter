@@ -15,13 +15,14 @@ var (
 	redisAddr     = flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
 	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password for one or more redis nodes, separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
+	checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
 	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
 
 	// VERSION of Redis Exporter
-	VERSION = "0.5"
+	VERSION = "0.6"
 )
 
 func main() {
@@ -38,7 +39,7 @@ func main() {
 		passwords = append(passwords, passwords[0])
 	}
 
-	e, err := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace)
+	e, err := exporter.NewRedisExporter(exporter.RedisHost{Addrs: addrs, Passwords: passwords}, *namespace, *checkKeys)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -47,16 +48,16 @@ func main() {
 	http.Handle(*metricPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-<head><title>Redis exporter v` + VERSION + `</title></head>
+<head><title>Redis Exporter v` + VERSION + `</title></head>
 <body>
-<h1>Redis exporter v` + VERSION + `</h1>
+<h1>Redis Exporter v` + VERSION + `</h1>
 <p><a href='` + *metricPath + `'>Metrics</a></p>
 </body>
 </html>
 						`))
 	})
 
-	log.Printf("providing metrics at %s%s", *listenAddress, *metricPath)
+	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Printf("Connecting to: %#v", addrs)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
