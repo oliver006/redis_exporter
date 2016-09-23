@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -197,7 +198,7 @@ func TestExporterMetrics(t *testing.T) {
 
 	want := 25
 	if len(e.metrics) < want {
-		t.Errorf("need moar metrics, found %d, want > %d", len(e.metrics), want)
+		t.Errorf("need moar metrics, found: %d, want: %d", len(e.metrics), want)
 	}
 
 	wantKeys := []string{
@@ -226,7 +227,7 @@ func TestExporterValues(t *testing.T) {
 	go e.scrape(scrapes)
 
 	wantValues := map[string]float64{
-		"db_keys_total":          float64(len(keys)+len(keysExpiring)) + 1,   // + 1 for the SET key
+		"db_keys_total":          float64(len(keys)+len(keysExpiring)) + 1, // + 1 for the SET key
 		"db_expiring_keys_total": float64(len(keysExpiring)),
 	}
 
@@ -278,7 +279,7 @@ func TestKeyspaceStringParser(t *testing.T) {
 
 func TestKeyValuesAndSizes(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", dbNumStrFull+":"+keys[0])
+	e, _ := NewRedisExporter(r, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -292,7 +293,6 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	want := map[string]bool{"test_key_size": false, "test_key_value": false}
 
 	for m := range chM {
-
 		switch m.(type) {
 		case prometheus.Gauge:
 			for k := range want {
@@ -300,11 +300,9 @@ func TestKeyValuesAndSizes(t *testing.T) {
 					want[k] = true
 				}
 			}
-
 		default:
 			log.Printf("default: m: %#v", m)
 		}
-
 	}
 	for k, v := range want {
 		if !v {
@@ -316,7 +314,7 @@ func TestKeyValuesAndSizes(t *testing.T) {
 
 func TestHTTPEndpoint(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", dbNumStrFull+":"+keys[0])
+	e, _ := NewRedisExporter(r, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -339,6 +337,7 @@ func TestHTTPEndpoint(t *testing.T) {
 	tests := []string{
 		`test_connected_clients`,
 		`test_total_commands_processed`,
+		`test_key_size`,
 	}
 	for _, test := range tests {
 		if !bytes.Contains(body, []byte(test)) {
@@ -350,7 +349,7 @@ func TestHTTPEndpoint(t *testing.T) {
 func TestNonExistingHost(t *testing.T) {
 
 	rr := RedisHost{Addrs: []string{"localhost:12345"}}
-	e, _ := NewRedisExporter(rr, "test", dbNumStrFull+":"+keys[0])
+	e, _ := NewRedisExporter(rr, "test", "")
 
 	chM := make(chan prometheus.Metric)
 
@@ -403,12 +402,12 @@ func TestNonExistingHost(t *testing.T) {
 
 func init() {
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
-		key := fmt.Sprintf("key-%s-%d", n, ts)
+		key := fmt.Sprintf("key:%s-%d", n, ts)
 		keys = append(keys, key)
 	}
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
-		key := fmt.Sprintf("key-exp-%s-%d", n, ts)
+		key := fmt.Sprintf("key:exp-%s-%d", n, ts)
 		keysExpiring = append(keysExpiring, key)
 	}
 

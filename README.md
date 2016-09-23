@@ -41,6 +41,7 @@ and adjust the host name accordingly.
 
 Name               | Description
 -------------------|------------
+check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. 
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
 namespace          | Namespace for the metrics, defaults to `redis`.
@@ -60,6 +61,7 @@ REDIS_PASSWORD     | Password to use when authenticating to Redis
 Most items from the INFO command are exported,
 see http://redis.io/commands/info for details.<br>
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.<br> 
+You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, etc. <br>
 
 
 ### What does it look like?

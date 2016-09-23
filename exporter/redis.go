@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"log"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -161,21 +162,25 @@ func NewRedisExporter(redis RedisHost, namespace, checkKeys string) (*Exporter, 
 			Help:      "The last scrape error status.",
 		}),
 	}
+	var err error
 	for _, k := range strings.Split(checkKeys, ",") {
 		db := "0"
 		key := ""
-		frags := strings.Split(k, ":")
+		frags := strings.Split(k, "=")
 		switch len(frags) {
 		case 1:
 			db = "0"
-			key = strings.TrimSpace(frags[0])
+			key, err = url.QueryUnescape(strings.TrimSpace(frags[0]))
 		case 2:
 			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
-			key = strings.TrimSpace(frags[1])
+			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
 		default:
+			err = fmt.Errorf("")
+		}
+		if err != nil {
+			log.Printf("Couldn't parse db/key string: %s", k)
 			continue
 		}
-
 		e.keys = append(e.keys, dbKeyPair{db, key})
 	}
 	e.initGauges()
