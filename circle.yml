@@ -4,7 +4,7 @@ machine:
   environment:
     IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
-    EXPORTER_VERSION: "0.5"
+    EXPORTER_VERSION: "0.6.1"
 
 test:
   pre:
@@ -19,7 +19,7 @@ test:
 
 deployment:
   publish:
-    tag: /v.*
+    tag: /v.*/
     commands:
       - go get github.com/mitchellh/gox
       - go get github.com/tcnksm/ghr
