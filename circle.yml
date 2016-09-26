@@ -4,7 +4,6 @@ machine:
   environment:
     IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
-    EXPORTER_VERSION: "0.6.3"
 
 test:
   pre:
@@ -23,12 +22,12 @@ deployment:
     commands:
       - go get github.com/mitchellh/gox
       - go get github.com/tcnksm/ghr
-      - gox --osarch="darwin/amd64"  -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.darwin-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
-      - gox --osarch="darwin/386"    -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.darwin-386.tar.gz redis_exporter && rm redis_exporter && cd ..
-      - gox --osarch="linux/amd64"   -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.linux-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
-      - gox --osarch="linux/386"     -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.linux-386.tar.gz redis_exporter && rm redis_exporter && cd ..
-      - gox --osarch="netbsd/amd64"  -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.netbsd-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
-      - gox --osarch="netbsd/386"    -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.netbsd-386.tar.gz redis_exporter && rm redis_exporter && cd ..
-      - gox --osarch="windows/amd64" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.windows-amd64.tar.gz redis_exporter.exe && rm redis_exporter.exe && cd ..
-      - gox --osarch="windows/386"   -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$EXPORTER_VERSION.windows-386.tar.gz redis_exporter.exe && rm redis_exporter.exe && cd ..
+      - gox --osarch="darwin/amd64"  -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.darwin-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="darwin/386"    -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.darwin-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="linux/amd64"   -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.linux-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="linux/386"     -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.linux-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="netbsd/amd64"  -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.netbsd-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="netbsd/386"    -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.netbsd-386.tar.gz redis_exporter && rm redis_exporter && cd ..
+      - gox --osarch="windows/amd64" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.windows-amd64.tar.gz redis_exporter.exe && rm redis_exporter.exe && cd ..
+      - gox --osarch="windows/386"   -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.windows-386.tar.gz redis_exporter.exe && rm redis_exporter.exe && cd ..
       - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace $CIRCLE_TAG dist/
