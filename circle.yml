@@ -4,7 +4,7 @@ machine:
   environment:
     IMPORT_PATH: "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
-    EXPORTER_VERSION: "0.6.1"
+    EXPORTER_VERSION: "0.6.3"
 
 test:
   pre:
