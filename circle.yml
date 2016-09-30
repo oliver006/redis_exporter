@@ -34,7 +34,7 @@ deployment:
       - ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace $CIRCLE_TAG dist/
       - docker build --rm=false -t "21zoo/redis_exporter:$CIRCLE_TAG" .
       - docker build --rm=false -t "21zoo/redis_exporter:latest" .
-      - docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+      - docker login -u $DOCKER_USER -p $DOCKER_PASS
       - docker push "21zoo/redis_exporter:latest"
       - docker push "21zoo/redis_exporter:$CIRCLE_TAG"
       - docker build --rm=false -t "oliver006/redis_exporter:$CIRCLE_TAG" .
