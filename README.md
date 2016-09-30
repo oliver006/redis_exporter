@@ -17,8 +17,8 @@ Locally build and run it:
 You can also run it via docker: 
 
 ```
-    $ docker pull 21zoo/redis_exporter
-    $ docker run -d --name redis_exporter -p 9121:9121 21zoo/redis_exporter
+    $ docker pull oliver006/redis_exporter
+    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
 ```
 
 Add a block to the `scrape_configs` of your prometheus.yml config file:
