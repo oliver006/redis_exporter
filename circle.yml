@@ -39,6 +39,7 @@ deployment:
       - docker push "21zoo/redis_exporter:$CIRCLE_TAG"
       - docker build --rm=false -t "oliver006/redis_exporter:$CIRCLE_TAG" .
       - docker build --rm=false -t "oliver006/redis_exporter:latest" .
-      - docker login -e $OLIVER006_DOCKER_EMAIL -u $OLIVER006_DOCKER_USER -p $OLIVER006_DOCKER_PASS
+      - docker push "21zoo/redis_exporter:latest"
+      - docker push "21zoo/redis_exporter:$CIRCLE_TAG"
       - docker push "oliver006/redis_exporter:latest"
       - docker push "oliver006/redis_exporter:$CIRCLE_TAG"
