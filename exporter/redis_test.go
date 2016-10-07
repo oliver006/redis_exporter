@@ -36,7 +36,7 @@ var (
 )
 
 const (
-	TEST_SET_NAME = "test-set"
+	TestSetName = "test-set"
 )
 
 func setupDBKeys(t *testing.T) error {
@@ -71,8 +71,8 @@ func setupDBKeys(t *testing.T) error {
 		}
 	}
 
-	c.Do("SADD", TEST_SET_NAME, "test-val-1")
-	c.Do("SADD", TEST_SET_NAME, "test-val-2")
+	c.Do("SADD", TestSetName, "test-val-1")
+	c.Do("SADD", TestSetName, "test-val-2")
 
 	time.Sleep(time.Millisecond * 50)
 
@@ -102,7 +102,7 @@ func deleteKeysFromDB(t *testing.T) error {
 		c.Do("DEL", key)
 	}
 
-	c.Do("DEL", TEST_SET_NAME)
+	c.Do("DEL", TestSetName)
 
 	return nil
 }
@@ -135,8 +135,8 @@ func TestCountingKeys(t *testing.T) {
 
 	e, _ := NewRedisExporter(r, "test", "")
 
-	scrapes := make(chan scrapeResult)
-	go e.scrape(scrapes)
+	scrapes := make(chan scrapeResult, 10000)
+	e.scrape(scrapes)
 
 	var keysTestDB float64
 	for s := range scrapes {
@@ -149,8 +149,8 @@ func TestCountingKeys(t *testing.T) {
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
 
-	scrapes = make(chan scrapeResult)
-	go e.scrape(scrapes)
+	scrapes = make(chan scrapeResult, 1000)
+	e.scrape(scrapes)
 
 	// +1 for the one SET key
 	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring)) + 1
@@ -165,8 +165,8 @@ func TestCountingKeys(t *testing.T) {
 	}
 
 	deleteKeysFromDB(t)
-	scrapes = make(chan scrapeResult)
-	go e.scrape(scrapes)
+	scrapes = make(chan scrapeResult, 10000)
+	e.scrape(scrapes)
 
 	for s := range scrapes {
 		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
@@ -191,8 +191,8 @@ func TestExporterMetrics(t *testing.T) {
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
 
-	scrapes := make(chan scrapeResult)
-	go e.scrape(scrapes)
+	scrapes := make(chan scrapeResult, 10000)
+	e.scrape(scrapes)
 
 	e.setMetrics(scrapes)
 
@@ -223,8 +223,8 @@ func TestExporterValues(t *testing.T) {
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
 
-	scrapes := make(chan scrapeResult)
-	go e.scrape(scrapes)
+	scrapes := make(chan scrapeResult, 10000)
+	e.scrape(scrapes)
 
 	wantValues := map[string]float64{
 		"db_keys_total":          float64(len(keys)+len(keysExpiring)) + 1, // + 1 for the SET key
@@ -249,17 +249,17 @@ type tstData struct {
 
 func TestKeyspaceStringParser(t *testing.T) {
 	tsts := []tstData{
-		tstData{db: "xxx", stats: "", ok: false},
-		tstData{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
-		tstData{db: "db0", stats: "xxx", ok: false},
-		tstData{db: "db1", stats: "keys=abcd,expires=0,avg_ttl=0", ok: false},
-		tstData{db: "db2", stats: "keys=1234=1234,expires=0,avg_ttl=0", ok: false},
+		{db: "xxx", stats: "", ok: false},
+		{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
+		{db: "db0", stats: "xxx", ok: false},
+		{db: "db1", stats: "keys=abcd,expires=0,avg_ttl=0", ok: false},
+		{db: "db2", stats: "keys=1234=1234,expires=0,avg_ttl=0", ok: false},
 
-		tstData{db: "db3", stats: "keys=abcde,expires=0", ok: false},
-		tstData{db: "db3", stats: "keys=213,expires=xxx", ok: false},
-		tstData{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
+		{db: "db3", stats: "keys=abcde,expires=0", ok: false},
+		{db: "db3", stats: "keys=213,expires=xxx", ok: false},
+		{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
 
-		tstData{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, ok: true},
 	}
 
 	for _, tst := range tsts {
@@ -291,6 +291,41 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	}()
 
 	want := map[string]bool{"test_key_size": false, "test_key_value": false}
+
+	for m := range chM {
+		switch m.(type) {
+		case prometheus.Gauge:
+			for k := range want {
+				if strings.Contains(m.Desc().String(), k) {
+					want[k] = true
+				}
+			}
+		default:
+			log.Printf("default: m: %#v", m)
+		}
+	}
+	for k, v := range want {
+		if !v {
+			t.Errorf("didn't find %s", k)
+		}
+
+	}
+}
+
+func TestCommandStats(t *testing.T) {
+
+	e, _ := NewRedisExporter(r, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+
+	setupDBKeys(t)
+	defer deleteKeysFromDB(t)
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	want := map[string]bool{"test_command_calls_total": false, "test_command_calls_usec_total": false}
 
 	for m := range chM {
 		switch m.(type) {
