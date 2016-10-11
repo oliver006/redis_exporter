@@ -34,6 +34,7 @@ type Exporter struct {
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
 	metrics      map[string]*prometheus.GaugeVec
+	metricsMtx   sync.RWMutex
 	sync.RWMutex
 }
 
@@ -121,6 +122,16 @@ func (e *Exporter) initGauges() {
 		Name:      "db_avg_ttl_seconds",
 		Help:      "Avg TTL in seconds",
 	}, []string{"addr", "db"})
+	e.metrics["command_calls_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "command_calls_total",
+		Help:      "Total number of calls per command",
+	}, []string{"addr", "cmd"})
+	e.metrics["command_calls_usec_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "command_calls_usec_total",
+		Help:      "Total amount of time in usecs spent per command",
+	}, []string{"addr", "cmd"})
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -221,15 +232,27 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.collectMetrics(ch)
 }
 
-func includeMetric(name string) bool {
+func includeMetric(s string) bool {
 
-	if strings.HasPrefix(name, "db") {
+	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") {
 		return true
 	}
 
-	_, ok := inclMap[name]
+	_, ok := inclMap[s]
 
 	return ok
+}
+
+func extractVal(s string) (val float64, err error) {
+	split := strings.Split(s, "=")
+	if len(split) != 2 {
+		return 0, fmt.Errorf("nope")
+	}
+	val, err = strconv.ParseFloat(split[1], 64)
+	if err != nil {
+		return 0, fmt.Errorf("nope")
+	}
+	return
 }
 
 /*
@@ -246,32 +269,20 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 		return
 	}
 
-	extract := func(s string) (val float64, err error) {
-		split := strings.Split(s, "=")
-		if len(split) != 2 {
-			return 0, fmt.Errorf("nope")
-		}
-		val, err = strconv.ParseFloat(split[1], 64)
-		if err != nil {
-			return 0, fmt.Errorf("nope")
-		}
-		return
-	}
-
 	var err error
 	ok = true
-	if keysTotal, err = extract(split[0]); err != nil {
+	if keysTotal, err = extractVal(split[0]); err != nil {
 		ok = false
 		return
 	}
-	if keysExpiringTotal, err = extract(split[1]); err != nil {
+	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
 		ok = false
 		return
 	}
 
 	avgTTL = -1
 	if len(split) > 2 {
-		if avgTTL, err = extract(split[2]); err != nil {
+		if avgTTL, err = extractVal(split[2]); err != nil {
 			ok = false
 			return
 		}
@@ -280,17 +291,64 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 	return
 }
 
-func extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
+func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeResult) error {
+	cmdstats := false
 	lines := strings.Split(info, "\r\n")
 	for _, line := range lines {
 
-		if (len(line) < 2) || line[0] == '#' || (!strings.Contains(line, ":")) {
+		if len(line) > 0 && line[0] == '#' {
+			if strings.Contains(line, "Commandstats") {
+				cmdstats = true
+			}
 			continue
 		}
+
+		if (len(line) < 2) || (!strings.Contains(line, ":")) {
+			cmdstats = false
+			continue
+		}
+
 		split := strings.Split(line, ":")
 		if len(split) != 2 || !includeMetric(split[0]) {
 			continue
 		}
+
+		if cmdstats {
+			/*
+				cmdstat_get:calls=21,usec=175,usec_per_call=8.33
+				cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
+				cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
+			*/
+
+			frags := strings.Split(split[0], "_")
+			if len(frags) != 2 {
+				continue
+			}
+
+			cmd := frags[1]
+
+			frags = strings.Split(split[1], ",")
+			if len(frags) != 3 {
+				continue
+			}
+
+			var calls float64
+			var usecTotal float64
+			var err error
+			if calls, err = extractVal(frags[0]); err != nil {
+				continue
+			}
+			if usecTotal, err = extractVal(frags[1]); err != nil {
+				continue
+			}
+
+			e.metricsMtx.RLock()
+			e.metrics["command_calls_total"].WithLabelValues(addr, cmd).Set(calls)
+			e.metrics["command_calls_usec_total"].WithLabelValues(addr, cmd).Set(usecTotal)
+			e.metricsMtx.RUnlock()
+			continue
+		}
+
 		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(split[0], split[1]); ok {
 			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: split[0], Value: keysTotal}
 			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: split[0], Value: keysEx}
@@ -340,6 +398,7 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
+
 		c, err := redis.Dial("tcp", addr)
 		if err != nil {
 			log.Printf("redis err: %s", err)
@@ -355,22 +414,26 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 				continue
 			}
 		}
-		info, err := redis.String(c.Do("INFO"))
+
+		info, err := redis.String(c.Do("INFO", "ALL"))
 		if err == nil {
-			err = extractInfoMetrics(info, addr, scrapes)
+			err = e.extractInfoMetrics(info, addr, scrapes)
 		}
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
+			continue
 		}
 
 		config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory"))
 		if err == nil {
 			err = extractConfigMetrics(config, addr, scrapes)
 		}
+
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
+			continue
 		}
 
 		for _, k := range e.keys {
@@ -404,14 +467,15 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 }
 
 func (e *Exporter) setMetrics(scrapes <-chan scrapeResult) {
-
 	for scr := range scrapes {
 		name := scr.Name
 		if _, ok := e.metrics[name]; !ok {
+			e.metricsMtx.Lock()
 			e.metrics[name] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: e.namespace,
 				Name:      name,
 			}, []string{"addr"})
+			e.metricsMtx.Unlock()
 		}
 		var labels prometheus.Labels = map[string]string{"addr": scr.Addr}
 		if len(scr.DB) > 0 {
