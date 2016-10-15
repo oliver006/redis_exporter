@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/oliver006/redis_exporter/exporter"
@@ -21,14 +22,16 @@ var (
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
 
-	// VERSION of Redis Exporter
-	VERSION = "0.8"
+	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the CircleCI build
+	VERSION     = "<<< filled in by build >>>"
+	BUILD_DATE  = "<<< filled in by build >>>"
+	COMMIT_SHA1 = "<<< filled in by build >>>"
 )
 
 func main() {
 	flag.Parse()
 
-	log.Printf("Redis Metrics Exporter v%s\n", VERSION)
+	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s\n", VERSION, BUILD_DATE, COMMIT_SHA1)
 	if *showVersion {
 		return
 	}
@@ -44,6 +47,13 @@ func main() {
 		log.Fatal(err)
 	}
 	prometheus.MustRegister(e)
+
+	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "redis_exporter_build_info",
+		Help: "redis exporter build_info",
+	}, []string{"version", "commit_sha", "build_date", "golang_version"})
+	prometheus.MustRegister(buildInfo)
+	buildInfo.WithLabelValues(VERSION, COMMIT_SHA1, BUILD_DATE, runtime.Version()).Set(1)
 
 	http.Handle(*metricPath, prometheus.Handler())
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
