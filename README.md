@@ -48,7 +48,10 @@ namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
 
+Redis node addresses can be tcp addresses like `localhost:6379` or unix socket addresses like `unix:///tmp/redis.sock`
+
 These settings take precedence over any configurations provided by [environment variables](#environment-variables).
+
 
 ### Environment Variables
 
