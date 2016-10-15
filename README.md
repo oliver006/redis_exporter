@@ -65,9 +65,10 @@ You can also export values of keys if they're in numeric format by using the `-c
 
 
 ### What does it look like?
-Example [PromDash](https://github.com/prometheus/promdash) screenshots:<br>
-![screen1](https://cloud.githubusercontent.com/assets/1222339/7362443/c3cbc2f8-ed36-11e4-8955-cf88e5383e8b.png)<br>
-![screen2](https://cloud.githubusercontent.com/assets/1222339/7362444/c3f5b324-ed36-11e4-9c95-ec84e8217fa8.png)
+Example [Grafana](http://grafana.org/) screenshots:<br>
+<img width="800" alt="redis_exporter_screen" src="https://cloud.githubusercontent.com/assets/1222339/19412031/897549c6-92da-11e6-84a0-b091f9deb81d.png"><br>
+<img width="800" alt="redis_exporter_screen_02" src="https://cloud.githubusercontent.com/assets/1222339/19412041/dee6d7bc-92da-11e6-84f8-610c025d6182.png">
+
 
 
 ### What else?
