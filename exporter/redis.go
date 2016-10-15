@@ -234,7 +234,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 func includeMetric(s string) bool {
 
-	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") {
+	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
 
@@ -363,11 +363,26 @@ func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeRe
 			metricName = newName
 		}
 
-		val, err := strconv.ParseFloat(split[1], 64)
+		var err error
+		var val float64
+
+		switch split[1] {
+
+		case "ok":
+			val = 1
+
+		case "fail":
+			val = 0
+
+		default:
+			val, err = strconv.ParseFloat(split[1], 64)
+
+		}
 		if err != nil {
 			log.Printf("couldn't parse %s, err: %s", split[1], err)
 			continue
 		}
+
 		scrapes <- scrapeResult{Name: metricName, Addr: addr, Value: val}
 	}
 	return nil
