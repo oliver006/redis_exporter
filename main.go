@@ -22,7 +22,7 @@ var (
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
 
 	// VERSION of Redis Exporter
-	VERSION = "0.7"
+	VERSION = "0.8"
 )
 
 func main() {

@@ -398,8 +398,15 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
+		split := strings.Split(addr, "://")
+		proto := "tcp"
+		realAddr := addr
+		if len(split) == 2 {
+			proto = strings.TrimSpace(split[0])
+			realAddr = strings.TrimSpace(split[1])
+		}
 
-		c, err := redis.Dial("tcp", addr)
+		c, err := redis.Dial(proto, realAddr)
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++

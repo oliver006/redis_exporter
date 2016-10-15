@@ -383,7 +383,7 @@ func TestHTTPEndpoint(t *testing.T) {
 
 func TestNonExistingHost(t *testing.T) {
 
-	rr := RedisHost{Addrs: []string{"localhost:12345"}}
+	rr := RedisHost{Addrs: []string{"unix:///tmp/doesnt.exist"}}
 	e, _ := NewRedisExporter(rr, "test", "")
 
 	chM := make(chan prometheus.Metric)
