@@ -140,7 +140,7 @@ func TestCountingKeys(t *testing.T) {
 
 	var keysTestDB float64
 	for s := range scrapes {
-		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
+		if s.Name == "db_keys" && s.DB == dbNumStrFull {
 			keysTestDB = s.Value
 			break
 		}
@@ -156,7 +156,7 @@ func TestCountingKeys(t *testing.T) {
 	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring)) + 1
 
 	for s := range scrapes {
-		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
+		if s.Name == "db_keys" && s.DB == dbNumStrFull {
 			if want != s.Value {
 				t.Errorf("values not matching, %f != %f", keysTestDB, s.Value)
 			}
@@ -169,7 +169,7 @@ func TestCountingKeys(t *testing.T) {
 	e.scrape(scrapes)
 
 	for s := range scrapes {
-		if s.Name == "db_keys_total" && s.DB == dbNumStrFull {
+		if s.Name == "db_keys" && s.DB == dbNumStrFull {
 			if keysTestDB != s.Value {
 				t.Errorf("values not matching, %f != %f", keysTestDB, s.Value)
 			}
@@ -202,11 +202,10 @@ func TestExporterMetrics(t *testing.T) {
 	}
 
 	wantKeys := []string{
-		"db_keys_total",
+		"db_keys",
 		"db_avg_ttl_seconds",
-		"instantaneous_ops_per_sec",
 		"used_cpu_sys",
-		"repl_loading", // testing renameMap
+		"loading_dump_file", // testing renames
 	}
 
 	for _, k := range wantKeys {
@@ -325,7 +324,7 @@ func TestCommandStats(t *testing.T) {
 		close(chM)
 	}()
 
-	want := map[string]bool{"test_command_calls_total": false, "test_command_calls_usec_total": false}
+	want := map[string]bool{"test_command_call_duration_seconds_count": false, "test_command_call_duration_seconds_sum": false}
 
 	for m := range chM {
 		switch m.(type) {
@@ -371,7 +370,7 @@ func TestHTTPEndpoint(t *testing.T) {
 
 	tests := []string{
 		`test_connected_clients`,
-		`test_total_commands_processed`,
+		`test_commands_processed_total`,
 		`test_key_size`,
 	}
 	for _, test := range tests {
