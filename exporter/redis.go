@@ -46,75 +46,69 @@ type scrapeResult struct {
 }
 
 var (
-	renameMap = map[string]string{
-		"loading": "repl_loading",
-	}
-
-	inclMap = map[string]bool{
+	metricMap = map[string]string{
 		// # Server
-		"uptime_in_seconds": true,
+		"uptime_in_seconds": "uptime_in_seconds",
 
 		// # Clients
-		"connected_clients": true,
-		"blocked_clients":   true,
+		"connected_clients": "connected_clients",
+		"blocked_clients":   "blocked_clients",
 
 		// # Memory
-		"used_memory":             true,
-		"used_memory_rss":         true,
-		"used_memory_peak":        true,
-		"used_memory_lua":         true,
-		"total_system_memory":     true,
-		"max_memory":              true,
-		"mem_fragmentation_ratio": true,
+		"used_memory":             "memory_used_bytes",
+		"used_memory_rss":         "memory_used_rss_bytes",
+		"used_memory_peak":        "memory_used_peak_bytes",
+		"used_memory_lua":         "memory_used_lua_bytes",
+		"max_memory":              "memory_max_bytes",
+		"mem_fragmentation_ratio": "memory_fragmentation_ratio",
 
 		// # Persistence
-		"rdb_changes_since_last_save":  true,
-		"rdb_last_bgsave_time_sec":     true,
-		"rdb_current_bgsave_time_sec":  true,
-		"aof_enabled":                  true,
-		"aof_rewrite_in_progress":      true,
-		"aof_rewrite_scheduled":        true,
-		"aof_last_rewrite_time_sec":    true,
-		"aof_current_rewrite_time_sec": true,
+		"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
+		"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
+		"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
+		"aof_enabled":                  "aof_enabled",
+		"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
+		"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
+		"aof_last_rewrite_time_sec":    "aof_last_rewrite_duration_sec",
+		"aof_current_rewrite_time_sec": "aof_current_rewrite_duration_sec",
 
 		// # Stats
-		"total_connections_received": true,
-		"total_commands_processed":   true,
-		"instantaneous_ops_per_sec":  true,
-		"total_net_input_bytes":      true,
-		"total_net_output_bytes":     true,
-		"rejected_connections":       true,
-		"expired_keys":               true,
-		"evicted_keys":               true,
-		"keyspace_hits":              true,
-		"keyspace_misses":            true,
-		"pubsub_channels":            true,
-		"pubsub_patterns":            true,
+		"total_connections_received": "connections_received_total",
+		"total_commands_processed":   "commands_processed_total",
+		"total_net_input_bytes":      "net_input_bytes_total",
+		"total_net_output_bytes":     "net_output_bytes_total",
+		"rejected_connections":       "rejected_connections_total",
+		"expired_keys":               "expired_keys_total",
+		"evicted_keys":               "evicted_keys_total",
+		"keyspace_hits":              "keyspace_hits_total",
+		"keyspace_misses":            "keyspace_misses_total",
+		"pubsub_channels":            "pubsub_channels",
+		"pubsub_patterns":            "pubsub_patterns",
 
 		// # Replication
-		"loading":           true,
-		"connected_slaves":  true,
-		"repl_backlog_size": true,
+		"loading":           "loading_dump_file",
+		"connected_slaves":  "connected_slaves",
+		"repl_backlog_size": "replication_backlog_bytes",
 
 		// # CPU
-		"used_cpu_sys":           true,
-		"used_cpu_user":          true,
-		"used_cpu_sys_children":  true,
-		"used_cpu_user_children": true,
+		"used_cpu_sys":           "used_cpu_sys",
+		"used_cpu_user":          "used_cpu_user",
+		"used_cpu_sys_children":  "used_cpu_sys_children",
+		"used_cpu_user_children": "used_cpu_user_children",
 	}
 )
 
 func (e *Exporter) initGauges() {
 
 	e.metrics = map[string]*prometheus.GaugeVec{}
-	e.metrics["db_keys_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "db_keys_total",
+		Name:      "db_keys",
 		Help:      "Total number of keys by DB",
 	}, []string{"addr", "db"})
-	e.metrics["db_expiring_keys_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["db_keys_expiring"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "db_expiring_keys_total",
+		Name:      "db_keys_expiring",
 		Help:      "Total number of expiring keys by DB",
 	}, []string{"addr", "db"})
 	e.metrics["db_avg_ttl_seconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -122,15 +116,16 @@ func (e *Exporter) initGauges() {
 		Name:      "db_avg_ttl_seconds",
 		Help:      "Avg TTL in seconds",
 	}, []string{"addr", "db"})
-	e.metrics["command_calls_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+  // Emulate a Summary.
+	e.metrics["command_call_duration_seconds_count"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "command_calls_total",
+		Name:      "command_call_duration_seconds_count",
 		Help:      "Total number of calls per command",
 	}, []string{"addr", "cmd"})
-	e.metrics["command_calls_usec_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["command_call_duration_seconds_sum"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "command_calls_usec_total",
-		Help:      "Total amount of time in usecs spent per command",
+		Name:      "command_call_duration_seconds_sum",
+		Help:      "Total amount of time in seconds spent per command",
 	}, []string{"addr", "cmd"})
 }
 
@@ -238,7 +233,7 @@ func includeMetric(s string) bool {
 		return true
 	}
 
-	_, ok := inclMap[s]
+	_, ok := metricMap[s]
 
 	return ok
 }
@@ -343,15 +338,15 @@ func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeRe
 			}
 
 			e.metricsMtx.RLock()
-			e.metrics["command_calls_total"].WithLabelValues(addr, cmd).Set(calls)
-			e.metrics["command_calls_usec_total"].WithLabelValues(addr, cmd).Set(usecTotal)
+			e.metrics["command_call_duration_seconds_count"].WithLabelValues(addr, cmd).Set(calls)
+			e.metrics["command_call_duration_seconds_sum"].WithLabelValues(addr, cmd).Set(usecTotal / 1e6)
 			e.metricsMtx.RUnlock()
 			continue
 		}
 
 		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(split[0], split[1]); ok {
-			scrapes <- scrapeResult{Name: "db_keys_total", Addr: addr, DB: split[0], Value: keysTotal}
-			scrapes <- scrapeResult{Name: "db_expiring_keys_total", Addr: addr, DB: split[0], Value: keysEx}
+			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, DB: split[0], Value: keysTotal}
+			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, DB: split[0], Value: keysEx}
 			if avgTTL > -1 {
 				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, DB: split[0], Value: avgTTL}
 			}
@@ -359,7 +354,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeRe
 		}
 
 		metricName := split[0]
-		if newName, ok := renameMap[metricName]; ok {
+		if newName, ok := metricMap[metricName]; ok {
 			metricName = newName
 		}
 
