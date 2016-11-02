@@ -29,7 +29,7 @@ scrape_configs:
 ...
 
 - job_name: redis_exporter
-  target_groups:
+  static_configs:
   - targets: ['localhost:9121']
 
 ...
