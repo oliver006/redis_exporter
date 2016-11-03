@@ -116,7 +116,8 @@ func (e *Exporter) initGauges() {
 		Name:      "db_avg_ttl_seconds",
 		Help:      "Avg TTL in seconds",
 	}, []string{"addr", "db"})
-  // Emulate a Summary.
+
+	// Emulate a Summary.
 	e.metrics["command_call_duration_seconds_count"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "command_call_duration_seconds_count",
@@ -442,15 +443,8 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			continue
 		}
 
-		config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory"))
-		if err == nil {
-			err = extractConfigMetrics(config, addr, scrapes)
-		}
-
-		if err != nil {
-			log.Printf("redis err: %s", err)
-			errorCount++
-			continue
+		if config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory")); err == nil {
+			extractConfigMetrics(config, addr, scrapes)
 		}
 
 		for _, k := range e.keys {
