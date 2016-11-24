@@ -9,7 +9,6 @@ package exporter
 */
 
 import (
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -20,16 +19,19 @@ import (
 	"time"
 
 	"bytes"
+	"flag"
 	"github.com/garyburd/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
 
 var (
-	keys         = []string{}
-	keysExpiring = []string{}
-	ts           = int32(time.Now().Unix())
-	r            = RedisHost{}
+	redisAddr = flag.String("redis.addr", "localhost:6379", "Address of the test instance, without `redis://`")
+
+	keys             = []string{}
+	keysExpiring     = []string{}
+	ts               = int32(time.Now().Unix())
+	defaultRedisHost = RedisHost{}
 
 	dbNumStr     = "11"
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
@@ -41,7 +43,7 @@ const (
 
 func setupDBKeys(t *testing.T) error {
 
-	c, err := redis.Dial("tcp", r.Addrs[0])
+	c, err := redis.DialURL(defaultRedisHost.Addrs[0])
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
@@ -81,7 +83,7 @@ func setupDBKeys(t *testing.T) error {
 
 func deleteKeysFromDB(t *testing.T) error {
 
-	c, err := redis.Dial("tcp", r.Addrs[0])
+	c, err := redis.DialURL(defaultRedisHost.Addrs[0])
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
@@ -107,33 +109,28 @@ func deleteKeysFromDB(t *testing.T) error {
 	return nil
 }
 
-func TestNewRedisExporter(t *testing.T) {
-	cases := []struct {
-		addrs []string
-		ok    bool
-	}{
-		{addrs: []string{""}, ok: false},
-		{addrs: []string{"localhost"}, ok: false},
-		{addrs: []string{"localhost:1234"}, ok: true},
-		{addrs: []string{"localhost:1234", "another.one:6379"}, ok: true},
-		{addrs: []string{"another.one:6379", "redis.somewhere.com"}, ok: false},
-	}
+func TestHostVariations(t *testing.T) {
+	for _, prefix := range []string{"", "redis://", "tcp://"} {
+		addr := prefix + *redisAddr
+		host := RedisHost{Addrs: []string{addr}}
+		e, _ := NewRedisExporter(host, "test", "")
 
-	for _, test := range cases {
-		rh := RedisHost{Addrs: test.addrs}
-		_, err := NewRedisExporter(rh, "redis", "")
-		if err == nil && !test.ok {
-			t.Error("expected error but got nil")
+		scrapes := make(chan scrapeResult, 10000)
+		e.scrape(scrapes)
+		found := 0
+		for range scrapes {
+			found++
 		}
-		if err != nil && test.ok {
-			t.Errorf("expected no error but got %s", err)
+
+		if found == 0 {
+			t.Errorf("didn't find any scrapes for host: %s", addr)
 		}
 	}
 }
 
 func TestCountingKeys(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
 
 	scrapes := make(chan scrapeResult, 10000)
 	e.scrape(scrapes)
@@ -186,7 +183,7 @@ func TestCountingKeys(t *testing.T) {
 
 func TestExporterMetrics(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -217,7 +214,7 @@ func TestExporterMetrics(t *testing.T) {
 
 func TestExporterValues(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -278,7 +275,7 @@ func TestKeyspaceStringParser(t *testing.T) {
 
 func TestKeyValuesAndSizes(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -313,7 +310,7 @@ func TestKeyValuesAndSizes(t *testing.T) {
 
 func TestCommandStats(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -348,7 +345,7 @@ func TestCommandStats(t *testing.T) {
 
 func TestHTTPEndpoint(t *testing.T) {
 
-	e, _ := NewRedisExporter(r, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 
 	setupDBKeys(t)
 	defer deleteKeysFromDB(t)
@@ -445,13 +442,12 @@ func init() {
 		keysExpiring = append(keysExpiring, key)
 	}
 
-	redisAddr := flag.String("redis.addr", "localhost:6379", "Address of one or more redis nodes, separated by separator")
-
 	flag.Parse()
 	addrs := strings.Split(*redisAddr, ",")
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
 	log.Printf("Using redis addrs: %#v", addrs)
-	r = RedisHost{Addrs: addrs}
+
+	defaultRedisHost = RedisHost{Addrs: []string{"redis://" + *redisAddr}}
 }

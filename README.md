@@ -41,14 +41,17 @@ and adjust the host name accordingly.
 
 Name               | Description
 -------------------|------------
+debug              | Verbose debug output
+log-format         | Log format, valid options are `txt` (default) and `json`.
 check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. 
-redis.addr         | Address of one or more redis nodes, comma separated, defaults to `localhost:6379`.
+redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
 namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
 
-Redis node addresses can be tcp addresses like `localhost:6379` or unix socket addresses like `unix:///tmp/redis.sock`
+Redis node addresses can be tcp addresses like `redis://localhost:6379`, `redis.example.com:6379` or unix socket addresses like `unix:///tmp/redis.sock`. <br>
+SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).
 
 These settings take precedence over any configurations provided by [environment variables](#environment-variables).
 
