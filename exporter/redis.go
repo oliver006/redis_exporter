@@ -2,13 +2,13 @@ package exporter
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/garyburd/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -23,7 +23,7 @@ type dbKeyPair struct {
 	db, key string
 }
 
-// Exporter implementes the prometheus.Exporter interface, and exports Redis metrics.
+// Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	redis        RedisHost
 	namespace    string
@@ -132,16 +132,10 @@ func (e *Exporter) initGauges() {
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 // note to self: next time we add an argument, instead add a RedisExporter struct
-func NewRedisExporter(redis RedisHost, namespace, checkKeys string) (*Exporter, error) {
-	for _, addr := range redis.Addrs {
-		parts := strings.Split(addr, ":")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("Invalid parameter --redis.addr: %s", addr)
-		}
-	}
+func NewRedisExporter(host RedisHost, namespace, checkKeys string) (*Exporter, error) {
 
 	e := Exporter{
-		redis:     redis,
+		redis:     host,
 		namespace: namespace,
 		keyValues: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
@@ -169,8 +163,8 @@ func NewRedisExporter(redis RedisHost, namespace, checkKeys string) (*Exporter, 
 			Help:      "The last scrape error status.",
 		}),
 	}
-	var err error
 	for _, k := range strings.Split(checkKeys, ",") {
+		var err error
 		db := "0"
 		key := ""
 		frags := strings.Split(k, "=")
@@ -185,11 +179,14 @@ func NewRedisExporter(redis RedisHost, namespace, checkKeys string) (*Exporter, 
 			err = fmt.Errorf("")
 		}
 		if err != nil {
-			log.Printf("Couldn't parse db/key string: %s", k)
+			log.Debugf("Couldn't parse db/key string: %s", k)
 			continue
 		}
-		e.keys = append(e.keys, dbKeyPair{db, key})
+		if key != "" {
+			e.keys = append(e.keys, dbKeyPair{db, key})
+		}
 	}
+
 	e.initGauges()
 	return &e, nil
 }
@@ -291,7 +288,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeRe
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
 	for _, line := range lines {
-
+		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
 			if strings.Contains(line, "Commandstats") {
 				cmdstats = true
@@ -315,7 +312,6 @@ func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeRe
 				cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
 				cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
 			*/
-
 			frags := strings.Split(split[0], "_")
 			if len(frags) != 2 {
 				continue
@@ -375,7 +371,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, scrapes chan<- scrapeRe
 
 		}
 		if err != nil {
-			log.Printf("couldn't parse %s, err: %s", split[1], err)
+			log.Debugf("couldn't parse %s, err: %s", split[1], err)
 			continue
 		}
 
@@ -393,7 +389,7 @@ func extractConfigMetrics(config []string, addr string, scrapes chan<- scrapeRes
 	for pos := 0; pos < len(config)/2; pos++ {
 		val, err := strconv.ParseFloat(config[pos*2+1], 64)
 		if err != nil {
-			log.Printf("couldn't parse %s, err: %s", config[pos*2+1], err)
+			log.Debugf("couldn't parse %s, err: %s", config[pos*2+1], err)
 			continue
 		}
 		scrapes <- scrapeResult{Name: fmt.Sprintf("config_%s", config[pos*2]), Addr: addr, Value: val}
@@ -409,29 +405,33 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
-		split := strings.Split(addr, "://")
-		proto := "tcp"
-		realAddr := addr
-		if len(split) == 2 {
-			proto = strings.TrimSpace(split[0])
-			realAddr = strings.TrimSpace(split[1])
+		var c redis.Conn
+		var err error
+
+		var options []redis.DialOption
+		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
+			options = append(options, redis.DialPassword(e.redis.Passwords[idx]))
 		}
 
-		c, err := redis.Dial(proto, realAddr)
+		log.Debugf("Trying DialURL(): %s", addr)
+		if c, err = redis.DialURL(addr, options...); err != nil {
+			frags := strings.Split(addr, "://")
+			if len(frags) == 2 {
+				log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
+				c, err = redis.Dial(frags[0], frags[1], options...)
+			} else {
+				log.Debugf("Trying: Dial(): tcp %s", addr)
+				c, err = redis.Dial("tcp", addr, options...)
+			}
+		}
+
 		if err != nil {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
 		}
 		defer c.Close()
-
-		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
-			if _, err := c.Do("AUTH", e.redis.Passwords[idx]); err != nil {
-				log.Printf("redis err: %s", err)
-				errorCount++
-				continue
-			}
-		}
+		log.Debugf("connected to: %s", addr)
 
 		info, err := redis.String(c.Do("INFO", "ALL"))
 		if err == nil {
