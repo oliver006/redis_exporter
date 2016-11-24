@@ -415,6 +415,7 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 		log.Debugf("Trying DialURL(): %s", addr)
 		if c, err = redis.DialURL(addr, options...); err != nil {
+			log.Debugf("DialURL() failed, err: %s", err)
 			frags := strings.Split(addr, "://")
 			if len(frags) == 2 {
 				log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
