@@ -12,6 +12,9 @@ dependencies:
   pre:
     - rm -rf /home/ubuntu/.go_workspace
     - rm -rf /home/ubuntu/.go_project
+  post:
+    - rm -rf /home/ubuntu/.go_workspace
+    - rm -rf /home/ubuntu/.go_project
 
 test:
   pre:
