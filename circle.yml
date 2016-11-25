@@ -6,7 +6,12 @@ machine:
     IMPORT_PATH:      "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
     GO_LDFLAGS:       "-X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)"
-    MY_GO_VERSION:    "1.7.1"
+    MY_GO_VERSION:    "1.7.3"
+
+dependencies:
+  pre:
+    - rm -rf /home/ubuntu/.go_workspace
+    - rm -rf /home/ubuntu/.go_project
 
 test:
   pre:
