@@ -13,8 +13,8 @@ import (
 )
 
 var (
-	redisAddr     = flag.String("redis.addr", "redis://localhost:6379", "Address of one or more redis nodes, separated by separator")
-	redisPassword = flag.String("redis.password", os.Getenv("REDIS_PASSWORD"), "Password for one or more redis nodes, separated by separator")
+	redisAddr     = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of one or more redis nodes, separated by separator")
+	redisPassword = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
 	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
@@ -88,4 +88,13 @@ func main() {
 	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Printf("Connecting to redis hosts: %#v", addrs)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
+}
+
+// getEnv gets an environment variable from a given key and if it doesn't exist,
+// returns defaultVal given.
+func getEnv(key string, defaultVal string) string {
+	if envVal, ok := os.LookupEnv(key); ok {
+		return envVal
+	}
+	return defaultVal
 }

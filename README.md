@@ -60,6 +60,7 @@ These settings take precedence over any configurations provided by [environment 
 
 Name               | Description
 -------------------|------------
+REDIS_ADDR         | Address of Redis node(s)
 REDIS_PASSWORD     | Password to use when authenticating to Redis
 
 ### What's exported?
