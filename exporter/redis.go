@@ -408,6 +408,8 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 		var c redis.Conn
 		var err error
 
+		scrapes <- scrapeResult{Name: "up", Addr: addr, Value: 0}
+
 		var options []redis.DialOption
 		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
 			options = append(options, redis.DialPassword(e.redis.Passwords[idx]))
@@ -443,6 +445,8 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			errorCount++
 			continue
 		}
+
+		scrapes <- scrapeResult{Name: "up", Addr: addr, Value: 1}
 
 		if config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory")); err == nil {
 			extractConfigMetrics(config, addr, scrapes)
