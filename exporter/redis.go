@@ -95,6 +95,10 @@ var (
 		"used_cpu_user":          "used_cpu_user",
 		"used_cpu_sys_children":  "used_cpu_sys_children",
 		"used_cpu_user_children": "used_cpu_user_children",
+
+		// # Cluster
+		"cluster_stats_messages_sent":   "cluster_messages_sent_total",
+		"cluster_stats_messages_received":   "cluster_messages_received_total",
 	}
 )
 
@@ -439,11 +443,21 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 		info, err := redis.String(c.Do("INFO", "ALL"))
 		if err == nil {
 			err = e.extractInfoMetrics(info, addr, scrapes)
-		}
-		if err != nil {
+		} else {
 			log.Printf("redis err: %s", err)
 			errorCount++
 			continue
+		}
+
+		if strings.Index(info, "cluster_enabled:1") != -1 {
+			info, err = redis.String(c.Do("CLUSTER", "INFO"))
+			if err == nil {
+				err = e.extractInfoMetrics(info, addr, scrapes)
+			} else {
+				log.Printf("redis err: %s", err)
+				errorCount++
+				continue
+			}
 		}
 
 		scrapes <- scrapeResult{Name: "up", Addr: addr, Value: 1}
