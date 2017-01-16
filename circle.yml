@@ -17,7 +17,7 @@ test:
   pre:
     - wget https://storage.googleapis.com/golang/go$MY_GO_VERSION.linux-amd64.tar.gz &&  sudo rm -rf /usr/local/go/ &&  sudo tar -C /usr/local -xzf go$MY_GO_VERSION.linux-amd64.tar.gz
     - go version
-    - go vet ./...
+    - go vet $(go list ./... | grep -v /vendor/)
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
   override:
