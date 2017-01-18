@@ -1,0 +1,16 @@
+package: github.com/oliver006/redis_exporter
+import:
+- package: github.com/Sirupsen/logrus
+  version: v0.11.0
+- package: github.com/garyburd/redigo
+  version: v1.0.0
+  subpackages:
+  - redis
+- package: github.com/prometheus/client_golang
+  version: v0.8.0
+  subpackages:
+  - prometheus
+testImport:
+- package: github.com/prometheus/client_model
+  subpackages:
+  - go
