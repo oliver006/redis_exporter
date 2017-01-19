@@ -3,10 +3,10 @@ machine:
     - redis
     - docker
   environment:
-    IMPORT_PATH:      "github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+    SRC_LOCATION: "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
     GO_LDFLAGS:       "-X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)"
-    MY_GO_VERSION:    "1.7.3"
+    MY_GO_VERSION:    "1.7.4"
 
 dependencies:
   pre:
@@ -17,6 +17,8 @@ dependencies:
     - sudo apt-get update
     - sudo apt-get install glide -y
     - glide --version
+    - mkdir -p "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME"
+    - ln -s $HOME/$CIRCLE_PROJECT_REPONAME $SRC_LOCATION
 
 test:
   pre:
@@ -25,9 +27,11 @@ test:
     - go vet ./...
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
-    - glide install
+    - cd $SRC_LOCATION
+    - pwd
+    - pwd && glide install
   override:
-    - go test -v -cover -race -coverprofile=$COVERAGE_PROFILE $(glide novendor)
+    - cd $SRC_LOCATION && go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/...
   post:
     - if [ -n "$COVERALLS_TOKEN" ]; then /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=$COVERAGE_PROFILE -service=circle-ci -repotoken=$COVERALLS_TOKEN ;  fi
 
