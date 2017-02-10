@@ -97,8 +97,8 @@ var (
 		"used_cpu_user_children": "used_cpu_user_children",
 
 		// # Cluster
-		"cluster_stats_messages_sent":   "cluster_messages_sent_total",
-		"cluster_stats_messages_received":   "cluster_messages_received_total",
+		"cluster_stats_messages_sent":     "cluster_messages_sent_total",
+		"cluster_stats_messages_received": "cluster_messages_received_total",
 	}
 )
 
@@ -145,12 +145,12 @@ func NewRedisExporter(host RedisHost, namespace, checkKeys string) (*Exporter, e
 			Namespace: namespace,
 			Name:      "key_value",
 			Help:      "The value of \"key\"",
-		}, []string{"db", "key"}),
+		}, []string{"addr", "db", "key"}),
 		keySizes: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "key_size",
 			Help:      "The length or size of \"key\"",
-		}, []string{"db", "key"}),
+		}, []string{"addr", "db", "key"}),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "exporter_last_scrape_duration_seconds",
@@ -472,7 +472,7 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 			}
 			if tempVal, err := c.Do("GET", k.key); err == nil && tempVal != nil {
 				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-					e.keyValues.WithLabelValues("db"+k.db, k.key).Set(val)
+					e.keyValues.WithLabelValues(addr, "db"+k.db, k.key).Set(val)
 				}
 			}
 
@@ -485,7 +485,7 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 				"STRLEN",
 			} {
 				if tempVal, err := c.Do(op, k.key); err == nil && tempVal != nil {
-					e.keySizes.WithLabelValues("db"+k.db, k.key).Set(float64(tempVal.(int64)))
+					e.keySizes.WithLabelValues(addr, "db"+k.db, k.key).Set(float64(tempVal.(int64)))
 					break
 				}
 			}
