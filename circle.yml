@@ -2,6 +2,9 @@ machine:
   services:
     - redis
     - docker
+  post:
+    - /usr/bin/redis-server --port 6380:
+          background: true
   environment:
     SRC_LOCATION: "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
