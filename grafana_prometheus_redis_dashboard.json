@@ -1052,7 +1052,7 @@
         "multi": false,
         "name": "addr",
         "options": [],
-        "query": "label_values(redis_connected_clients, addr)",
+        "query": "label_values(redis_up, addr)",
         "refresh": 1,
         "regex": "",
         "type": "query"
