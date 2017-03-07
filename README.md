@@ -46,6 +46,7 @@ log-format         | Log format, valid options are `txt` (default) and `json`.
 check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. 
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
+redis.alias        | Alias for redis node addr, comma separated.
 namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
@@ -62,6 +63,7 @@ Name               | Description
 -------------------|------------
 REDIS_ADDR         | Address of Redis node(s)
 REDIS_PASSWORD     | Password to use when authenticating to Redis
+REDIS_ALIAS        | Alias name of Redis node(s)
 
 ### What's exported?
 
@@ -78,7 +80,7 @@ Example [Grafana](http://grafana.org/) screenshots:<br>
 
 Grafana dashboard is available on [grafana.net](https://grafana.net/dashboards/763) and/or [github.com](https://github.com/oliver006/redis_exporter/blob/master/grafana_prometheus_redis_dashboard.json).
 
-
+Grafana dashboard with host & alias selector is available on [github.com](https://github.com/oliver006/redis_exporter/blob/master/grafana_prometheus_redis_dashboard_alias.json).
 
 ### What else?
 

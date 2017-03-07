@@ -15,9 +15,10 @@ import (
 var (
 	redisAddr     = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of one or more redis nodes, separated by separator")
 	redisPassword = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
+	redisAlias    = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
-	separator     = flag.String("separator", ",", "separator used to split redis.addr and redis.password into several elements.")
+	separator     = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	isDebug       = flag.Bool("debug", false, "Output verbose debug information")
@@ -55,9 +56,13 @@ func main() {
 	for len(passwords) < len(addrs) {
 		passwords = append(passwords, passwords[0])
 	}
+	aliases := strings.Split(*redisAlias, *separator)
+	for len(aliases) < len(addrs) {
+		aliases = append(aliases, aliases[0])
+	}
 
 	exp, err := exporter.NewRedisExporter(
-		exporter.RedisHost{Addrs: addrs, Passwords: passwords},
+		exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
 		*namespace,
 		*checkKeys)
 	if err != nil {
@@ -87,6 +92,7 @@ func main() {
 
 	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Printf("Connecting to redis hosts: %#v", addrs)
+	log.Printf("Using alias: %#v", aliases)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
 
