@@ -28,7 +28,9 @@ import (
 const TestValue = 1234.56
 
 var (
-	redisAddr = flag.String("redis.addr", "localhost:6379", "Address of the test instance, without `redis://`")
+	redisAddr  = flag.String("redis.addr", "localhost:6379", "Address of the test instance, without `redis://`")
+	redisAlias = flag.String("redis.alias", "foo", "Alias of the test instance")
+	separator  = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
 
 	keys             = []string{}
 	keysExpiring     = []string{}
@@ -114,7 +116,7 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 func TestHostVariations(t *testing.T) {
 	for _, prefix := range []string{"", "redis://", "tcp://"} {
 		addr := prefix + *redisAddr
-		host := RedisHost{Addrs: []string{addr}}
+		host := RedisHost{Addrs: []string{addr}, Aliases: []string{""}}
 		e, _ := NewRedisExporter(host, "test", "")
 
 		scrapes := make(chan scrapeResult, 10000)
@@ -381,7 +383,7 @@ func TestHTTPEndpoint(t *testing.T) {
 
 func TestNonExistingHost(t *testing.T) {
 
-	rr := RedisHost{Addrs: []string{"unix:///tmp/doesnt.exist"}}
+	rr := RedisHost{Addrs: []string{"unix:///tmp/doesnt.exist"}, Aliases: []string{""}}
 	e, _ := NewRedisExporter(rr, "test", "")
 
 	chM := make(chan prometheus.Metric)
@@ -475,7 +477,7 @@ func TestMoreThanOneHost(t *testing.T) {
 		return
 	}
 
-	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHost}}
+	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHost}, Aliases: []string{"", ""}}
 	checkKey := dbNumStrFull + "=" + url.QueryEscape(keys[0])
 	e, _ := NewRedisExporter(twoHostCfg, "test", checkKey)
 
@@ -532,11 +534,16 @@ func init() {
 	}
 
 	flag.Parse()
-	addrs := strings.Split(*redisAddr, ",")
+	addrs := strings.Split(*redisAddr, *separator)
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
 	}
-	log.Printf("Using redis addrs: %#v", addrs)
 
-	defaultRedisHost = RedisHost{Addrs: []string{"redis://" + *redisAddr}}
+	aliases := strings.Split(*redisAlias, *separator)
+	for len(aliases) < len(addrs) {
+		aliases = append(aliases, aliases[0])
+	}
+
+	log.Printf("Using redis addrs: %#v", addrs)
+	defaultRedisHost = RedisHost{Addrs: []string{"redis://" + *redisAddr}, Aliases: aliases}
 }
