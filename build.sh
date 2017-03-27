@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+export CGO_ENABLED=0
 
 echo "Building binaries"
 echo ""
