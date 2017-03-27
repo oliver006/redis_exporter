@@ -6,10 +6,10 @@ machine:
     - /usr/bin/redis-server --port 6380:
           background: true
   environment:
-    SRC_LOCATION: "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+    SRC_LOCATION:     "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
-    GO_LDFLAGS:       "-X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)"
-    MY_GO_VERSION:    "1.7.4"
+    GO_LDFLAGS:       '-extldflags "-static" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)'
+    MY_GO_VERSION:    "1.8"
 
 dependencies:
   pre:
