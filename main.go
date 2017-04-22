@@ -25,7 +25,7 @@ var (
 	logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
 
-	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the CircleCI build
+	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the build script
 	VERSION     = "<<< filled in by build >>>"
 	BUILD_DATE  = "<<< filled in by build >>>"
 	COMMIT_SHA1 = "<<< filled in by build >>>"
@@ -39,7 +39,10 @@ func main() {
 	default:
 		log.SetFormatter(&log.TextFormatter{})
 	}
-	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s\n", VERSION, BUILD_DATE, COMMIT_SHA1)
+	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s\n",
+		VERSION, BUILD_DATE, COMMIT_SHA1,
+		runtime.Version(),
+	)
 	if *isDebug {
 		log.SetLevel(log.DebugLevel)
 		log.Debugln("Enabling debug output")
