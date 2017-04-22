@@ -61,7 +61,7 @@ var (
 		"used_memory_rss":         "memory_used_rss_bytes",
 		"used_memory_peak":        "memory_used_peak_bytes",
 		"used_memory_lua":         "memory_used_lua_bytes",
-		"max_memory":              "memory_max_bytes",
+		"maxmemory":               "memory_max_bytes",
 		"mem_fragmentation_ratio": "memory_fragmentation_ratio",
 
 		// # Persistence
@@ -386,23 +386,6 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 	return nil
 }
 
-func extractConfigMetrics(config []string, addr string, alias string, scrapes chan<- scrapeResult) error {
-
-	if len(config)%2 != 0 {
-		return fmt.Errorf("invalid config: %#v", config)
-	}
-
-	for pos := 0; pos < len(config)/2; pos++ {
-		val, err := strconv.ParseFloat(config[pos*2+1], 64)
-		if err != nil {
-			log.Debugf("couldn't parse %s, err: %s", config[pos*2+1], err)
-			continue
-		}
-		scrapes <- scrapeResult{Name: fmt.Sprintf("config_%s", config[pos*2]), Addr: addr, Alias: alias, Value: val}
-	}
-	return nil
-}
-
 func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	defer close(scrapes)
@@ -464,10 +447,6 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 		}
 
 		scrapes <- scrapeResult{Name: "up", Addr: addr, Alias: alias, Value: 1}
-
-		if config, err := redis.Strings(c.Do("CONFIG", "GET", "maxmemory")); err == nil {
-			extractConfigMetrics(config, addr, alias, scrapes)
-		}
 
 		for _, k := range e.keys {
 			if _, err := c.Do("SELECT", k.db); err != nil {
