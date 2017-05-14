@@ -276,7 +276,7 @@
           },
           "targets": [
             {
-              "expr": "100 * (redis_memory_used_bytes{addr=~\"$addr\"}  / redis_config_maxmemory{addr=~\"$addr\"} )",
+              "expr": "100 * (redis_memory_used_bytes{addr=~\"$addr\"}  / redis_memory_max_bytes{addr=~\"$addr\"} )",
               "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
@@ -531,7 +531,7 @@
               "target": ""
             },
             {
-              "expr": "redis_config_maxmemory{addr=~\"$addr\"} ",
+              "expr": "redis_memory_max_bytes{addr=~\"$addr\"} ",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "max",
