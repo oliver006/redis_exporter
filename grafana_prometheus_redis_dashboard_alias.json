@@ -270,7 +270,7 @@
           },
           "targets": [
             {
-              "expr": "100 * (redis_memory_used_bytes{instance=\"$host\",alias=\"$alias\"}  / redis_config_maxmemory{instance=\"$host\",alias=\"$alias\"} )",
+              "expr": "100 * (redis_memory_used_bytes{instance=\"$host\",alias=\"$alias\"}  / redis_memory_max_bytes{instance=\"$host\",alias=\"$alias\"} )",
               "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
@@ -519,7 +519,7 @@
               "target": ""
             },
             {
-              "expr": "redis_config_maxmemory{instance=\"$host\",alias=\"$alias\"} ",
+              "expr": "redis_memory_max_bytes{instance=\"$host\",alias=\"$alias\"} ",
               "hide": false,
               "intervalFactor": 2,
               "legendFormat": "max",
