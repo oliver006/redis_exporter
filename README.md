@@ -2,6 +2,7 @@
 [![Circle CI](https://circleci.com/gh/oliver006/redis_exporter.svg?style=shield)](https://circleci.com/gh/oliver006/redis_exporter) [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master)
 
 Prometheus exporter for Redis metrics.<br>
+
 Supports Redis 2.x and 3.x
 
 ## Building, configuring, and running
@@ -9,12 +10,13 @@ Supports Redis 2.x and 3.x
 Locally build and run it:
 
 ```
-    $ go get
-    $ go build
+    $ go get github.com/oliver006/redis_exporter
+    $ cd $GOPATH/src/github.com/oliver006/redis_exporter
+    $ make 
     $ ./redis_exporter <flags>
 ```
 
-You can also run it via docker: 
+You can also run it via docker:
 
 ```
     $ docker pull oliver006/redis_exporter

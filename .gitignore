@@ -1,3 +1,9 @@
+# Editor files #
+################
+*~
+
+/redis_exporter
+
 coverage.out
 pkg/
 src/
