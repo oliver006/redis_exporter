@@ -7,9 +7,10 @@ import (
 	"os"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/log"
 	"github.com/prometheus/common/version"
 )
 
@@ -19,16 +20,14 @@ func init() {
 
 func main() {
 	var (
+		checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
+		listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
+		namespace     = flag.String("namespace", "redis", "Namespace for metrics")
+		metricsPath   = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 		redisAddr     = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of one or more redis nodes, separated by separator")
 		redisPassword = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
 		redisAlias    = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
-		namespace     = flag.String("namespace", "redis", "Namespace for metrics")
-		checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
 		separator     = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
-		listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
-		metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
-		isDebug       = flag.Bool("debug", false, "Output verbose debug information")
-		logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 		showVersion   = flag.Bool("version", false, "Show version information and exit")
 	)
 	flag.Parse()
@@ -38,26 +37,8 @@ func main() {
 		os.Exit(0)
 	}
 
-	switch *logFormat {
-	case "json":
-		log.SetFormatter(&log.JSONFormatter{})
-	default:
-		log.SetFormatter(&log.TextFormatter{})
-	}
-
 	log.Infoln("Starting Redis Metrics Exporter", version.Info())
 	log.Infoln("Build context", version.BuildContext())
-	//log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s\n",
-	//	VERSION, BUILD_DATE, COMMIT_SHA1,
-	//	runtime.Version(),
-	//)
-
-	if *isDebug {
-		log.SetLevel(log.DebugLevel)
-		log.Debugln("Enabling debug output")
-	} else {
-		log.SetLevel(log.InfoLevel)
-	}
 
 	addrs := strings.Split(*redisAddr, *separator)
 	passwords := strings.Split(*redisPassword, *separator)
@@ -78,28 +59,26 @@ func main() {
 	}
 	prometheus.MustRegister(exp)
 
-	//buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-	//	Name: "redis_exporter_build_info",
-	//	Help: "redis exporter build_info",
-	//}, []string{"version", "commit_sha", "build_date", "golang_version"})
-	//prometheus.MustRegister(buildInfo)
-	//buildInfo.WithLabelValues(VERSION, COMMIT_SHA1, BUILD_DATE, runtime.Version()).Set(1)
+	handler := promhttp.HandlerFor(prometheus.DefaultGatherer, promhttp.HandlerOpts{ErrorLog: log.NewErrorLogger()})
 
-	http.Handle(*metricPath, prometheus.Handler())
+	http.Handle(*metricsPath, prometheus.InstrumentHandler("prometheus", handler))
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-						<head><title>Redis Exporter</title></head>
-						<body>
-						<h1>Redis Exporter</h1>
-						<p><a href="` + *metricPath + `">Metrics</a></p>
-						</body>
-						</html>`))
+			<head><title>Redis Exporter</title></head>
+			<body>
+			<h1>Redis Exporter</h1>
+			<p><a href="` + *metricsPath + `">Metrics</a></p>
+			</body>
+			</html>`))
 	})
 
-	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)
-	log.Printf("Connecting to redis hosts: %#v", addrs)
-	log.Printf("Using alias: %#v", aliases)
-	log.Fatal(http.ListenAndServe(*listenAddress, nil))
+	log.Infoln("Listening on", *listenAddress, *metricsPath)
+	log.Infoln("Connecting to redis hosts:", addrs)
+	log.Infoln("Using alias:", aliases)
+	err = http.ListenAndServe(*listenAddress, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 // getEnv gets an environment variable from a given key and if it doesn't exist,
