@@ -12,7 +12,7 @@ Locally build and run it:
 ```
     $ go get github.com/oliver006/redis_exporter
     $ cd $GOPATH/src/github.com/oliver006/redis_exporter
-    $ make 
+    $ make
     $ ./redis_exporter <flags>
 ```
 

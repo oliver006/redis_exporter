@@ -7,7 +7,16 @@ TARGET          ?= redis_exporter
 PREFIX          ?= $(shell pwd)
 BIN_DIR         ?= $(shell pwd)
 
-all: format vet build
+all: get-tools dependencies format vet build
+
+get-tools:
+	@echo ">> getting glide"
+	@$(GO) get -u "github.com/Masterminds/glide"
+	@$(GO) install "github.com/Masterminds/glide"
+
+dependencies:
+	@echo ">> glide update dependencies"
+	@glide --quiet update
 
 test:
 	@echo ">> running tests"

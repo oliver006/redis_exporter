@@ -1,5 +1,5 @@
 hash: 7c6cdad370f23396f7b99f817b10e1ff019b87d711e3ddfa5f9a209fd97c346b
-updated: 2017-05-20T19:02:23.174304136+02:00
+updated: 2017-05-21T19:42:36.437843919+02:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -40,9 +40,9 @@ imports:
   subpackages:
   - xfs
 - name: github.com/Sirupsen/logrus
-  version: d26492970760ca5d33129d2d799e34be5c4782eb
+  version: 5e5dc898656f695e2a086b8e12559febbfc01562
 - name: golang.org/x/sys
-  version: a2e06a18b0d52d8cb2010e04b372a1965d8e3439
+  version: dbc2be9168a660ef302e04b6ff6406de6f967473
   subpackages:
   - unix
   - windows
