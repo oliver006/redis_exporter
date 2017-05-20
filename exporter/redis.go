@@ -386,6 +386,84 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 	return nil
 }
 
+func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx int) error {
+	options := []redis.DialOption{
+		redis.DialConnectTimeout(5 * time.Second),
+		redis.DialReadTimeout(5 * time.Second),
+		redis.DialWriteTimeout(5 * time.Second),
+	}
+
+	if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
+		options = append(options, redis.DialPassword(e.redis.Passwords[idx]))
+	}
+
+	log.Debugf("Trying DialURL(): %s", addr)
+	c, err := redis.DialURL(addr, options...)
+
+	if err != nil {
+		log.Debugf("DialURL() failed, err: %s", err)
+		if frags := strings.Split(addr, "://"); len(frags) == 2 {
+			log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
+			c, err = redis.Dial(frags[0], frags[1], options...)
+		} else {
+			log.Debugf("Trying: Dial(): tcp %s", addr)
+			c, err = redis.Dial("tcp", addr, options...)
+		}
+	}
+
+	if err != nil {
+		log.Printf("redis err: %s", err)
+		return err
+	}
+
+	defer c.Close()
+	log.Debugf("connected to: %s", addr)
+
+	info, err := redis.String(c.Do("INFO", "ALL"))
+	if err == nil {
+		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
+	} else {
+		log.Printf("redis err: %s", err)
+		return err
+	}
+
+	if strings.Index(info, "cluster_enabled:1") != -1 {
+		info, err = redis.String(c.Do("CLUSTER", "INFO"))
+		if err != nil {
+			log.Printf("redis err: %s", err)
+		} else {
+			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
+		}
+	}
+
+	for _, k := range e.keys {
+		if _, err := c.Do("SELECT", k.db); err != nil {
+			continue
+		}
+		if tempVal, err := c.Do("GET", k.key); err == nil && tempVal != nil {
+			if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
+				e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, k.key).Set(val)
+			}
+		}
+
+		for _, op := range []string{
+			"HLEN",
+			"LLEN",
+			"SCARD",
+			"ZCARD",
+			"PFCOUNT",
+			"STRLEN",
+		} {
+			if tempVal, err := c.Do(op, k.key); err == nil && tempVal != nil {
+				e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, k.key).Set(float64(tempVal.(int64)))
+				break
+			}
+		}
+	}
+
+	return nil
+}
+
 func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	defer close(scrapes)
@@ -394,84 +472,13 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
-		var c redis.Conn
-		var err error
-		alias := e.redis.Aliases[idx]
 
-		scrapes <- scrapeResult{Name: "up", Addr: addr, Alias: alias, Value: 0}
-
-		var options []redis.DialOption
-		if len(e.redis.Passwords) > idx && e.redis.Passwords[idx] != "" {
-			options = append(options, redis.DialPassword(e.redis.Passwords[idx]))
-		}
-
-		log.Debugf("Trying DialURL(): %s", addr)
-		if c, err = redis.DialURL(addr, options...); err != nil {
-			log.Debugf("DialURL() failed, err: %s", err)
-			frags := strings.Split(addr, "://")
-			if len(frags) == 2 {
-				log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
-				c, err = redis.Dial(frags[0], frags[1], options...)
-			} else {
-				log.Debugf("Trying: Dial(): tcp %s", addr)
-				c, err = redis.Dial("tcp", addr, options...)
-			}
-		}
-
-		if err != nil {
-			log.Printf("redis err: %s", err)
+		var up float64 = 1
+		if err := e.scrapeRedisHost(scrapes, addr, idx); err != nil {
 			errorCount++
-			continue
+			up = 0
 		}
-		defer c.Close()
-		log.Debugf("connected to: %s", addr)
-
-		info, err := redis.String(c.Do("INFO", "ALL"))
-		if err == nil {
-			err = e.extractInfoMetrics(info, addr, alias, scrapes)
-		} else {
-			log.Printf("redis err: %s", err)
-			errorCount++
-			continue
-		}
-
-		if strings.Index(info, "cluster_enabled:1") != -1 {
-			info, err = redis.String(c.Do("CLUSTER", "INFO"))
-			if err == nil {
-				err = e.extractInfoMetrics(info, addr, alias, scrapes)
-			} else {
-				log.Printf("redis err: %s", err)
-				errorCount++
-				continue
-			}
-		}
-
-		scrapes <- scrapeResult{Name: "up", Addr: addr, Alias: alias, Value: 1}
-
-		for _, k := range e.keys {
-			if _, err := c.Do("SELECT", k.db); err != nil {
-				continue
-			}
-			if tempVal, err := c.Do("GET", k.key); err == nil && tempVal != nil {
-				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-					e.keyValues.WithLabelValues(addr, alias, "db"+k.db, k.key).Set(val)
-				}
-			}
-
-			for _, op := range []string{
-				"HLEN",
-				"LLEN",
-				"SCARD",
-				"ZCARD",
-				"PFCOUNT",
-				"STRLEN",
-			} {
-				if tempVal, err := c.Do(op, k.key); err == nil && tempVal != nil {
-					e.keySizes.WithLabelValues(addr, alias, "db"+k.db, k.key).Set(float64(tempVal.(int64)))
-					break
-				}
-			}
-		}
+		scrapes <- scrapeResult{Name: "up", Addr: addr, Alias: e.redis.Aliases[idx], Value: up}
 	}
 
 	e.scrapeErrors.Set(float64(errorCount))
