@@ -3,6 +3,7 @@
 *~
 
 /redis_exporter
+/vendor
 
 coverage.out
 pkg/
