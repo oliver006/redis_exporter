@@ -6,19 +6,24 @@ import (
 	"os"
 	"runtime"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/garyburd/redigo/redis"
+	"github.com/FZambia/go-sentinel"
 )
 
 var (
-	redisAddr     = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of one or more redis nodes, separated by separator")
+	redisAddr     = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of one or more redis nodes, separated by separator")
+	sentinelAddr  = flag.String("sentinel.addr", getEnv("SENTINEL_ADDR", ""), "Address of one or more sentinel nodes, separated by separator")
+	sentinelMastr = flag.String("sentinel.mastr", getEnv("SENTINEL_MASTR", ""), "Name of one or more sentinel masters, separated by separator")
 	redisPassword = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
 	redisAlias    = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
 	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
 	checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
-	separator     = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
+	separator     = flag.String("separator", ",", "separator used to split redis.addr, sentinel.addr, sentinel.mastr, redis.password and redis.alias into several elements.")
 	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	isDebug       = flag.Bool("debug", false, "Output verbose debug information")
@@ -55,6 +60,45 @@ func main() {
 	}
 
 	addrs := strings.Split(*redisAddr, *separator)
+	if (len(*sentinelAddr) == 0) {
+		log.Debugln("No sentinels provided")
+	} else {
+		sentinelAddrs  := strings.Split(*sentinelAddr, *separator)
+		sentinelMastrs := strings.Split(*sentinelMastr, *separator)
+		if (len(sentinelAddrs) != len(sentinelMastrs)) {
+			log.Errorln("Need exactly one master name for every sentinel address. Exiting...")
+			os.Exit(1)
+		}
+		masterAddrs := make([]string, len(sentinelAddrs))
+		for i := range sentinelAddrs {
+			// Taken straight from the example: https://godoc.org/github.com/FZambia/go-sentinel#Sentinel
+			sntnl := &sentinel.Sentinel{
+				Addrs:      strings.Fields(sentinelAddrs[i]),
+				MasterName: sentinelMastrs[i],
+				Dial: func(addr string) (redis.Conn, error) {
+					timeout := 5000 * time.Millisecond
+					c, err := redis.DialTimeout("tcp", addr, timeout, timeout, timeout)
+					if err != nil {
+						return nil, err
+					}
+					return c, nil
+				},
+			}
+			masterAddr, err := sntnl.MasterAddr()
+			masterAddrs[i] = masterAddr
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
+		}
+		if (len(*redisAddr) == 0) {
+			addrs = masterAddrs
+		} else {
+			addrs = append(addrs, masterAddrs...)
+		}
+	}
+	if (len(*redisAddr) == 0 && len(*sentinelAddr) == 0) {
+		addrs = []string {"redis://localhost:6379"}
+	}
 	passwords := strings.Split(*redisPassword, *separator)
 	for len(passwords) < len(addrs) {
 		passwords = append(passwords, passwords[0])
