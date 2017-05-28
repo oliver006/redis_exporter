@@ -1,5 +1,5 @@
 go:
-    cgo: true
+    cgo: false
 repository:
     path: github.com/oliver006/redis_exporter
 build:
@@ -11,7 +11,13 @@ build:
         -X {{repoPath}}/vendor/github.com/prometheus/common/version.Branch={{.Branch}}
         -X {{repoPath}}/vendor/github.com/prometheus/common/version.BuildUser={{user}}@{{host}}
         -X {{repoPath}}/vendor/github.com/prometheus/common/version.BuildDate={{date "20060102-15:04:05"}}
-tarball:
-    files:
-        - LICENSE
-        - NOTICE
+crossbuild:
+    platforms:
+        - linux/amd64
+        - linux/386
+        - darwin/amd64
+        - darwin/386
+        - netbsd/amd64
+        - netbsd/386
+        - linux/arm
+        - linux/arm64

@@ -31,13 +31,13 @@ vet:
 	@echo ">> vetting code"
 	@$(GO) vet $(pkgs)
 
-megacheck:
+megacheck: $(MEGACHECK)
 	@echo ">> megacheck code"
 	@$(MEGACHECK) $(pkgs)
 
 build: $(PROMU)
 	@echo ">> building binaries"
-	@$(PROMU) build --prefix $(PREFIX)
+	@CGO_ENABLED=0; $(PROMU) build --prefix $(PREFIX)
 
 clean:
 	@echo ">> Cleaning up"
