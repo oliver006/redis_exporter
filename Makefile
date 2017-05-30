@@ -8,7 +8,11 @@ TARGET          ?= redis_exporter
 PREFIX          ?= $(shell pwd)
 BIN_DIR         ?= $(shell pwd)
 
-all: get-tools dependencies format vet megacheck build
+# Redis variables for test
+REDIS_CLI_PATH          ?= $(shell which redis-cli)
+REDIS_PORT              ?= 6379
+
+all: get-tools dependencies format vet megacheck build test
 
 get-tools:
 	@echo ">> getting glide"
@@ -20,8 +24,13 @@ dependencies:
 	@glide --quiet update
 
 test:
-	@echo ">> running tests"
+	@echo ">> check for a redis-server on port $(REDIS_PORT)"
+ifeq ($(shell $(REDIS_CLI_PATH) -p $(REDIS_PORT) ping 2>/dev/null),PONG)
+	@echo " > running tests"
 	@$(GO) test -short $(pkgs)
+else
+	@echo " > redis-server not running, skipping test.."
+endif
 
 format:
 	@echo ">> formatting code"
