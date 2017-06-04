@@ -7,6 +7,8 @@ TARGET          ?= redis_exporter
 
 PREFIX          ?= $(shell pwd)
 BIN_DIR         ?= $(shell pwd)
+DOCKER_IMAGE_NAME       ?= oliver006/redis_exporter
+DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 
 # Redis variables for test
 REDIS_CLI_PATH          ?= $(shell which redis-cli)
@@ -46,11 +48,23 @@ megacheck: $(MEGACHECK)
 
 build: $(PROMU)
 	@echo ">> building binaries"
-	@CGO_ENABLED=0; $(PROMU) build --prefix $(PREFIX)
+	@CGO_ENABLED=0 $(PROMU) build --prefix $(PREFIX)
+
+tarball: $(PROMU)
+	@echo ">> building release tarball"
+	@$(PROMU) tarball --prefix $(PREFIX) $(BIN_DIR)
+
+docker:
+	@echo ">> building docker image"
+	@docker build -t "$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" .
+
+test-docker:
+	@echo ">> testing docker image"
+	@./test_image.sh "$(DOCKER_IMAGE_NAME):$(DOCKER_IMAGE_TAG)" 9121
 
 clean:
 	@echo ">> Cleaning up"
-	@$(RM) $(TARGET)
+	@$(RM) $(TARGET) *.tar.gz
 
 $(GOPATH)/bin/promu promu:
 	@GOOS=$(shell uname -s | tr A-Z a-z) \
@@ -62,4 +76,4 @@ $(GOPATH)/bin/megacheck mega:
 		GOARCH=$(subst x86_64,amd64,$(patsubst i%86,386,$(shell uname -m))) \
 		$(GO) get -u honnef.co/go/tools/cmd/megacheck
 
-.PHONY: all format vet build test promu clean $(GOPATH)/bin/promu $(GOPATH)/bin/megacheck
+.PHONY: all format vet build test promu clean $(GOPATH)/bin/promu $(GOPATH)/bin/megacheck tarball docker test-docker

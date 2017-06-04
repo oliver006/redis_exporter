@@ -2,9 +2,11 @@
 ################
 *~
 
-/redis_exporter
+redis_exporter
 /vendor
 /glide
 coverage.out
 pkg/
 src/
+
+*.tar.gz
