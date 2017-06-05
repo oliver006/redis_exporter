@@ -3,8 +3,6 @@
 *~
 
 redis_exporter
-/vendor
-/glide
 coverage.out
 pkg/
 src/

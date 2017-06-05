@@ -14,16 +14,7 @@ DOCKER_IMAGE_TAG        ?= $(subst /,-,$(shell git rev-parse --abbrev-ref HEAD))
 REDIS_CLI_PATH          ?= $(shell which redis-cli)
 REDIS_PORT              ?= 6379
 
-all: get-tools dependencies format vet megacheck build test
-
-get-tools:
-	@echo ">> getting glide"
-	@$(GO) get -u "github.com/Masterminds/glide"
-	@$(GO) install "github.com/Masterminds/glide"
-
-dependencies:
-	@echo ">> glide update dependencies"
-	@glide --quiet update
+all: format vet megacheck build test
 
 test:
 	@echo ">> check for a redis-server on port $(REDIS_PORT)"
