@@ -3,7 +3,7 @@ machine:
     - redis
     - docker
   post:
-    - /usr/bin/redis-server --port 6380:
+    - /usr/bin/redis-server --port 6379:
           background: true
   environment:
     SRC_LOCATION:     "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
@@ -34,7 +34,7 @@ test:
     - cd $SRC_LOCATION && go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/...
   post:
     - if [ -n "$COVERALLS_TOKEN" ]; then /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=$COVERAGE_PROFILE -service=circle-ci -repotoken=$COVERALLS_TOKEN ;  fi
-    - cd $SRC_LOCATION && make format && make vet && make megacheck
+    - cd $SRC_LOCATION && make
 
 deployment:
   publish:
@@ -42,4 +42,7 @@ deployment:
     commands:
       - go get github.com/mitchellh/gox
       - go get github.com/tcnksm/ghr
-      - cd $SRC_LOCATION && ./build.sh
+      - cd $SRC_LOCATION && make build
+      - CGO_ENABLED=0 promu crossbuild tarballs
+      - promu checksum .tarballs
+      - promu release .tarballs
