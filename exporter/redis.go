@@ -51,10 +51,12 @@ var (
 	metricMap = map[string]string{
 		// # Server
 		"uptime_in_seconds": "uptime_in_seconds",
+		"process_id":        "process_id",
 
 		// # Clients
-		"connected_clients": "connected_clients",
-		"blocked_clients":   "blocked_clients",
+		"connected_clients":          "connected_clients",
+		"blocked_clients":            "blocked_clients",
+		"client_longest_output_list": "client_longest_output_list",
 
 		// # Memory
 		"used_memory":             "memory_used_bytes",
@@ -86,11 +88,15 @@ var (
 		"keyspace_misses":            "keyspace_misses_total",
 		"pubsub_channels":            "pubsub_channels",
 		"pubsub_patterns":            "pubsub_patterns",
+		"instantaneous_ops_per_sec":  "instantaneous_ops_per_sec",
+		"latest_fork_usec":           "latest_fork_usec",
 
 		// # Replication
-		"loading":           "loading_dump_file",
-		"connected_slaves":  "connected_slaves",
-		"repl_backlog_size": "replication_backlog_bytes",
+		"loading":                    "loading_dump_file",
+		"connected_slaves":           "connected_slaves",
+		"repl_backlog_size":          "replication_backlog_bytes",
+		"master_last_io_seconds_ago": "master_last_io_seconds",
+		"master_repl_offset":         "master_repl_offset",
 
 		// # CPU
 		"used_cpu_sys":           "used_cpu_sys",
@@ -102,11 +108,18 @@ var (
 		"cluster_stats_messages_sent":     "cluster_messages_sent_total",
 		"cluster_stats_messages_received": "cluster_messages_received_total",
 	}
+
+	instanceInfoFields = map[string]bool{"redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
 )
 
 func (e *Exporter) initGauges() {
 
 	e.metrics = map[string]*prometheus.GaugeVec{}
+	e.metrics["instance_info"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "instance_info",
+		Help:      "Information about the Redis instance",
+	}, []string{"addr", "alias", "redis_version", "redis_build_id", "redis_mode", "os"})
 	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "db_keys",
@@ -293,6 +306,8 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
+
+	instanceInfo := map[string]string{}
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
@@ -308,6 +323,11 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		}
 
 		split := strings.Split(line, ":")
+		if _, ok := instanceInfoFields[split[0]]; ok {
+			instanceInfo[split[0]] = split[1]
+			continue
+		}
+
 		if len(split) != 2 || !includeMetric(split[0]) {
 			continue
 		}
@@ -383,6 +403,17 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 
 		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
 	}
+
+	e.metricsMtx.RLock()
+	e.metrics["instance_info"].WithLabelValues(
+		addr, alias,
+		instanceInfo["redis_version"],
+		instanceInfo["redis_build_id"],
+		instanceInfo["redis_mode"],
+		instanceInfo["os"],
+	).Set(1)
+	e.metricsMtx.RUnlock()
+
 	return nil
 }
 

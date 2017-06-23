@@ -304,9 +304,41 @@ func TestKeyValuesAndSizes(t *testing.T) {
 			log.Printf("default: m: %#v", m)
 		}
 	}
-	for k, v := range want {
-		if !v {
+	for k, found := range want {
+		if !found {
 			t.Errorf("didn't find %s", k)
+		}
+
+	}
+}
+
+func TestKeyValueInvalidDB(t *testing.T) {
+
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "999="+url.QueryEscape(keys[0]))
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	dontWant := map[string]bool{"test_key_size": false}
+	for m := range chM {
+		switch m.(type) {
+		case prometheus.Gauge:
+			for k := range dontWant {
+				if strings.Contains(m.Desc().String(), k) {
+					log.Println(m.Desc().String())
+					dontWant[k] = true
+				}
+			}
+		default:
+			log.Printf("default: m: %#v", m)
+		}
+	}
+	for k, found := range dontWant {
+		if found {
+			t.Errorf("we found %s but it shouldn't be there", k)
 		}
 
 	}
@@ -339,8 +371,8 @@ func TestCommandStats(t *testing.T) {
 			log.Printf("default: m: %#v", m)
 		}
 	}
-	for k, v := range want {
-		if !v {
+	for k, found := range want {
+		if !found {
 			t.Errorf("didn't find %s", k)
 		}
 
@@ -370,9 +402,17 @@ func TestHTTPEndpoint(t *testing.T) {
 	}
 
 	tests := []string{
+		// metrics
 		`test_connected_clients`,
 		`test_commands_processed_total`,
 		`test_key_size`,
+		`test_instance_info`,
+
+		// labels and label values
+		`addr="redis://localhost:6379"`,
+		`redis_mode`,
+		`standalone`,
+		`cmd="get"`,
 	}
 	for _, test := range tests {
 		if !bytes.Contains(body, []byte(test)) {
@@ -442,7 +482,7 @@ func TestMoreThanOneHost(t *testing.T) {
 
 	c, err := redis.DialURL(secondHost)
 	if err != nil {
-		fmt.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
+		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		t.SkipNow()
 		return
 	}
@@ -450,7 +490,7 @@ func TestMoreThanOneHost(t *testing.T) {
 
 	_, err = c.Do("PING")
 	if err != nil {
-		fmt.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
+		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		t.SkipNow()
 		return
 	}
@@ -464,7 +504,7 @@ func TestMoreThanOneHost(t *testing.T) {
 
 	_, err = c.Do("SELECT", dbNumStr)
 	if err != nil {
-		fmt.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
+		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		t.SkipNow()
 		return
 	}
@@ -472,7 +512,7 @@ func TestMoreThanOneHost(t *testing.T) {
 	secondHostValue := float64(5678.9)
 	_, err = c.Do("SET", keys[0], secondHostValue)
 	if err != nil {
-		fmt.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
+		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		t.SkipNow()
 		return
 	}
