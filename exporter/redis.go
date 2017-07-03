@@ -471,23 +471,39 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		if _, err := c.Do("SELECT", k.db); err != nil {
 			continue
 		}
-		if tempVal, err := c.Do("GET", k.key); err == nil && tempVal != nil {
-			if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-				e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, k.key).Set(val)
+
+		obtainedKeys := []string{}
+		if strings.Contains(k.key, "*") {
+			log.Debugf("Provided check-keys contains '*' %s", k.key)
+			if tempVal, err := redis.Strings(c.Do("KEYS", k.key)); err == nil && tempVal != nil {
+				for _, tempKey := range tempVal {
+					log.Debugf("Append result: %s", tempKey)
+					obtainedKeys = append(obtainedKeys, tempKey)
+				}
 			}
+		} else {
+			obtainedKeys = append(obtainedKeys, k.key)
 		}
 
-		for _, op := range []string{
-			"HLEN",
-			"LLEN",
-			"SCARD",
-			"ZCARD",
-			"PFCOUNT",
-			"STRLEN",
-		} {
-			if tempVal, err := c.Do(op, k.key); err == nil && tempVal != nil {
-				e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, k.key).Set(float64(tempVal.(int64)))
-				break
+		for _, keyToSearch := range obtainedKeys {
+			if tempVal, err := c.Do("GET", keyToSearch); err == nil && tempVal != nil {
+				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
+					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, keyToSearch).Set(val)
+				}
+			}
+
+			for _, op := range []string{
+				"HLEN",
+				"LLEN",
+				"SCARD",
+				"ZCARD",
+				"PFCOUNT",
+				"STRLEN",
+			} {
+				if tempVal, err := c.Do(op, keyToSearch); err == nil && tempVal != nil {
+					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, keyToSearch).Set(float64(tempVal.(int64)))
+					break
+				}
 			}
 		}
 	}
