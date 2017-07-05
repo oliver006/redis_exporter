@@ -473,22 +473,17 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 
 		obtainedKeys := []string{}
-		if strings.Contains(k.key, "*") {
-			log.Debugf("Provided check-keys contains '*' %s", k.key)
-			if tempVal, err := redis.Strings(c.Do("KEYS", k.key)); err == nil && tempVal != nil {
-				for _, tempKey := range tempVal {
-					log.Debugf("Append result: %s", tempKey)
-					obtainedKeys = append(obtainedKeys, tempKey)
-				}
+		if tempVal, err := redis.Strings(c.Do("KEYS", k.key)); err == nil && tempVal != nil {
+			for _, tempKey := range tempVal {
+				log.Debugf("Append result: %s", tempKey)
+				obtainedKeys = append(obtainedKeys, tempKey)
 			}
-		} else {
-			obtainedKeys = append(obtainedKeys, k.key)
 		}
 
-		for _, keyToSearch := range obtainedKeys {
-			if tempVal, err := c.Do("GET", keyToSearch); err == nil && tempVal != nil {
+		for _, key := range obtainedKeys {
+			if tempVal, err := c.Do("GET", key); err == nil && tempVal != nil {
 				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, keyToSearch).Set(val)
+					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, key).Set(val)
 				}
 			}
 
@@ -500,8 +495,8 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 				"PFCOUNT",
 				"STRLEN",
 			} {
-				if tempVal, err := c.Do(op, keyToSearch); err == nil && tempVal != nil {
-					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, keyToSearch).Set(float64(tempVal.(int64)))
+				if tempVal, err := c.Do(op, key); err == nil && tempVal != nil {
+					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, key).Set(float64(tempVal.(int64)))
 					break
 				}
 			}
