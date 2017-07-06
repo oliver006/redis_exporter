@@ -312,6 +312,47 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	}
 }
 
+func TestKeyValuesAndSizesWildcard(t *testing.T) {
+	s := dbNumStrFull + "=wild*"
+	fmt.Println(s)
+	e, _ := NewRedisExporter(defaultRedisHost, "test", s)
+
+	setupDBKeys(t, defaultRedisHost.Addrs[0])
+	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	metricWant := "test_key_size"
+	totalExpected := 3
+
+	for m := range chM {
+		switch m.(type) {
+		case prometheus.Gauge:
+			if !strings.Contains(m.Desc().String(), metricWant) {
+				continue
+			}
+
+			g := &dto.Metric{}
+			m.Write(g)
+			for _, l := range g.Label {
+				if *l.Name == "key" && strings.HasPrefix(*l.Value, "wild") {
+					totalExpected--
+				}
+			}
+		default:
+			log.Printf("default: m: %#v", m)
+		}
+	}
+
+	if totalExpected != 0 {
+		t.Errorf("didn't find enough wild*, outstanding: %d", totalExpected)
+	}
+}
+
 func TestKeyValueInvalidDB(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "999="+url.QueryEscape(keys[0]))
@@ -567,6 +608,9 @@ func init() {
 		key := fmt.Sprintf("key:%s-%d", n, ts)
 		keys = append(keys, key)
 	}
+
+	// add some with the same prefix so we can test the check-keys wildcard
+	keys = append(keys, "wildcard", "wildbeast", "wildwoods")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
 		key := fmt.Sprintf("key:exp-%s-%d", n, ts)
