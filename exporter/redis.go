@@ -279,37 +279,6 @@ func extractVal(s string) (val float64, err error) {
 	return
 }
 
-/* Helper function to extract results for latency stats as redis.Strings
-   complains if the output is a mix of byte array and something else
-   (in our case int64)
-*/
-func extractStrings(reply interface{}, err error) ([]string, error) {
-	if err != nil {
-		return nil, err
-	}
-	switch reply := reply.(type) {
-	case []interface{}:
-		result := make([]string, len(reply))
-		for i := range reply {
-			if reply[i] == nil {
-				continue
-			}
-			p, ok := reply[i].([]byte)
-			if !ok {
-				result[i] = fmt.Sprintf("%v", reply[i])
-			} else {
-				result[i] = string(p)
-			}
-		}
-		return result, nil
-	case nil:
-		return nil, redis.ErrNil
-	case redis.Error:
-		return nil, reply
-	}
-	return nil, fmt.Errorf("unexpected type for extractStrings, got type %T", reply)
-}
-
 /*
 	valid example: db0:keys=1,expires=0,avg_ttl=0
 */
@@ -344,36 +313,6 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 		avgTTL /= 1000
 	}
 	return
-}
-
-// Helper method to extract latency stats. This is a special case and hence
-// needs to be taken care of appropriately(unlike other redis-cli commands)
-func (e *Exporter) extractLatencyMetrics(latency []string, addr, alias string) error {
-	if len(latency) == 4 {
-		for lineIdx := range latency {
-			lastIndexSpecialCh := strings.LastIndex(latency[lineIdx], ")")
-			latency[lineIdx] = latency[lineIdx][lastIndexSpecialCh+1:]
-		}
-		eventName := latency[0]
-		var latencySpikeTimestamp, latencySpikeMillisecond float64
-		var err error
-		if latencySpikeTimestamp, err = strconv.ParseFloat(latency[1], 64); err == nil {
-			e.metricsMtx.RLock()
-			e.metrics["latency_spike_timestamp"].WithLabelValues(addr, alias, eventName).Set(latencySpikeTimestamp)
-			e.metricsMtx.RUnlock()
-		} else {
-			log.Debugf("couldn't parse %s, err: %s", latency[1], err)
-		}
-		if latencySpikeMillisecond, err = strconv.ParseFloat(latency[2], 64); err == nil {
-			e.metricsMtx.RLock()
-			e.metrics["latency_spike_millisecond"].WithLabelValues(addr, alias, eventName).Set(latencySpikeMillisecond)
-			e.metricsMtx.RUnlock()
-		} else {
-			log.Debugf("couldn't parse %s, err: %s", latency[2], err)
-		}
-
-	}
-	return nil
 }
 
 func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
@@ -540,14 +479,20 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
-	if latencyFullResult, latencyErr := c.Do("LATENCY", "LATEST"); latencyErr == nil && latencyFullResult != nil {
-		tempVal, _ := latencyFullResult.([]interface{})
-		if len(tempVal) > 0 {
-			latencyResult := tempVal[0]
-			if latency, err := extractStrings(latencyResult, latencyErr); err != nil {
-				log.Printf("redis err: %s", err)
+	if reply, err := c.Do("LATENCY", "LATEST"); err != nil {
+		log.Printf("redis err: %s", err)
+	} else {
+		var eventName string
+		var timestamp, millisecond, max int64
+		if tempVal, _ := reply.([]interface{}); len(tempVal) > 0 {
+			latencyResult := tempVal[0].([]interface{})
+			if _, err := redis.Scan(latencyResult, &eventName, &timestamp, &millisecond, &max); err != nil {
+				fmt.Printf("redis err: %s", err)
 			} else {
-				e.extractLatencyMetrics(latency, addr, e.redis.Aliases[idx])
+				e.metricsMtx.RLock()
+				e.metrics["latency_spike_timestamp"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(timestamp))
+				e.metrics["latency_spike_millisecond"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(millisecond))
+				e.metricsMtx.RUnlock()
 			}
 		}
 	}
