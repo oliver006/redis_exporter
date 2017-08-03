@@ -137,15 +137,15 @@ func (e *Exporter) initGauges() {
 	}, []string{"addr", "alias", "db"})
 
 	// Latency info
-	e.metrics["latency_spike_timestamp"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["latency_spike_last"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "latency_spike_timestamp",
+		Name:      "latency_spike_last",
 		Help:      "When the latency spike last occured",
 	}, []string{"addr", "alias", "event_name"})
-	e.metrics["latency_spike_millisecond"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["latency_spike_milliseconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "latency_spike_millisecond",
-		Help:      "How much the latency spike was when it last occured",
+		Name:      "latency_spike_milliseconds",
+		Help:      "Length of the last latency spike in milliseconds",
 	}, []string{"addr", "alias", "event_name"})
 
 	// Emulate a Summary.
@@ -479,19 +479,15 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
-	if reply, err := c.Do("LATENCY", "LATEST"); err != nil {
-		log.Printf("redis err: %s", err)
-	} else {
+	if reply, err := c.Do("LATENCY", "LATEST"); err == nil {
 		var eventName string
-		var timestamp, millisecond, max int64
+		var spikeLast, milliseconds, max int64
 		if tempVal, _ := reply.([]interface{}); len(tempVal) > 0 {
 			latencyResult := tempVal[0].([]interface{})
-			if _, err := redis.Scan(latencyResult, &eventName, &timestamp, &millisecond, &max); err != nil {
-				fmt.Printf("redis err: %s", err)
-			} else {
+			if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &milliseconds, &max); err == nil {
 				e.metricsMtx.RLock()
-				e.metrics["latency_spike_timestamp"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(timestamp))
-				e.metrics["latency_spike_millisecond"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(millisecond))
+				e.metrics["latency_spike_last"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(spikeLast))
+				e.metrics["latency_spike_milliseconds"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(milliseconds))
 				e.metricsMtx.RUnlock()
 			}
 		}
