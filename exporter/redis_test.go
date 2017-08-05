@@ -48,7 +48,6 @@ const (
 	TestSetName = "test-set"
 )
 
-/* TODO: Remove comment once redis version has been updated in github CI
 func setupLatency(t *testing.T, addr string) error {
 
 	c, err := redis.DialURL(addr)
@@ -96,13 +95,11 @@ func resetLatency(t *testing.T, addr string) error {
 
 	return nil
 }
-*/
 
 func TestLatencySpike(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
 
-	/* TODO: Remove comment once redis version has been updated in github CI
 	setupLatency(t, defaultRedisHost.Addrs[0])
 	defer resetLatency(t, defaultRedisHost.Addrs[0])
 
@@ -131,7 +128,6 @@ func TestLatencySpike(t *testing.T) {
 	}
 
 	resetLatency(t, defaultRedisHost.Addrs[0])
-	*/
 
 	chM := make(chan prometheus.Metric)
 	go func() {
