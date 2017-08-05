@@ -48,6 +48,7 @@ const (
 	TestSetName = "test-set"
 )
 
+/* TODO: Remove comment once redis version has been updated in github CI
 func setupLatency(t *testing.T, addr string) error {
 
 	c, err := redis.DialURL(addr)
@@ -95,6 +96,7 @@ func resetLatency(t *testing.T, addr string) error {
 
 	return nil
 }
+*/
 
 func TestLatencySpike(t *testing.T) {
 
