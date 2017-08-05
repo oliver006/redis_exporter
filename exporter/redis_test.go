@@ -100,6 +100,7 @@ func TestLatencySpike(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
 
+	/* TODO: Remove comment once redis version has been updated in github CI
 	setupLatency(t, defaultRedisHost.Addrs[0])
 	defer resetLatency(t, defaultRedisHost.Addrs[0])
 
@@ -128,8 +129,9 @@ func TestLatencySpike(t *testing.T) {
 	}
 
 	resetLatency(t, defaultRedisHost.Addrs[0])
+	*/
 
-	chM = make(chan prometheus.Metric)
+	chM := make(chan prometheus.Metric)
 	go func() {
 		e.Collect(chM)
 		close(chM)
