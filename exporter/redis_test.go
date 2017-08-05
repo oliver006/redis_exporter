@@ -129,7 +129,7 @@ func TestLatencySpike(t *testing.T) {
 
 	resetLatency(t, defaultRedisHost.Addrs[0])
 
-	chM := make(chan prometheus.Metric)
+	chM = make(chan prometheus.Metric)
 	go func() {
 		e.Collect(chM)
 		close(chM)
