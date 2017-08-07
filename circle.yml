@@ -3,13 +3,17 @@ machine:
     - redis
     - docker
   post:
-    - /usr/bin/redis-server --port 6380:
+    - /usr/bin/redis-server --port 6379:
           background: true
   environment:
     SRC_LOCATION:     "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
     COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
     GO_LDFLAGS:       '-extldflags "-static" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)'
-    MY_GO_VERSION:    "1.8.1"
+    MY_GO_VERSION:    "1.8.3"
+    GOROOT:           "/usr/local/go"
+    GOPATH:           "/home/ubuntu/.go_workspace"
+    CDPATH:           ".:$GOPATH/src/github.com:$GOPATH/src/golang.org:$GOPATH/src"
+    PATH:             "$GOROOT/bin:$GOPATH/bin:$PATH"
 
 dependencies:
   pre:
@@ -28,10 +32,7 @@ dependencies:
   cache_directories:
     - ~/redis-3.2.10
   override:
-    - sudo add-apt-repository ppa:masterminds/glide -y
     - sudo apt-get update
-    - sudo apt-get install glide -y
-    - glide --version
     - mkdir -p "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME"
     - ln -s $HOME/$CIRCLE_PROJECT_REPONAME $SRC_LOCATION
 
@@ -39,15 +40,13 @@ test:
   pre:
     - wget https://storage.googleapis.com/golang/go$MY_GO_VERSION.linux-amd64.tar.gz &&  sudo rm -rf /usr/local/go/ &&  sudo tar -C /usr/local -xzf go$MY_GO_VERSION.linux-amd64.tar.gz
     - go version
-    - go vet ./...
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
-    - cd $SRC_LOCATION && glide install
   override:
     - cd $SRC_LOCATION && go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/...
   post:
     - if [ -n "$COVERALLS_TOKEN" ]; then /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=$COVERAGE_PROFILE -service=circle-ci -repotoken=$COVERALLS_TOKEN ;  fi
-
+    - cd $SRC_LOCATION && make
 
 deployment:
   publish:
@@ -55,4 +54,7 @@ deployment:
     commands:
       - go get github.com/mitchellh/gox
       - go get github.com/tcnksm/ghr
-      - cd $SRC_LOCATION && ./build.sh
+      - cd $SRC_LOCATION && make build
+      - CGO_ENABLED=0 promu crossbuild tarballs
+      - promu checksum .tarballs
+      - promu release .tarballs

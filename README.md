@@ -2,6 +2,7 @@
 [![Circle CI](https://circleci.com/gh/oliver006/redis_exporter.svg?style=shield)](https://circleci.com/gh/oliver006/redis_exporter) [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master)
 
 Prometheus exporter for Redis metrics.<br>
+
 Supports Redis 2.x and 3.x
 
 ## Building, configuring, and running
@@ -9,12 +10,13 @@ Supports Redis 2.x and 3.x
 Locally build and run it:
 
 ```
-    $ go get
-    $ go build
+    $ go get github.com/oliver006/redis_exporter
+    $ cd $GOPATH/src/github.com/oliver006/redis_exporter
+    $ make
     $ ./redis_exporter <flags>
 ```
 
-You can also run it via docker: 
+You can also run it via docker:
 
 ```
     $ docker pull oliver006/redis_exporter
@@ -41,13 +43,15 @@ and adjust the host name accordingly.
 
 Name               | Description
 -------------------|------------
-debug              | Verbose debug output
-log-format         | Log format, valid options are `txt` (default) and `json`.
-check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. 
-redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
-redis.password     | Password to use when authenticating to Redis
-redis.alias        | Alias for redis node addr, comma separated.
+check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.
+log.format         | Set the log target and format. Example: "logger:syslog?appname=bob&local=7" or "logger:stdout?json=true" (default "logger:stderr")
+log.level          | Only log messages with the given severity or above. Valid levels: [debug, info, warn, error, fatal]
 namespace          | Namespace for the metrics, defaults to `redis`.
+redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
+redis.alias        | Alias for redis node addr, comma separated.
+redis.password     | Password to use when authenticating to Redis
+separator          | Separator used to split redis.addr, redis.password and redis.alias into several elements. (default ",")
+version            | Show version information and exit
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
 

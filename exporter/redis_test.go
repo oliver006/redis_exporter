@@ -20,8 +20,10 @@ import (
 
 	"bytes"
 	"flag"
+
 	"github.com/garyburd/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -528,7 +530,7 @@ func TestHTTPEndpoint(t *testing.T) {
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
 	prometheus.MustRegister(e)
 
-	http.Handle("/metrics", prometheus.Handler())
+	http.Handle("/metrics", promhttp.Handler())
 	go http.ListenAndServe("127.0.0.1:9121", nil)
 	time.Sleep(time.Second)
 	resp, err := http.Get("http://127.0.0.1:9121/metrics")

@@ -470,7 +470,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		return err
 	}
 
-	if strings.Index(info, "cluster_enabled:1") != -1 {
+	if strings.Contains(info, "cluster_enabled:1") {
 		info, err = redis.String(c.Do("CLUSTER", "INFO"))
 		if err != nil {
 			log.Printf("redis err: %s", err)
