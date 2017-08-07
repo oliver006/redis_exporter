@@ -17,16 +17,16 @@ dependencies:
     - rm -rf /home/ubuntu/.go_project
     - sudo service redis-server stop
     - >
-      cd ~ && if [ ! -d "redis-3.2.5" ]; then
-        wget http://download.redis.io/releases/redis-3.2.5.tar.gz
-        tar xzf redis-3.2.5.tar.gz
-        cd redis-3.2.5 && make;
+      cd ~ && if [ ! -d "redis-3.2.10" ]; then
+        wget http://download.redis.io/releases/redis-3.2.10.tar.gz
+        tar xzf redis-3.2.10.tar.gz
+        cd redis-3.2.10 && make;
       fi
-    - cd ~/redis-3.2.5 && sudo make install
+    - cd ~/redis-3.2.10 && sudo make install
     - sudo sed -i 's/bin/local\/bin/g' /etc/init/redis-server.conf
     - sudo service redis-server start
   cache_directories:
-    - ~/redis-3.2.5
+    - ~/redis-3.2.10
   override:
     - sudo add-apt-repository ppa:masterminds/glide -y
     - sudo apt-get update
