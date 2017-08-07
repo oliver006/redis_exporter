@@ -39,6 +39,8 @@ test:
   pre:
     - wget https://storage.googleapis.com/golang/go$MY_GO_VERSION.linux-amd64.tar.gz &&  sudo rm -rf /usr/local/go/ &&  sudo tar -C /usr/local -xzf go$MY_GO_VERSION.linux-amd64.tar.gz
     - go version
+    - echo " ! gofmt -d main.go       2>&1 | read " | bash
+    - echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash
     - go vet ./...
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
