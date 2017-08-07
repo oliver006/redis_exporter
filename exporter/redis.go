@@ -136,6 +136,18 @@ func (e *Exporter) initGauges() {
 		Help:      "Avg TTL in seconds",
 	}, []string{"addr", "alias", "db"})
 
+	// Latency info
+	e.metrics["latency_spike_last"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "latency_spike_last",
+		Help:      "When the latency spike last occured",
+	}, []string{"addr", "alias", "event_name"})
+	e.metrics["latency_spike_milliseconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "latency_spike_milliseconds",
+		Help:      "Length of the last latency spike in milliseconds",
+	}, []string{"addr", "alias", "event_name"})
+
 	// Emulate a Summary.
 	e.metrics["command_call_duration_seconds_count"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
@@ -464,6 +476,20 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 			log.Printf("redis err: %s", err)
 		} else {
 			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
+		}
+	}
+
+	if reply, err := c.Do("LATENCY", "LATEST"); err == nil {
+		var eventName string
+		var spikeLast, milliseconds, max int64
+		if tempVal, _ := reply.([]interface{}); len(tempVal) > 0 {
+			latencyResult := tempVal[0].([]interface{})
+			if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &milliseconds, &max); err == nil {
+				e.metricsMtx.RLock()
+				e.metrics["latency_spike_last"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(spikeLast))
+				e.metrics["latency_spike_milliseconds"].WithLabelValues(addr, e.redis.Aliases[idx], eventName).Set(float64(milliseconds))
+				e.metricsMtx.RUnlock()
+			}
 		}
 	}
 

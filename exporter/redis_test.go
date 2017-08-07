@@ -25,7 +25,10 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-const TestValue = 1234.56
+const (
+	TestValue   = 1234.56
+	TimeToSleep = 200
+)
 
 var (
 	redisAddr  = flag.String("redis.addr", "localhost:6379", "Address of the test instance, without `redis://`")
@@ -44,6 +47,103 @@ var (
 const (
 	TestSetName = "test-set"
 )
+
+func setupLatency(t *testing.T, addr string) error {
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+	defer c.Close()
+
+	_, err = c.Do("CONFIG", "SET", "LATENCY-MONITOR-THRESHOLD", 100)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	// Have to pass in the sleep time in seconds so we have to divide
+	// the number of milliseconds by 1000 to get number of seconds
+	_, err = c.Do("DEBUG", "SLEEP", TimeToSleep/1000.0)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	return nil
+}
+
+func resetLatency(t *testing.T, addr string) error {
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+	defer c.Close()
+
+	_, err = c.Do("LATENCY", "RESET")
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	return nil
+}
+
+func TestLatencySpike(t *testing.T) {
+
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+
+	setupLatency(t, defaultRedisHost.Addrs[0])
+	defer resetLatency(t, defaultRedisHost.Addrs[0])
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	for m := range chM {
+		switch m := m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "latency_spike_milliseconds") {
+				got := &dto.Metric{}
+				m.Write(got)
+
+				val := got.GetGauge().GetValue()
+				// Because we're dealing with latency, there might be a slight delay
+				// even after sleeping for a specific amount of time so checking
+				// to see if we're between +-5 of our expected value
+				if val > float64(TimeToSleep)-5 && val < float64(TimeToSleep) {
+					t.Errorf("values not matching, %f != %f", float64(TimeToSleep), val)
+				}
+			}
+		}
+	}
+
+	resetLatency(t, defaultRedisHost.Addrs[0])
+
+	chM = make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	for m := range chM {
+		switch m := m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "latency_spike_milliseconds") {
+				t.Errorf("latency threshold was not reset")
+			}
+		}
+	}
+}
 
 func setupDBKeys(t *testing.T, addr string) error {
 
