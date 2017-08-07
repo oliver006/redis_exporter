@@ -38,6 +38,7 @@ var (
 
 func main() {
 	flag.Parse()
+
 	switch *logFormat {
 	case "json":
 		log.SetFormatter(&log.JSONFormatter{})
