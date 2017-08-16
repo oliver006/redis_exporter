@@ -258,9 +258,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 func includeMetric(s string) bool {
 
-	if strings.Contains(s, "-") {
-		return false
-	}
 	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
@@ -268,6 +265,11 @@ func includeMetric(s string) bool {
 	_, ok := metricMap[s]
 
 	return ok
+}
+
+func sanitizeMetricName(n string) string {
+	n = strings.Replace(n, "-", "_", 0)
+	return n
 }
 
 func extractVal(s string) (val float64, err error) {
@@ -391,7 +393,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			continue
 		}
 
-		metricName := split[0]
+		metricName := sanitizeMetricName(split[0])
 		if newName, ok := metricMap[metricName]; ok {
 			metricName = newName
 		}
