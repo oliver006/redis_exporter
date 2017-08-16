@@ -258,6 +258,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 func includeMetric(s string) bool {
 
+	if strings.Contains(s, "-") {
+		return false
+	}
 	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
