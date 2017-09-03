@@ -414,7 +414,6 @@ func TestKeyValuesAndSizes(t *testing.T) {
 
 func TestKeyValuesAndSizesWildcard(t *testing.T) {
 	s := dbNumStrFull + "=wild*"
-	fmt.Println(s)
 	e, _ := NewRedisExporter(defaultRedisHost, "test", s)
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -699,6 +698,19 @@ func TestMoreThanOneHost(t *testing.T) {
 	for lbl, val := range want {
 		if val > 0 {
 			t.Errorf("Never found value for: %s", lbl)
+		}
+	}
+}
+
+func TestSanitizeMetricName(t *testing.T) {
+	tsts := map[string]string{
+		"cluster_stats_messages_auth-req_received":  "cluster_stats_messages_auth_req_received",
+		"cluster_stats_messages_auth_req_received": "cluster_stats_messages_auth_req_received",
+	}
+
+	for m, want := range tsts {
+		if got := sanitizeMetricName(m); got != want {
+			t.Errorf("sanitizeMetricName( %s ) error, want: %s, got: %s", m, want, got)
 		}
 	}
 }

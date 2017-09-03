@@ -268,7 +268,7 @@ func includeMetric(s string) bool {
 }
 
 func sanitizeMetricName(n string) string {
-	n = strings.Replace(n, "-", "_", 0)
+	n = strings.Replace(n, "-", "_", -1)
 	return n
 }
 
