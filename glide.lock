@@ -1,5 +1,5 @@
 hash: 5a0ff94f19448703bd2b88935d52c9bc4685cb8cc45fb326a4b4a1a5a7b22f11
-updated: 2017-01-18T09:40:25.9066986-05:00
+updated: 2017-09-03T10:53:14.664603139+09:00
 imports:
 - name: github.com/beorn7/perks
   version: 4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9
@@ -11,7 +11,7 @@ imports:
   - internal
   - redis
 - name: github.com/golang/protobuf
-  version: 8ee79997227bf9b34611aee7946ae64735e6fd93
+  version: 2402d76f3d41f928c7902a765dfc872356dd3aad
   subpackages:
   - proto
 - name: github.com/matttproud/golang_protobuf_extensions
@@ -37,7 +37,7 @@ imports:
 - name: github.com/Sirupsen/logrus
   version: d26492970760ca5d33129d2d799e34be5c4782eb
 - name: golang.org/x/sys
-  version: d75a52659825e75fff6158388dddc6a5b04f9ba5
+  version: 90796e5a05ce440b41c768bd9af257005e470461
   subpackages:
   - unix
 testImports: []
