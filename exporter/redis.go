@@ -243,6 +243,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.Lock()
 	defer e.Unlock()
 
+	e.keySizes.Reset()
+	e.keyValues.Reset()
+
 	e.initGauges()
 	go e.scrape(scrapes)
 	e.setMetrics(scrapes)
