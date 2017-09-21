@@ -27,6 +27,7 @@ var (
 	isDebug       = flag.Bool("debug", false, "Output verbose debug information")
 	logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
+	useCfBinding  = flag.Bool("use-cf-binding", false, "Use Cloud foundry service bindings")
 	addrs         []string
 	passwords     []string
 	aliases       []string
@@ -75,7 +76,7 @@ func main() {
 		addrs, passwords, aliases = loadRedisArgs(*redisAddr, *redisPassword, *redisAlias, *separator)
 	}
 
-	if (len(addrs) == 0 || addrsOnlyContainLocalhost(addrs)) && isOnCloudFoundry() {
+	if *useCfBinding {
 		addrs, passwords, aliases = getCloudFoundryRedisBindings()
 	}
 
@@ -107,10 +108,6 @@ func main() {
 </html>
 						`))
 	})
-
-	if isOnCloudFoundry() {
-		*listenAddress = ":8080"
-	}
 
 	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Printf("Connecting to redis hosts: %#v", addrs)
@@ -185,46 +182,35 @@ func getEnv(key string, defaultVal string) string {
 	return defaultVal
 }
 
-func isOnCloudFoundry() bool {
-	return getEnv("VCAP_APPLICATION", "") != ""
-}
-
-func getCloudFoundryRedisBindings() ([]string, []string, []string) {
-	if !isOnCloudFoundry() {
-		return []string{}, []string{}, []string{}
+func getCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
+	if !cfenv.IsRunningOnCF() {
+		return
 	}
 
-	var addrs []string
-	var passwords []string
-	var aliases []string
-
-	appEnv, _ := cfenv.Current()
+	appEnv, err := cfenv.Current()
+	if err != nil {
+		log.Warnln("Unable to get current CF environment", err)
+		return
+	}
 
 	redisServices, err := appEnv.Services.WithTag("redis")
-
-	if err == nil {
-		for _, redisService := range redisServices {
-			credentials := redisService.Credentials
-			addr := credentials["hostname"].(string) + ":" + credentials["port"].(string)
-			password := credentials["password"].(string)
-			alias := redisService.Name
-
-			addrs = append(addrs, addr)
-			passwords = append(passwords, password)
-			aliases = append(aliases, alias)
-		}
+	if err != nil {
+		log.Warnln("Error while getting redis services", err)
+		return
 	}
 
-	return addrs, passwords, aliases
-}
+	for _, redisService := range redisServices {
+		credentials := redisService.Credentials
+		addr := credentials["hostname"].(string) + ":" + credentials["port"].(string)
+		password := credentials["password"].(string)
+		alias := redisService.Name
 
-func containsTagCaseInsensitive(tags []string, tag string) bool {
-	for _, needle := range tags {
-		if strings.ToLower(needle) == strings.ToLower(tag) {
-			return true
-		}
+		addrs = append(addrs, addr)
+		passwords = append(passwords, password)
+		aliases = append(aliases, alias)
 	}
-	return false
+
+	return
 }
 
 func addrsOnlyContainLocalhost(addrs []string) bool {
