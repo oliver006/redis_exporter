@@ -212,12 +212,3 @@ func getCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
 
 	return
 }
-
-func addrsOnlyContainLocalhost(addrs []string) bool {
-	for _, addr := range addrs {
-		if addr == "redis://localhost:6379" {
-			return true
-		}
-	}
-	return false
-}
