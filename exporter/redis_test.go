@@ -96,6 +96,22 @@ func resetLatency(t *testing.T, addr string) error {
 	return nil
 }
 
+func getMetrics(t *testing.T) []byte {
+	resp, err := http.Get("http://127.0.0.1:9121/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return body
+}
+
+
 func TestLatencySpike(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
@@ -525,21 +541,9 @@ func TestHTTPEndpoint(t *testing.T) {
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
-	prometheus.MustRegister(e)
+	prometheus.Register(e)
 
-	http.Handle("/metrics", prometheus.Handler())
-	go http.ListenAndServe("127.0.0.1:9121", nil)
-	time.Sleep(time.Second)
-	resp, err := http.Get("http://127.0.0.1:9121/metrics")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	body := getMetrics(t)
 
 	tests := []string{
 		// metrics
@@ -715,6 +719,36 @@ func TestSanitizeMetricName(t *testing.T) {
 	}
 }
 
+func TestKeysReset(t *testing.T) {
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+keys[0])
+
+	setupDBKeys(t, defaultRedisHost.Addrs[0])
+	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
+
+	prometheus.Register(e)
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	body := getMetrics(t)
+
+	if !bytes.Contains(body, []byte(keys[0])) {
+		t.Errorf("Did not found key %q\n%s", keys[0], body)
+	}
+
+	deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
+
+	body = getMetrics(t)
+
+	if bytes.Contains(body, []byte(keys[0])) {
+		t.Errorf("Metric is present in metrics list %q\n%s", keys[0], body)
+	}
+}
+
+
 func init() {
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
 		key := fmt.Sprintf("key:%s-%d", n, ts)
@@ -742,4 +776,7 @@ func init() {
 
 	log.Printf("Using redis addrs: %#v", addrs)
 	defaultRedisHost = RedisHost{Addrs: []string{"redis://" + *redisAddr}, Aliases: aliases}
+
+	http.Handle("/metrics", prometheus.Handler())
+	go http.ListenAndServe("127.0.0.1:9121", nil)
 }
