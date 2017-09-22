@@ -27,7 +27,7 @@ var (
 	isDebug       = flag.Bool("debug", false, "Output verbose debug information")
 	logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
-	useCfBinding  = flag.Bool("use-cf-binding", false, "Use Cloud foundry service bindings")
+	useCfBindings = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
 	addrs         []string
 	passwords     []string
 	aliases       []string
@@ -76,7 +76,7 @@ func main() {
 		addrs, passwords, aliases = loadRedisArgs(*redisAddr, *redisPassword, *redisAlias, *separator)
 	}
 
-	if *useCfBinding {
+	if *useCfBindings {
 		addrs, passwords, aliases = getCloudFoundryRedisBindings()
 	}
 
