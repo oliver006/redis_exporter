@@ -66,18 +66,17 @@ func main() {
 		log.Fatal("Cannot specify both redis.addr and redis.file")
 	}
 
-	if *redisFile != "" {
+	switch {
+	case *redisFile != "":
 		var err error
 		addrs, passwords, aliases, err = loadRedisFile(*redisFile)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else {
-		addrs, passwords, aliases = loadRedisArgs(*redisAddr, *redisPassword, *redisAlias, *separator)
-	}
-
-	if *useCfBindings {
+	case *useCfBindings:
 		addrs, passwords, aliases = getCloudFoundryRedisBindings()
+	default:
+		addrs, passwords, aliases = loadRedisArgs(*redisAddr, *redisPassword, *redisAlias, *separator)
 	}
 
 	exp, err := exporter.NewRedisExporter(
