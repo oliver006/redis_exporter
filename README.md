@@ -36,6 +36,12 @@ scrape_configs:
 ```
 and adjust the host name accordingly.
 
+To run on Cloud Foundry, use:
+
+```
+cf push -f contrib/manifest.yml
+```
+
 
 ### Flags
 
