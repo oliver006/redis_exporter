@@ -110,6 +110,7 @@ var (
 	}
 
 	instanceInfoFields = map[string]bool{"redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
+	replicationFields  = map[string]bool{"role": true, "master_host": true, "master_port": true, "master_link_status": true, "slave_read_only": true}
 )
 
 func (e *Exporter) initGauges() {
@@ -120,6 +121,11 @@ func (e *Exporter) initGauges() {
 		Name:      "instance_info",
 		Help:      "Information about the Redis instance",
 	}, []string{"addr", "alias", "redis_version", "redis_build_id", "redis_mode", "os"})
+	e.metrics["replication"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "replication",
+		Help:      "Information about the Redis replication",
+	}, []string{"role", "master_host", "master_port", "master_link_status", "slave_read_only"})
 	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "db_keys",
@@ -325,6 +331,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 	lines := strings.Split(info, "\r\n")
 
 	instanceInfo := map[string]string{}
+	replication := map[string]string{}
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
@@ -342,6 +349,11 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		split := strings.Split(line, ":")
 		if _, ok := instanceInfoFields[split[0]]; ok {
 			instanceInfo[split[0]] = split[1]
+			continue
+		}
+
+		if _, ok := replicationFields[split[0]]; ok {
+			replication[split[0]] = split[1]
 			continue
 		}
 
@@ -428,6 +440,13 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		instanceInfo["redis_build_id"],
 		instanceInfo["redis_mode"],
 		instanceInfo["os"],
+	).Set(1)
+	e.metrics["replication"].WithLabelValues(
+		replication["role"],
+		replication["master_host"],
+		replication["master_port"],
+		replication["master_link_status"],
+		replication["slave_read_only"],
 	).Set(1)
 	e.metricsMtx.RUnlock()
 
