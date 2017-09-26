@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/cloudfoundry-community/go-cfenv"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -26,6 +27,7 @@ var (
 	isDebug       = flag.Bool("debug", false, "Output verbose debug information")
 	logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
+	useCfBindings = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
 	addrs         []string
 	passwords     []string
 	aliases       []string
@@ -64,13 +66,16 @@ func main() {
 		log.Fatal("Cannot specify both redis.addr and redis.file")
 	}
 
-	if *redisFile != "" {
+	switch {
+	case *redisFile != "":
 		var err error
 		addrs, passwords, aliases, err = loadRedisFile(*redisFile)
 		if err != nil {
 			log.Fatal(err)
 		}
-	} else {
+	case *useCfBindings:
+		addrs, passwords, aliases = getCloudFoundryRedisBindings()
+	default:
 		addrs, passwords, aliases = loadRedisArgs(*redisAddr, *redisPassword, *redisAlias, *separator)
 	}
 
@@ -174,4 +179,35 @@ func getEnv(key string, defaultVal string) string {
 		return envVal
 	}
 	return defaultVal
+}
+
+func getCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
+	if !cfenv.IsRunningOnCF() {
+		return
+	}
+
+	appEnv, err := cfenv.Current()
+	if err != nil {
+		log.Warnln("Unable to get current CF environment", err)
+		return
+	}
+
+	redisServices, err := appEnv.Services.WithTag("redis")
+	if err != nil {
+		log.Warnln("Error while getting redis services", err)
+		return
+	}
+
+	for _, redisService := range redisServices {
+		credentials := redisService.Credentials
+		addr := credentials["hostname"].(string) + ":" + credentials["port"].(string)
+		password := credentials["password"].(string)
+		alias := redisService.Name
+
+		addrs = append(addrs, addr)
+		passwords = append(passwords, password)
+		aliases = append(aliases, alias)
+	}
+
+	return
 }

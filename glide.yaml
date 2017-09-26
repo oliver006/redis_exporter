@@ -10,6 +10,9 @@ import:
   version: v0.8.0
   subpackages:
   - prometheus
+- package: github.com/cloudfoundry-community/go-cfenv
+  version: v1.17.0
+- package: github.com/mitchellh/mapstructure
 testImport:
 - package: github.com/prometheus/client_model
   subpackages:
