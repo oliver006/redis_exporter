@@ -111,7 +111,6 @@ func getMetrics(t *testing.T) []byte {
 	return body
 }
 
-
 func TestLatencySpike(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
@@ -747,7 +746,6 @@ func TestKeysReset(t *testing.T) {
 		t.Errorf("Metric is present in metrics list %q\n%s", keys[0], body)
 	}
 }
-
 
 func init() {
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
