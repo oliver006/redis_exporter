@@ -109,7 +109,8 @@ var (
 		"cluster_stats_messages_received": "cluster_messages_received_total",
 	}
 
-	instanceInfoFields = map[string]bool{"redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
+	instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
+	slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
 )
 
 func (e *Exporter) initGauges() {
@@ -119,7 +120,17 @@ func (e *Exporter) initGauges() {
 		Namespace: e.namespace,
 		Name:      "instance_info",
 		Help:      "Information about the Redis instance",
-	}, []string{"addr", "alias", "redis_version", "redis_build_id", "redis_mode", "os"})
+	}, []string{"addr", "alias", "role", "redis_version", "redis_build_id", "redis_mode", "os"})
+	e.metrics["slave_info"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "slave_info",
+		Help:      "Information about the Redis slave",
+	}, []string{"addr", "alias", "master_host", "master_port", "read_only"})
+	e.metrics["master_link_up"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "master_link_up",
+		Help:      "Master link status on Redis slave",
+	}, []string{"addr", "alias"})
 	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "db_keys",
@@ -328,6 +339,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 	lines := strings.Split(info, "\r\n")
 
 	instanceInfo := map[string]string{}
+	slaveInfo := map[string]string{}
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
@@ -345,6 +357,22 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		split := strings.Split(line, ":")
 		if _, ok := instanceInfoFields[split[0]]; ok {
 			instanceInfo[split[0]] = split[1]
+			continue
+		}
+
+		if _, ok := slaveInfoFields[split[0]]; ok {
+			slaveInfo[split[0]] = split[1]
+			continue
+		}
+
+		if split[0] == "master_link_status" {
+			e.metricsMtx.RLock()
+			if split[1] == "up" {
+				e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(1)
+			} else {
+				e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
+			}
+			e.metricsMtx.RUnlock()
 			continue
 		}
 
@@ -427,11 +455,20 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 	e.metricsMtx.RLock()
 	e.metrics["instance_info"].WithLabelValues(
 		addr, alias,
+		instanceInfo["role"],
 		instanceInfo["redis_version"],
 		instanceInfo["redis_build_id"],
 		instanceInfo["redis_mode"],
 		instanceInfo["os"],
 	).Set(1)
+	if instanceInfo["role"] == "slave" {
+		e.metrics["slave_info"].WithLabelValues(
+			addr, alias,
+			slaveInfo["master_host"],
+			slaveInfo["master_port"],
+			slaveInfo["slave_read_only"],
+		).Set(1)
+	}
 	e.metricsMtx.RUnlock()
 
 	return nil
