@@ -8,10 +8,10 @@ import (
 	"runtime"
 	"strings"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/cloudfoundry-community/go-cfenv"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 var (

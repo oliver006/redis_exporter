@@ -2,3 +2,4 @@ redis_exporter
 coverage.out
 pkg/
 src/
+vendor/
