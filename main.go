@@ -11,6 +11,7 @@ import (
 	"github.com/cloudfoundry-community/go-cfenv"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -28,6 +29,7 @@ var (
 	logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 	showVersion   = flag.Bool("version", false, "Show version information and exit")
 	useCfBindings = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
+	redisOnly     = flag.Bool("redis-only-metrics", false, "Whether to export go runtime metrics also")
 	addrs         []string
 	passwords     []string
 	aliases       []string
@@ -86,16 +88,25 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	prometheus.MustRegister(exp)
 
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "redis_exporter_build_info",
 		Help: "redis exporter build_info",
 	}, []string{"version", "commit_sha", "build_date", "golang_version"})
-	prometheus.MustRegister(buildInfo)
 	buildInfo.WithLabelValues(VERSION, COMMIT_SHA1, BUILD_DATE, runtime.Version()).Set(1)
 
-	http.Handle(*metricPath, prometheus.Handler())
+	if !*redisOnly {
+		prometheus.MustRegister(exp)
+		prometheus.MustRegister(buildInfo)
+		http.Handle(*metricPath, prometheus.Handler())
+	} else {
+		registry := prometheus.NewRegistry()
+		registry.Register(exp)
+		registry.Register(buildInfo)
+		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+		http.Handle(*metricPath, handler)
+	}
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`
 <html>
