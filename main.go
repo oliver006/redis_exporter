@@ -11,26 +11,28 @@ import (
 	"github.com/cloudfoundry-community/go-cfenv"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
 var (
-	redisAddr     = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of one or more redis nodes, separated by separator")
-	redisFile     = flag.String("redis.file", getEnv("REDIS_FILE", ""), "Path to file containing one or more redis nodes, separated by newline. NOTE: mutually exclusive with redis.addr")
-	redisPassword = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
-	redisAlias    = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
-	namespace     = flag.String("namespace", "redis", "Namespace for metrics")
-	checkKeys     = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
-	separator     = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
-	listenAddress = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
-	metricPath    = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
-	isDebug       = flag.Bool("debug", false, "Output verbose debug information")
-	logFormat     = flag.String("log-format", "txt", "Log format, valid options are txt and json")
-	showVersion   = flag.Bool("version", false, "Show version information and exit")
-	useCfBindings = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
-	addrs         []string
-	passwords     []string
-	aliases       []string
+	redisAddr        = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of one or more redis nodes, separated by separator")
+	redisFile        = flag.String("redis.file", getEnv("REDIS_FILE", ""), "Path to file containing one or more redis nodes, separated by newline. NOTE: mutually exclusive with redis.addr")
+	redisPassword    = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
+	redisAlias       = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
+	namespace        = flag.String("namespace", "redis", "Namespace for metrics")
+	checkKeys        = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
+	separator        = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
+	listenAddress    = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
+	metricPath       = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
+	isDebug          = flag.Bool("debug", false, "Output verbose debug information")
+	logFormat        = flag.String("log-format", "txt", "Log format, valid options are txt and json")
+	showVersion      = flag.Bool("version", false, "Show version information and exit")
+	useCfBindings    = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
+	redisMetricsOnly = flag.Bool("redis-only-metrics", false, "Whether to export go runtime metrics also")
+	addrs            []string
+	passwords        []string
+	aliases          []string
 
 	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the build script
 	VERSION     = "<<< filled in by build >>>"
@@ -86,16 +88,25 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	prometheus.MustRegister(exp)
 
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "redis_exporter_build_info",
 		Help: "redis exporter build_info",
 	}, []string{"version", "commit_sha", "build_date", "golang_version"})
-	prometheus.MustRegister(buildInfo)
 	buildInfo.WithLabelValues(VERSION, COMMIT_SHA1, BUILD_DATE, runtime.Version()).Set(1)
 
-	http.Handle(*metricPath, prometheus.Handler())
+	if *redisMetricsOnly {
+		registry := prometheus.NewRegistry()
+		registry.Register(exp)
+		registry.Register(buildInfo)
+		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
+		http.Handle(*metricPath, handler)
+	} else {
+		prometheus.MustRegister(exp)
+		prometheus.MustRegister(buildInfo)
+		http.Handle(*metricPath, prometheus.Handler())
+	}
+
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`
 <html>
