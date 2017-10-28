@@ -3,7 +3,7 @@ import:
 - package: github.com/sirupsen/logrus
   version: v0.11.0
 - package: github.com/garyburd/redigo
-  version: v1.0.0
+  version: v1.2.0
   subpackages:
   - redis
 - package: github.com/prometheus/client_golang
