@@ -1,0 +1,62 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: default
+  name: redis-exporter
+  labels:
+    name: redis-exporter
+spec:
+  ports:
+  - name: redis-exporter
+    port: 9121
+  selector:
+    name: redis-exporter
+
+---
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  namespace: default
+  name: redis-exporter
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: redis-exporter
+    spec:
+      containers:
+        - name: redis-exporter
+          image: cookingcodewithme/redis_export:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: "0.1"
+          ports:
+            - name: redis-exporter
+              containerPort: 9121
+          env:
+            - name: REDIS_ADDR
+              value: "redis-sentinel.default.svc.cluster.local:26379"
+            - name: ARGS
+              value: "-use-redis-sentinel -debug"
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  namespace: monitoring
+  name: redis-exporter
+  labels:
+    team: frontend
+spec:
+  namespaceSelector:
+    matchNames:
+      - default
+  selector:
+    matchLabels:
+      name: redis-exporter
+  endpoints:
+  - port: redis-exporter
+    interval: 30s
+    path: /metrics
