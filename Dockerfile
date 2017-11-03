@@ -1,4 +1,4 @@
-FROM golang:1.9 as builder
+FROM golang:1.8.3 as builder
 
 ARG VERSION=0.0.1
 WORKDIR /go/src/github.com/oliver006/redis_exporter

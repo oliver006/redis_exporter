@@ -8,12 +8,13 @@ import (
 	"runtime"
 	"strings"
 
+	sentinel "github.com/FZambia/go-sentinel"
 	"github.com/cloudfoundry-community/go-cfenv"
+	"github.com/garyburd/redigo/redis"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	sentinel "github.com/FZambia/go-sentinel"
-	"github.com/garyburd/redigo/redis"
+
 	log "github.com/sirupsen/logrus"
 	"time"
 )
@@ -23,7 +24,7 @@ var (
 	redisFile        = flag.String("redis.file", getEnv("REDIS_FILE", ""), "Path to file containing one or more redis nodes, separated by newline. NOTE: mutually exclusive with redis.addr")
 	redisPassword    = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
 	redisAlias       = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
-	masterName  	 = flag.String("redis.sentinel.master", getEnv("REDIS_SENTINEL_MASTER", "mymaster"), "name of the master node.")
+	masterName       = flag.String("redis.sentinel.master", getEnv("REDIS_SENTINEL_MASTER", "mymaster"), "name of the master node.")
 	namespace        = flag.String("namespace", "redis", "Namespace for metrics")
 	checkKeys        = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
 	separator        = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
@@ -84,7 +85,7 @@ func main() {
 		addrs, passwords, aliases = getCloudFoundryRedisBindings()
 	case *useRedisSentinel:
 		var err error
-		addrs, passwords, aliases, err = loadRedisSentinel(*redisAddr, *redisPassword, *redisAlias,*separator)
+		addrs, passwords, aliases, err = loadRedisSentinel(*redisAddr, *redisPassword, *redisAlias, *separator)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -262,7 +263,7 @@ func loadRedisSentinel(addr, password, alias, separator string) ([]string, []str
 		log.Warnln("Error while getting address of redis master", err)
 		return nil, nil, nil, err
 	} else {
-		addrs=append(addrs, master)
+		addrs = append(addrs, master)
 
 		slaves, err := sntnl.Slaves()
 		if err != nil {
@@ -270,8 +271,8 @@ func loadRedisSentinel(addr, password, alias, separator string) ([]string, []str
 			return nil, nil, nil, err
 		} else {
 			for _, slave := range slaves {
-				if (true == slave.Available()) {
-					addrs=append(addrs,slave.Addr())
+				if true == slave.Available() {
+					addrs = append(addrs, slave.Addr())
 					for len(passwords) < len(addrs) {
 						passwords = append(passwords, passwords[0])
 					}
