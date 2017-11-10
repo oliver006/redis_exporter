@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -131,6 +132,11 @@ func (e *Exporter) initGauges() {
 		Name:      "master_link_up",
 		Help:      "Master link status on Redis slave",
 	}, []string{"addr", "alias"})
+	e.metrics["connected_slave_offset"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "connected_slave_offset",
+		Help:      "Offset of connected slave",
+	}, []string{"addr", "alias", "slave_ip", "slave_state"})
 	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "db_keys",
@@ -334,6 +340,36 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 	return
 }
 
+/*
+	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
+	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
+*/
+func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, state string, ok bool) {
+	ok = false
+	if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
+		return
+	}
+	connectedSlaveInfo := make(map[string]string)
+	for _, kvPart := range strings.Split(slaveInfo, ",") {
+		x := strings.Split(kvPart, "=")
+		if len(x) != 2 {
+			log.Debugf("Invalid format for connected slave string, got: %s", kvPart)
+			return
+		}
+		connectedSlaveInfo[x[0]] = x[1]
+	}
+	offset, err := strconv.ParseFloat(connectedSlaveInfo["offset"], 64)
+	if err != nil {
+		log.Debugf("Can not parse connected slave offset, got: %s", connectedSlaveInfo["offset"])
+		return
+	}
+	ok = true
+	ip = connectedSlaveInfo["ip"]
+	state = connectedSlaveInfo["state"]
+
+	return
+}
+
 func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
@@ -374,6 +410,17 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			}
 			e.metricsMtx.RUnlock()
 			continue
+		}
+
+		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(split[0], split[1]); ok {
+			e.metricsMtx.RLock()
+			e.metrics["connected_slave_offset"].WithLabelValues(
+				addr,
+				alias,
+				slaveIp,
+				slaveState,
+			).Set(slaveOffset)
+			e.metricsMtx.RUnlock()
 		}
 
 		if len(split) != 2 || !includeMetric(split[0]) {
