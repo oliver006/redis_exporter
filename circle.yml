@@ -41,7 +41,7 @@ test:
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
   override:
-    - cd $SRC_LOCATION && go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/...
+    - cd $SRC_LOCATION && go test -v -covermode=atomic -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/...
   post:
     - if [ -n "$COVERALLS_TOKEN" ]; then /home/ubuntu/.go_workspace/bin/goveralls -coverprofile=$COVERAGE_PROFILE -service=circle-ci -repotoken=$COVERALLS_TOKEN ;  fi
 
