@@ -1,5 +1,5 @@
 redis_exporter
 coverage.out
+dist/
 pkg/
 src/
-vendor/

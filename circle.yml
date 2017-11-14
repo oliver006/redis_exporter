@@ -28,10 +28,6 @@ dependencies:
   cache_directories:
     - ~/redis-3.2.10
   override:
-    - sudo add-apt-repository ppa:masterminds/glide -y
-    - sudo apt-get update
-    - sudo apt-get install glide -y
-    - glide --version
     - mkdir -p "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME"
     - ln -s $HOME/$CIRCLE_PROJECT_REPONAME $SRC_LOCATION
 
@@ -44,7 +40,6 @@ test:
     - go vet ./...
     - go get github.com/mattn/goveralls
     - go get golang.org/x/tools/cmd/cover
-    - cd $SRC_LOCATION && glide install
   override:
     - cd $SRC_LOCATION && go test -v -cover -race -coverprofile=$COVERAGE_PROFILE ./exporter/...
   post:
