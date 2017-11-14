@@ -56,8 +56,9 @@ var (
 
 		// # Clients
 		"connected_clients":          "connected_clients",
-		"blocked_clients":            "blocked_clients",
 		"client_longest_output_list": "client_longest_output_list",
+		"client_biggest_input_buf":   "client_biggest_input_buf",
+		"blocked_clients":            "blocked_clients",
 
 		// # Memory
 		"used_memory":             "memory_used_bytes",
@@ -80,8 +81,11 @@ var (
 		// # Stats
 		"total_connections_received": "connections_received_total",
 		"total_commands_processed":   "commands_processed_total",
+		"instantaneous_ops_per_sec":  "instantaneous_ops_per_sec",
 		"total_net_input_bytes":      "net_input_bytes_total",
 		"total_net_output_bytes":     "net_output_bytes_total",
+		"instantaneous_input_kbps":   "instantaneous_input_kbps",
+		"instantaneous_output_kbps":  "instantaneous_output_kbps",
 		"rejected_connections":       "rejected_connections_total",
 		"expired_keys":               "expired_keys_total",
 		"evicted_keys":               "evicted_keys_total",
@@ -89,7 +93,6 @@ var (
 		"keyspace_misses":            "keyspace_misses_total",
 		"pubsub_channels":            "pubsub_channels",
 		"pubsub_patterns":            "pubsub_patterns",
-		"instantaneous_ops_per_sec":  "instantaneous_ops_per_sec",
 		"latest_fork_usec":           "latest_fork_usec",
 
 		// # Replication
