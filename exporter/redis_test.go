@@ -392,6 +392,38 @@ func TestKeyspaceStringParser(t *testing.T) {
 	}
 }
 
+type slaveData struct {
+	k, v      string
+	ip, state string
+	offset    float64
+	ok        bool
+}
+
+func TestParseConnectedSlaveString(t *testing.T) {
+	tsts := []slaveData{
+		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", state: "online", ok: true},
+		{k: "slave1", v: "offset=1", offset: 1, ok: true},
+		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123", offset: 123, ip: "1.2.3.4", state: "online", ok: true},
+		{k: "slave", v: "offset=1751844676", ok: false},
+		{k: "slaveA", v: "offset=1751844676", ok: false},
+		{k: "slave0", v: "offset=abc", ok: false},
+	}
+
+	for _, tst := range tsts {
+		if offset, ip, state, ok := parseConnectedSlaveString(tst.k, tst.v); true {
+
+			if ok != tst.ok {
+				t.Errorf("failed for: db:%s stats:%s", tst.k, tst.v)
+				continue
+			}
+
+			if offset != tst.offset || ip != tst.ip || state != tst.state {
+				t.Errorf("values not matching, string:%s   %f %s %s", tst.v, offset, ip, state)
+			}
+		}
+	}
+}
+
 func TestKeyValuesAndSizes(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
@@ -552,7 +584,7 @@ func TestHTTPEndpoint(t *testing.T) {
 		`test_instance_info`,
 
 		// labels and label values
-		`addr="redis://localhost:6379"`,
+		`addr="redis://` + *redisAddr,
 		`redis_mode`,
 		`standalone`,
 		`cmd="get"`,
