@@ -3,3 +3,4 @@ coverage.out
 pkg/
 src/
 vendor/
+.idea/

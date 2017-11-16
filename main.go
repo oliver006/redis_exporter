@@ -8,11 +8,15 @@ import (
 	"runtime"
 	"strings"
 
+	sentinel "github.com/FZambia/go-sentinel"
 	"github.com/cloudfoundry-community/go-cfenv"
+	"github.com/garyburd/redigo/redis"
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	log "github.com/sirupsen/logrus"
+	"time"
 )
 
 var (
@@ -20,6 +24,7 @@ var (
 	redisFile        = flag.String("redis.file", getEnv("REDIS_FILE", ""), "Path to file containing one or more redis nodes, separated by newline. NOTE: mutually exclusive with redis.addr")
 	redisPassword    = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
 	redisAlias       = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
+	masterName       = flag.String("redis.sentinel.master", getEnv("REDIS_SENTINEL_MASTER", "mymaster"), "name of the master node.")
 	namespace        = flag.String("namespace", "redis", "Namespace for metrics")
 	checkKeys        = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
 	separator        = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
@@ -29,6 +34,7 @@ var (
 	logFormat        = flag.String("log-format", "txt", "Log format, valid options are txt and json")
 	showVersion      = flag.Bool("version", false, "Show version information and exit")
 	useCfBindings    = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
+	useRedisSentinel = flag.Bool("use-redis-sentinel", false, "Use Redis Sentinel service")
 	redisMetricsOnly = flag.Bool("redis-only-metrics", false, "Whether to export go runtime metrics also")
 	addrs            []string
 	passwords        []string
@@ -77,6 +83,12 @@ func main() {
 		}
 	case *useCfBindings:
 		addrs, passwords, aliases = getCloudFoundryRedisBindings()
+	case *useRedisSentinel:
+		var err error
+		addrs, passwords, aliases, err = loadRedisSentinel(*redisAddr, *redisPassword, *redisAlias, *separator)
+		if err != nil {
+			log.Fatal(err)
+		}
 	default:
 		addrs, passwords, aliases = loadRedisArgs(*redisAddr, *redisPassword, *redisAlias, *separator)
 	}
@@ -221,4 +233,55 @@ func getCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
 	}
 
 	return
+}
+
+// loadRedisSentinel gets Redis IP addresses and Ports and return proper information.
+func loadRedisSentinel(addr, password, alias, separator string) ([]string, []string, []string, error) {
+	passwords = strings.Split(password, separator)
+	aliases = strings.Split(alias, separator)
+
+	options := []redis.DialOption{
+		redis.DialConnectTimeout(5 * time.Second),
+		redis.DialReadTimeout(5 * time.Second),
+		redis.DialWriteTimeout(5 * time.Second),
+	}
+
+	sentinel_addrs := strings.Split(addr, separator)
+	sntnl := &sentinel.Sentinel{Addrs: sentinel_addrs, MasterName: *masterName,
+		Dial: func(addr string) (redis.Conn, error) {
+			c, err := redis.Dial("tcp", addr, options...)
+			if err != nil {
+				return nil, err
+			}
+			return c, nil
+		},
+	}
+
+	var addrs []string
+	master, err := sntnl.MasterAddr()
+	if err != nil {
+		log.Warnln("Error while getting address of redis master", err)
+		return nil, nil, nil, err
+	} else {
+		addrs = append(addrs, master)
+
+		slaves, err := sntnl.Slaves()
+		if err != nil {
+			log.Warnln("Error while getting addresses of redis slaves", err)
+			return nil, nil, nil, err
+		} else {
+			for _, slave := range slaves {
+				if true == slave.Available() {
+					addrs = append(addrs, slave.Addr())
+					for len(passwords) < len(addrs) {
+						passwords = append(passwords, passwords[0])
+					}
+					for len(aliases) < len(addrs) {
+						aliases = append(aliases, aliases[0])
+					}
+				}
+			}
+			return addrs, passwords, aliases, nil
+		}
+	}
 }
