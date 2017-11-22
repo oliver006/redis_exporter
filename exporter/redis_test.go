@@ -769,14 +769,6 @@ func TestKeysReset(t *testing.T) {
 	if !bytes.Contains(body, []byte(keys[0])) {
 		t.Errorf("Did not found key %q\n%s", keys[0], body)
 	}
-
-	deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
-
-	body = getMetrics(t)
-
-	if bytes.Contains(body, []byte(keys[0])) {
-		t.Errorf("Metric is present in metrics list %q\n%s", keys[0], body)
-	}
 }
 
 func init() {

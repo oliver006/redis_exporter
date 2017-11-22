@@ -595,9 +595,13 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 		obtainedKeys := []string{}
 		if tempVal, err := redis.Strings(c.Do("KEYS", k.key)); err == nil && tempVal != nil {
-			for _, tempKey := range tempVal {
-				log.Debugf("Append result: %s", tempKey)
-				obtainedKeys = append(obtainedKeys, tempKey)
+			if len(tempVal) > 0 {
+				for _, tempKey := range tempVal {
+					log.Debugf("Append result: %s", tempKey)
+					obtainedKeys = append(obtainedKeys, tempKey)
+				}
+			} else {
+				obtainedKeys = append(obtainedKeys, k.key)
 			}
 		}
 
