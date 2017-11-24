@@ -322,6 +322,7 @@ func TestExporterMetrics(t *testing.T) {
 		"db_avg_ttl_seconds",
 		"used_cpu_sys",
 		"loading_dump_file", // testing renames
+		"config_maxmemory",  // testing config extraction
 	}
 
 	for _, k := range wantKeys {
@@ -781,7 +782,7 @@ func TestKeysReset(t *testing.T) {
 
 func init() {
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
-		key := fmt.Sprintf("key:%s-%d", n, ts)
+		key := fmt.Sprintf("key_%s_%d", n, ts)
 		keys = append(keys, key)
 	}
 
@@ -789,7 +790,7 @@ func init() {
 	keys = append(keys, "wildcard", "wildbeast", "wildwoods")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
-		key := fmt.Sprintf("key:exp-%s-%d", n, ts)
+		key := fmt.Sprintf("key_exp_%s_%d", n, ts)
 		keysExpiring = append(keysExpiring, key)
 	}
 

@@ -39,7 +39,7 @@
 
 [[projects]]
   name = "github.com/prometheus/client_golang"
-  packages = ["prometheus"]
+  packages = ["prometheus","prometheus/promhttp"]
   revision = "c5b7fccd204277076155f10851dad72b76a49317"
   version = "v0.8.0"
 
@@ -62,6 +62,12 @@
   revision = "a6e9df898b1336106c743392c48ee0b71f5c4efa"
 
 [[projects]]
+  name = "github.com/prometheus/prometheus"
+  packages = ["util/strutil"]
+  revision = "0a74f98628a0463dddc90528220c94de5032d1a0"
+  version = "v2.0.0"
+
+[[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
   revision = "f006c2ac4710855cf0f916dd6b77acf6b048dc6e"
@@ -82,6 +88,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "bc84e4257274df380dd9009bc56bc2a8b36471c760c8e0eb2f9bc578e9b24749"
+  inputs-digest = "2e013c0d4c7fe5e64f3b7e69e8aaabff0bb64b43d5acb6e2fddc383e2104dec3"
   solver-name = "gps-cdcl"
   solver-version = 1

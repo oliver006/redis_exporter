@@ -3,3 +3,5 @@ coverage.out
 dist/
 pkg/
 src/
+.DS_Store
+.idea
