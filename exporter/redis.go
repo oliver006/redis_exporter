@@ -11,6 +11,7 @@ import (
 
 	"github.com/garyburd/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	prom_strutil "github.com/prometheus/prometheus/util/strutil"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -280,19 +281,15 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func includeMetric(s string) bool {
-
 	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
-
 	_, ok := metricMap[s]
-
 	return ok
 }
 
 func sanitizeMetricName(n string) string {
-	n = strings.Replace(n, "-", "_", -1)
-	return n
+	return prom_strutil.SanitizeLabelName(n)
 }
 
 func extractVal(s string) (val float64, err error) {
@@ -373,6 +370,29 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 	return
 }
 
+func extractConfigMetrics(config []string, addr string, alias string, scrapes chan<- scrapeResult) error {
+	if len(config)%2 != 0 {
+		return fmt.Errorf("invalid config: %#v", config)
+	}
+
+	for pos := 0; pos < len(config)/2; pos++ {
+		strKey := config[pos*2]
+		strVal := config[pos*2+1]
+
+		// todo: we can add more configs to this map if there's interest
+		if !map[string]bool{
+			"maxmemory": true,
+		}[strKey] {
+			continue
+		}
+
+		if val, err := strconv.ParseFloat(strVal, 64); err == nil {
+			scrapes <- scrapeResult{Name: fmt.Sprintf("config_%s", config[pos*2]), Addr: addr, Alias: alias, Value: val}
+		}
+	}
+	return nil
+}
+
 func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
@@ -432,6 +452,8 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 
 		if cmdstats {
 			/*
+				Format:
+
 				cmdstat_get:calls=21,usec=175,usec_per_call=8.33
 				cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
 				cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
@@ -557,18 +579,24 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	defer c.Close()
 	log.Debugf("connected to: %s", addr)
 
+	if config, err := redis.Strings(c.Do("CONFIG", "GET", "*")); err == nil {
+		extractConfigMetrics(config, addr, e.redis.Aliases[idx], scrapes)
+	} else {
+		log.Errorf("redis err: %s", err)
+	}
+
 	info, err := redis.String(c.Do("INFO", "ALL"))
 	if err == nil {
 		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
 	} else {
-		log.Printf("redis err: %s", err)
+		log.Errorf("redis err: %s", err)
 		return err
 	}
 
 	if strings.Index(info, "cluster_enabled:1") != -1 {
 		info, err = redis.String(c.Do("CLUSTER", "INFO"))
 		if err != nil {
-			log.Printf("redis err: %s", err)
+			log.Errorf("redis err: %s", err)
 		} else {
 			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
 		}
@@ -602,9 +630,11 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 
 		for _, key := range obtainedKeys {
+			dbLabel := "db" + k.db
+			keyLabel := key
 			if tempVal, err := c.Do("GET", key); err == nil && tempVal != nil {
 				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, key).Set(val)
+					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(val)
 				}
 			}
 
@@ -617,7 +647,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 				"STRLEN",
 			} {
 				if tempVal, err := c.Do(op, key); err == nil && tempVal != nil {
-					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "db"+k.db, key).Set(float64(tempVal.(int64)))
+					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
 					break
 				}
 			}

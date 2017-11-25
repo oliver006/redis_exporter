@@ -49,7 +49,7 @@ func main() {
 	default:
 		log.SetFormatter(&log.TextFormatter{})
 	}
-	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s\n",
+	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s",
 		VERSION, BUILD_DATE, COMMIT_SHA1,
 		runtime.Version(),
 	)
