@@ -1,0 +1,4 @@
+redis://localhost:6379
+
+redis://localhost:7000,password,alias
+redis://localhost:7000,second-pwd
