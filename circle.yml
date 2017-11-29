@@ -6,10 +6,11 @@ machine:
     - /usr/bin/redis-server --port 6380:
           background: true
   environment:
-    SRC_LOCATION:     "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
-    COVERAGE_PROFILE: "/home/ubuntu/coverage.out"
-    GO_LDFLAGS:       '-extldflags "-static" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)'
-    MY_GO_VERSION:    "1.9.2"
+    SRC_LOCATION:       "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME/$CIRCLE_PROJECT_REPONAME"
+    COVERAGE_PROFILE:   "/home/ubuntu/coverage.out"
+    GO_LDFLAGS:         '-extldflags "-static" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)'
+    MY_GO_VERSION:      "1.9.2"
+    REDIS_TEST_VERSION: "3.2.11"
 
 dependencies:
   pre:
@@ -17,16 +18,20 @@ dependencies:
     - rm -rf /home/ubuntu/.go_project
     - sudo service redis-server stop
     - >
-      cd ~ && if [ ! -d "redis-3.2.10" ]; then
-        wget http://download.redis.io/releases/redis-3.2.10.tar.gz
-        tar xzf redis-3.2.10.tar.gz
-        cd redis-3.2.10 && make;
+      cd ~ && if [ ! -d "redis-$REDIS_TEST_VERSION" ]; then
+        wget http://download.redis.io/releases/redis-$REDIS_TEST_VERSION.tar.gz
+        tar xzf redis-$REDIS_TEST_VERSION.tar.gz
+        cd redis-$REDIS_TEST_VERSION && make;
       fi
-    - cd ~/redis-3.2.10 && sudo make install
+    - cd ~/redis-$REDIS_TEST_VERSION && sudo make install
     - sudo sed -i 's/bin/local\/bin/g' /etc/init/redis-server.conf
     - sudo service redis-server start
+    #
+    # the next line will bring up a cluster of redis instances with slaves
+    # for addtl tests
+    - docker run -p 7000-7006:7000-7006 --name redis_cluster_test -d oliver006/redis_cluster_test
   cache_directories:
-    - ~/redis-3.2.10
+    - ~/redis-$REDIS_TEST_VERSION
   override:
     - mkdir -p "/home/ubuntu/.go_workspace/src/github.com/$CIRCLE_PROJECT_USERNAME"
     - ln -s $HOME/$CIRCLE_PROJECT_REPONAME $SRC_LOCATION

@@ -570,6 +570,16 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 	return nil
 }
 
+func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (reply interface{}, err error) {
+	log.Debugf("c.Do() - running command: %s %s", cmd, args)
+	defer log.Debugf("c.Do() - done")
+	res, err := c.Do(cmd, args...)
+	if err != nil {
+		log.Debugf("c.Do() - err: %s", err)
+	}
+	return res, err
+}
+
 func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx int) error {
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(5 * time.Second),
@@ -596,7 +606,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	}
 
 	if err != nil {
-		log.Printf("redis err: %s", err)
+		log.Debugf("aborting for addr: %s - redis err: %s", addr, err)
 		return err
 	}
 
@@ -615,7 +625,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		log.Debugf("Redis CONFIG err: %s", err)
 	}
 
-	info, err := redis.String(c.Do("INFO", "ALL"))
+	info, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err == nil {
 		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount, true)
 	} else {
@@ -623,8 +633,8 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		return err
 	}
 
-	if strings.Index(info, "cluster_enabled:1") != -1 {
-		info, err = redis.String(c.Do("CLUSTER", "INFO"))
+	if strings.Contains(info, "cluster_enabled:1") {
+		info, err = redis.String(doRedisCmd(c, "CLUSTER", "INFO"))
 		if err != nil {
 			log.Errorf("redis err: %s", err)
 		} else {
@@ -632,7 +642,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
-	if reply, err := c.Do("LATENCY", "LATEST"); err == nil {
+	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
 		var eventName string
 		var spikeLast, milliseconds, max int64
 		if tempVal, _ := reply.([]interface{}); len(tempVal) > 0 {
@@ -646,13 +656,14 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
+	log.Debugf("e.keys: %#v", e.keys)
 	for _, k := range e.keys {
-		if _, err := c.Do("SELECT", k.db); err != nil {
+		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
 			continue
 		}
 
 		obtainedKeys := []string{}
-		if tempVal, err := redis.Strings(c.Do("KEYS", k.key)); err == nil && tempVal != nil {
+		if tempVal, err := redis.Strings(doRedisCmd(c, "KEYS", k.key)); err == nil && tempVal != nil {
 			for _, tempKey := range tempVal {
 				log.Debugf("Append result: %s", tempKey)
 				obtainedKeys = append(obtainedKeys, tempKey)
@@ -662,7 +673,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		for _, key := range obtainedKeys {
 			dbLabel := "db" + k.db
 			keyLabel := key
-			if tempVal, err := c.Do("GET", key); err == nil && tempVal != nil {
+			if tempVal, err := doRedisCmd(c, "GET", key); err == nil && tempVal != nil {
 				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
 					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(val)
 				}
@@ -676,7 +687,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 				"PFCOUNT",
 				"STRLEN",
 			} {
-				if tempVal, err := c.Do(op, key); err == nil && tempVal != nil {
+				if tempVal, err := doRedisCmd(c, op, key); err == nil && tempVal != nil {
 					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
 					break
 				}
@@ -684,18 +695,18 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
+	log.Debugf("scrapeRedisHost() done")
 	return nil
 }
 
 func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
-
 	defer close(scrapes)
+
 	now := time.Now().UnixNano()
 	e.totalScrapes.Inc()
 
 	errorCount := 0
 	for idx, addr := range e.redis.Addrs {
-
 		var up float64 = 1
 		if err := e.scrapeRedisHost(scrapes, addr, idx); err != nil {
 			errorCount++

@@ -104,7 +104,7 @@ func main() {
 	} else {
 		prometheus.MustRegister(exp)
 		prometheus.MustRegister(buildInfo)
-		http.Handle(*metricPath, prometheus.Handler())
+		http.Handle(*metricPath, promhttp.Handler())
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
