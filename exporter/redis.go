@@ -582,14 +582,14 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	if config, err := redis.Strings(c.Do("CONFIG", "GET", "*")); err == nil {
 		extractConfigMetrics(config, addr, e.redis.Aliases[idx], scrapes)
 	} else {
-		log.Errorf("redis err: %s", err)
+		log.Debugf("Redis CONFIG err: %s", err)
 	}
 
 	info, err := redis.String(c.Do("INFO", "ALL"))
 	if err == nil {
 		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
 	} else {
-		log.Errorf("redis err: %s", err)
+		log.Errorf("Redis INFO err: %s", err)
 		return err
 	}
 
