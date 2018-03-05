@@ -9,12 +9,15 @@ Supports Redis 2.x and 3.x
 Locally build and run it:
 
 ```
-    $ git clone https://github.com/oliver006/redis_exporter.git
-    $ cd redis_exporter
+    $ go get
     $ go build
     $ ./redis_exporter <flags>
 ```
 
+Locally build and run it via docker:
+```
+    $ docker build --build-arg VERSION=0.0.2 -t oliver006/redis_export .
+```
 You can also run it via docker:
 
 ```
@@ -43,6 +46,13 @@ To run on Cloud Foundry, use:
 cf push -f contrib/manifest.yml
 ```
 
+To run on Kubernetes
+```
+    $ kubectl create -f contrib/kube-redis-exporter-with-redis-sentinel.yaml
+    $ kubectl scale statefulset redis --replicas=3
+    $ kubectl get pod
+    $ kubectl logs  $(kubectl get pods --selector=name=redis-exporter -n default --output=jsonpath={.items..metadata.name})
+```
 
 ### Flags
 
