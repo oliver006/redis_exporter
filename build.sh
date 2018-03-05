@@ -20,21 +20,16 @@ echo "Upload to Github"
 ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace $CIRCLE_TAG dist/
 
 
+echo "Build Docker images"
+
 docker version
 
-gox --osarch="linux/386"   -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter"
-
-echo "Build Docker images"
-docker build --rm=false -t "21zoo/redis_exporter:$CIRCLE_TAG" .
-docker build --rm=false -t "21zoo/redis_exporter:latest" .
+docker build --rm=false --build-arg VERSION=$CIRCLE_TAG -t "21zoo/redis_exporter:$CIRCLE_TAG" .
+docker tag "21zoo/redis_exporter:$CIRCLE_TAG" "oliver006/redis_exporter:$CIRCLE_TAG"
 
 docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-docker push "21zoo/redis_exporter:latest"
-docker push "21zoo/redis_exporter:$CIRCLE_TAG"
 
-docker build --rm=false -t "oliver006/redis_exporter:$CIRCLE_TAG" .
-docker build --rm=false -t "oliver006/redis_exporter:latest" .
-docker push "oliver006/redis_exporter:latest"
+docker push "21zoo/redis_exporter:$CIRCLE_TAG"
 docker push "oliver006/redis_exporter:$CIRCLE_TAG"
 
 echo "Done"
