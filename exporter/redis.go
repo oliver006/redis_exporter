@@ -370,14 +370,20 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 	return
 }
 
-func extractConfigMetrics(config []string, addr string, alias string, scrapes chan<- scrapeResult) error {
+func extractConfigMetrics(config []string, addr string, alias string, scrapes chan<- scrapeResult) (dbCount int, err error) {
 	if len(config)%2 != 0 {
-		return fmt.Errorf("invalid config: %#v", config)
+		return 0, fmt.Errorf("invalid config: %#v", config)
 	}
 
 	for pos := 0; pos < len(config)/2; pos++ {
 		strKey := config[pos*2]
 		strVal := config[pos*2+1]
+
+		if strKey == "databases" {
+			if dbCount, err = strconv.Atoi(strVal); err != nil {
+				return 0, fmt.Errorf("invalid config value for key databases: %#v", strVal)
+			}
+		}
 
 		// todo: we can add more configs to this map if there's interest
 		if !map[string]bool{
@@ -390,15 +396,16 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 			scrapes <- scrapeResult{Name: fmt.Sprintf("config_%s", config[pos*2]), Addr: addr, Alias: alias, Value: val}
 		}
 	}
-	return nil
+	return
 }
 
-func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
+func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
 
 	instanceInfo := map[string]string{}
 	slaveInfo := map[string]string{}
+	handledDBs := map[string]bool{}
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
@@ -493,6 +500,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			if avgTTL > -1 {
 				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, Alias: alias, DB: split[0], Value: avgTTL}
 			}
+			handledDBs[split[0]] = true
 			continue
 		}
 
@@ -522,6 +530,17 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		}
 
 		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
+	}
+
+	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+
+		dbName := "db" + strconv.Itoa(dbIndex)
+
+		if _, exists := handledDBs[dbName]; !exists {
+
+			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: 0}
+			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: 0}
+		}
 	}
 
 	e.metricsMtx.RLock()
@@ -579,15 +598,21 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	defer c.Close()
 	log.Debugf("connected to: %s", addr)
 
+	dbCount := 0
+
 	if config, err := redis.Strings(c.Do("CONFIG", "GET", "*")); err == nil {
-		extractConfigMetrics(config, addr, e.redis.Aliases[idx], scrapes)
+		dbCount, err = extractConfigMetrics(config, addr, e.redis.Aliases[idx], scrapes)
+		if err != nil {
+			log.Errorf("Redis CONFIG err: %s", err)
+			return err
+		}
 	} else {
 		log.Debugf("Redis CONFIG err: %s", err)
 	}
 
 	info, err := redis.String(c.Do("INFO", "ALL"))
 	if err == nil {
-		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
+		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount)
 	} else {
 		log.Errorf("Redis INFO err: %s", err)
 		return err
@@ -598,7 +623,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		if err != nil {
 			log.Errorf("redis err: %s", err)
 		} else {
-			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes)
+			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount)
 		}
 	}
 
