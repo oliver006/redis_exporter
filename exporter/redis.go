@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	prom_strutil "github.com/prometheus/prometheus/util/strutil"
 	log "github.com/sirupsen/logrus"
