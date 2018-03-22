@@ -9,19 +9,21 @@ package exporter
 */
 
 import (
+	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
 
-	"bytes"
-	"flag"
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 )
 
@@ -42,6 +44,8 @@ var (
 
 	dbNumStr     = "11"
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
+
+	TestServerURL = ""
 )
 
 const (
@@ -97,7 +101,9 @@ func resetLatency(t *testing.T, addr string) error {
 }
 
 func getMetrics(t *testing.T) []byte {
-	resp, err := http.Get("http://127.0.0.1:9121/metrics")
+	url := TestServerURL + "/metrics"
+	log.Printf("Getting metrics from: %s", url)
+	resp, err := http.Get(url)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,7 +574,6 @@ func TestCommandStats(t *testing.T) {
 }
 
 func TestHTTPEndpoint(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -808,6 +813,5 @@ func init() {
 	log.Printf("Using redis addrs: %#v", addrs)
 	defaultRedisHost = RedisHost{Addrs: []string{"redis://" + *redisAddr}, Aliases: aliases}
 
-	http.Handle("/metrics", prometheus.Handler())
-	go http.ListenAndServe("127.0.0.1:9121", nil)
+	TestServerURL = httptest.NewServer(promhttp.Handler()).URL
 }
