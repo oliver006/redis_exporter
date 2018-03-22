@@ -29,7 +29,7 @@ dependencies:
     #
     # the next line will bring up a cluster of redis instances with slaves
     # for addtl tests
-    - docker run -p 7000-7006:7000-7006 --name redis_cluster_test -d oliver006/redis_cluster_test
+    - docker run -p 7000-7006:7000-7006 --name redis_cluster_test -d grokzen/redis-cluster
   cache_directories:
     - ~/redis-$REDIS_TEST_VERSION
   override:

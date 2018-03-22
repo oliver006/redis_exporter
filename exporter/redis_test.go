@@ -930,7 +930,7 @@ func TestClusterSlave(t *testing.T) {
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
-	log.Println("wut")
+
 	prometheus.Register(e)
 
 	chM := make(chan prometheus.Metric, 10000)
