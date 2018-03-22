@@ -399,7 +399,7 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 	return
 }
 
-func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
+func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int, padDBKeyCounts bool) error {
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
 
@@ -421,19 +421,24 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		}
 
 		split := strings.Split(line, ":")
-		if _, ok := instanceInfoFields[split[0]]; ok {
-			instanceInfo[split[0]] = split[1]
+		if len(split) != 2 {
+			continue
+		}
+		fieldKey := split[0]
+		fieldValue := split[1]
+		if _, ok := instanceInfoFields[fieldKey]; ok {
+			instanceInfo[fieldKey] = fieldValue
 			continue
 		}
 
-		if _, ok := slaveInfoFields[split[0]]; ok {
-			slaveInfo[split[0]] = split[1]
+		if _, ok := slaveInfoFields[fieldKey]; ok {
+			slaveInfo[fieldKey] = fieldValue
 			continue
 		}
 
-		if split[0] == "master_link_status" {
+		if fieldKey == "master_link_status" {
 			e.metricsMtx.RLock()
-			if split[1] == "up" {
+			if fieldValue == "up" {
 				e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(1)
 			} else {
 				e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
@@ -442,7 +447,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			continue
 		}
 
-		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(split[0], split[1]); ok {
+		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 			e.metricsMtx.RLock()
 			e.metrics["connected_slave_offset"].WithLabelValues(
 				addr,
@@ -453,7 +458,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			e.metricsMtx.RUnlock()
 		}
 
-		if len(split) != 2 || !includeMetric(split[0]) {
+		if !includeMetric(fieldKey) {
 			continue
 		}
 
@@ -465,14 +470,14 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 				cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
 				cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
 			*/
-			frags := strings.Split(split[0], "_")
+			frags := strings.Split(fieldKey, "_")
 			if len(frags) != 2 {
 				continue
 			}
 
 			cmd := frags[1]
 
-			frags = strings.Split(split[1], ",")
+			frags = strings.Split(fieldValue, ",")
 			if len(frags) != 3 {
 				continue
 			}
@@ -494,17 +499,18 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			continue
 		}
 
-		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(split[0], split[1]); ok {
-			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: split[0], Value: keysTotal}
-			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: split[0], Value: keysEx}
+		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
+			dbName := fieldKey
+			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: keysTotal}
+			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: keysEx}
 			if avgTTL > -1 {
-				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, Alias: alias, DB: split[0], Value: avgTTL}
+				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, Alias: alias, DB: dbName, Value: avgTTL}
 			}
-			handledDBs[split[0]] = true
+			handledDBs[dbName] = true
 			continue
 		}
 
-		metricName := sanitizeMetricName(split[0])
+		metricName := sanitizeMetricName(fieldKey)
 		if newName, ok := metricMap[metricName]; ok {
 			metricName = newName
 		}
@@ -512,7 +518,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		var err error
 		var val float64
 
-		switch split[1] {
+		switch fieldValue {
 
 		case "ok":
 			val = 1
@@ -521,25 +527,24 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			val = 0
 
 		default:
-			val, err = strconv.ParseFloat(split[1], 64)
+			val, err = strconv.ParseFloat(fieldValue, 64)
 
 		}
 		if err != nil {
-			log.Debugf("couldn't parse %s, err: %s", split[1], err)
+			log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
 			continue
 		}
 
 		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
 	}
 
-	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
-
-		dbName := "db" + strconv.Itoa(dbIndex)
-
-		if _, exists := handledDBs[dbName]; !exists {
-
-			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: 0}
-			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: 0}
+	if padDBKeyCounts {
+		for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+			dbName := "db" + strconv.Itoa(dbIndex)
+			if _, exists := handledDBs[dbName]; !exists {
+				scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: 0}
+				scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: 0}
+			}
 		}
 	}
 
@@ -612,7 +617,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	info, err := redis.String(c.Do("INFO", "ALL"))
 	if err == nil {
-		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount)
+		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount, true)
 	} else {
 		log.Errorf("Redis INFO err: %s", err)
 		return err
@@ -623,7 +628,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		if err != nil {
 			log.Errorf("redis err: %s", err)
 		} else {
-			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount)
+			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount, false)
 		}
 	}
 
