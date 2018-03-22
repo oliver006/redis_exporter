@@ -625,22 +625,31 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		log.Debugf("Redis CONFIG err: %s", err)
 	}
 
-	info, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
-	if err == nil {
-		e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount, true)
-	} else {
+	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
+	if err != nil {
 		log.Errorf("Redis INFO err: %s", err)
 		return err
 	}
+	isClusterEnabled := strings.Contains(infoAll, "cluster_enabled:1")
 
-	if strings.Contains(info, "cluster_enabled:1") {
-		info, err = redis.String(doRedisCmd(c, "CLUSTER", "INFO"))
-		if err != nil {
-			log.Errorf("redis err: %s", err)
+	if isClusterEnabled {
+		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
+			e.extractInfoMetrics(clusterInfo, addr, e.redis.Aliases[idx], scrapes, dbCount, false)
+
+			// in cluster mode Redis only supports one database so no extra padding beyond that needed
+			dbCount = 1
 		} else {
-			e.extractInfoMetrics(info, addr, e.redis.Aliases[idx], scrapes, dbCount, false)
+			log.Errorf("Redis CLUSTER INFO err: %s", err)
+		}
+	} else {
+		// in non-cluster mode, if dbCount is zero then "CONFIG" failed to retrieve a valid
+		// number of databases and we use the Redis config default which is 16
+		if dbCount == 0 {
+			dbCount = 16
 		}
 	}
+
+	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount, true)
 
 	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
 		var eventName string
