@@ -43,6 +43,26 @@ To run on Cloud Foundry, use:
 cf push -f contrib/manifest.yml
 ```
 
+#### Run in Openshift
+
+In order to deploy the exporter in Openshift environment.
+```
+oc project <myproject>
+
+oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/master/openshift/template.yaml \
+    -p REDIS_ADDR=<redis-service>:<redis-port> \
+    -p REDIS_PASSWORD=<redis-pass> \
+    -p REDIS_ALIAS=<redis-alias> \
+    -p REDIS_FILE=<redis-file> \
+    | oc create -f -
+```
+
+*NOTE*: Some of the parameters can be ommited if no authentication is used or the default redis config is applied.
+```
+oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/master/openshift/template.yaml \
+    -p REDIS_ADDR=<redis-service>:<redis-port> \
+    | oc create -f -
+```
 
 ### Flags
 
