@@ -43,9 +43,9 @@ To run on Cloud Foundry, use:
 cf push -f contrib/manifest.yml
 ```
 
-#### Run in Openshift
+#### Run on Openshift
 
-In order to deploy the exporter in Openshift environment.
+In order to deploy the exporter on Openshift environment.
 ```
 oc project <myproject>
 
