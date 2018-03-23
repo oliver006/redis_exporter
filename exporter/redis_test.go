@@ -40,6 +40,7 @@ var (
 
 	keys             = []string{}
 	keysExpiring     = []string{}
+	listKeys		 = []string{}
 	ts               = int32(time.Now().Unix())
 	defaultRedisHost = RedisHost{}
 
@@ -195,6 +196,16 @@ func setupDBKeys(t *testing.T, addr string) error {
 		}
 	}
 
+	for _, key := range listKeys {
+		for _, val := range keys {
+			_, err = c.Do("LPUSH", key, val)
+			if err != nil {
+				t.Errorf("couldn't setup redis, err: %s ", err)
+				return err
+			}
+		}
+	}
+
 	c.Do("SADD", TestSetName, "test-val-1")
 	c.Do("SADD", TestSetName, "test-val-2")
 
@@ -223,6 +234,10 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 	}
 
 	for _, key := range keysExpiring {
+		c.Do("DEL", key)
+	}
+
+	for _, key := range listKeys {
 		c.Do("DEL", key)
 	}
 
@@ -271,7 +286,7 @@ func TestCountingKeys(t *testing.T) {
 	e.scrape(scrapes)
 
 	// +1 for the one SET key
-	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring)) + 1
+	want := keysTestDB + float64(len(keys)) + float64(len(keysExpiring)) + 1 + float64(len(listKeys))
 
 	for s := range scrapes {
 		if s.Name == "db_keys" && s.DB == dbNumStrFull {
@@ -462,8 +477,8 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	}
 }
 
-func TestKeyValuesAndSizesWildcard(t *testing.T) {
-	s := dbNumStrFull + "=wild*"
+func TestKeySizeList(t *testing.T) {
+	s := dbNumStrFull + "=" + listKeys[0]
 	e, _ := NewRedisExporter(defaultRedisHost, "test", s)
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -475,30 +490,22 @@ func TestKeyValuesAndSizesWildcard(t *testing.T) {
 		close(chM)
 	}()
 
-	metricWant := "test_key_size"
-	totalExpected := 3
+	found := false
 
 	for m := range chM {
 		switch m.(type) {
 		case prometheus.Gauge:
-			if !strings.Contains(m.Desc().String(), metricWant) {
-				continue
-			}
-
-			g := &dto.Metric{}
-			m.Write(g)
-			for _, l := range g.Label {
-				if *l.Name == "key" && strings.HasPrefix(*l.Value, "wild") {
-					totalExpected--
-				}
+			if strings.Contains(m.Desc().String(), "test_key_size") {
+				found = true
+				break
 			}
 		default:
 			log.Printf("default: m: %#v", m)
 		}
 	}
 
-	if totalExpected != 0 {
-		t.Errorf("didn't find enough wild*, outstanding: %d", totalExpected)
+	if !found {
+		t.Errorf("didn't find the key")
 	}
 }
 
@@ -959,8 +966,7 @@ func init() {
 		keys = append(keys, key)
 	}
 
-	// add some with the same prefix so we can test the check-keys wildcard
-	keys = append(keys, "wildcard", "wildbeast", "wildwoods")
+	listKeys = append(listKeys, "beatles_list")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
 		key := fmt.Sprintf("key_exp_%s_%d", n, ts)
