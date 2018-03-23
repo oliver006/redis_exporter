@@ -64,6 +64,20 @@ oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/
     | oc create -f -
 ```
 
+If you are running Prometheus on Openshift on the same cluster, **target** in `prometheus.yml` should point to the correct service name of the exporter
+```
+scrape_configs:
+
+...
+
+- job_name: redis_exporter
+  static_configs:
+  - targets: ['<redis-exporter.myproject.svc>:9121']
+
+...
+```
+
+
 ### Flags
 
 Name               | Description
