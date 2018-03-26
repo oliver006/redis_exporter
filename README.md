@@ -9,12 +9,13 @@ Supports Redis 2.x and 3.x
 Locally build and run it:
 
 ```
-    $ go get
+    $ git clone https://github.com/oliver006/redis_exporter.git
+    $ cd redis_exporter
     $ go build
     $ ./redis_exporter <flags>
 ```
 
-You can also run it via docker: 
+You can also run it via docker:
 
 ```
     $ docker pull oliver006/redis_exporter
@@ -36,6 +37,12 @@ scrape_configs:
 ```
 and adjust the host name accordingly.
 
+To run on Cloud Foundry, use:
+
+```
+cf push -f contrib/manifest.yml
+```
+
 
 ### Flags
 
@@ -43,13 +50,15 @@ Name               | Description
 -------------------|------------
 debug              | Verbose debug output
 log-format         | Log format, valid options are `txt` (default) and `json`.
-check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. 
+check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
 redis.alias        | Alias for redis node addr, comma separated.
+redis.file         | Path to file containing one or more redis nodes, separated by newline. This option is mutually exclusive with redis.addr. Each line can optionally be comma-separated with the fields <addr>,<password>,<alias>.
 namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
+use-cf-bindings    | Enable usage of Cloud Foundry service bindings. Defaults to `false`
 
 Redis node addresses can be tcp addresses like `redis://localhost:6379`, `redis.example.com:6379` or unix socket addresses like `unix:///tmp/redis.sock`. <br>
 SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).
@@ -64,12 +73,13 @@ Name               | Description
 REDIS_ADDR         | Address of Redis node(s)
 REDIS_PASSWORD     | Password to use when authenticating to Redis
 REDIS_ALIAS        | Alias name of Redis node(s)
+REDIS_FILE         | Path to file containing Redis node(s)
 
 ### What's exported?
 
 Most items from the INFO command are exported,
 see http://redis.io/commands/info for details.<br>
-In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.<br> 
+In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.<br>
 You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, etc. <br>
 
 

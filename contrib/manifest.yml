@@ -1,0 +1,5 @@
+---
+buildpack: go_buildpack
+command: redis_exporter --use-cf-bindings --web.listen-address=:8080
+env:
+  GOPACKAGENAME: main
