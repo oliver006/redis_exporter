@@ -480,6 +480,8 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 			}
 		}
 
+		e.keyValues.Reset()
+		e.keySizes.Reset()
 		for _, key := range obtainedKeys {
 			if tempVal, err := c.Do("GET", key); err == nil && tempVal != nil {
 				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
