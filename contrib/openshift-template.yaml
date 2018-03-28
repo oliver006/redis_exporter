@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: Template
+labels:
+  template: redis-exporter
+  app: redis-exporter
+  tier: redis
+metadata:
+  annotations:
+    openshift.io/display-name: Openshift Redis Exporter deployment template
+    description: >-
+      Deploy a Redis exporter for Prometheus into a specific namespace together with image stream
+    tags: 'redis-exporter'
+  name: redis-exporter
+parameters:
+  - name: NAME
+    description: The name of the application
+    displayName: Name
+    required: true
+    value: redis-exporter
+  - name: NAMESPACE
+    description: The namespace of the application
+    displayName: Namespace
+    required: true
+  - name: SOURCE_REPOSITORY_URL
+    description: The URL of the repository with your application source code.
+    displayName: Git Repository URL
+    required: true
+    value: 'https://github.com/ivanovaleksandar/redis_exporter.git'
+  - name: SOURCE_REPOSITORY_REF
+    description: Set the branch name if you are not using master branch
+    displayName: Git Reference    
+    value: master
+    required: false
+  - name: REDIS_ADDR
+    description: Set the service names of the Redis instances that you like to export
+    displayName: Redis Addresses  
+    required: true
+  - name: REDIS_PASSWORD
+    description: Set the password for the Redis instances that you like to export
+    displayName: Redis Password  
+    required: false
+  - name: REDIS_ALIAS
+    description: Set the service alias of the Redis instances that you like to export
+    displayName: Redis Alias  
+    required: false
+  - name: REDIS_FILE
+    description: Set the Redis file that contains one or more redis nodes, separated by newline
+    displayName: Redis file  
+    required: false
+objects:
+
+  - apiVersion: v1
+    kind: ImageStream
+    metadata:
+      generation: 2
+      labels:
+        app: redis-exporter
+        name: redis-exporter
+      name: redis-exporter
+    spec:
+      dockerImageRepository: oliver006/redis_exporter
+
+  - apiVersion: v1
+    kind: DeploymentConfig
+    metadata:
+      labels:
+        app: redis-exporter
+      name: redis-exporter
+    spec:
+      replicas: 1
+      selector:
+        app: redis-exporter
+      template:
+        metadata:
+          labels:
+            app: redis-exporter
+        spec:
+          containers:
+          - image: docker-registry.default.svc:5000/${NAMESPACE}/redis-exporter
+            imagePullPolicy: Always
+            name: redis-exporter 
+            ports:
+              - containerPort: 9121
+            env:
+              - name: REDIS_ADDR
+                value: "${REDIS_ADDR}"
+              - name: REDIS_PASSWORD
+                value: "${REDIS_PASSWORD}"
+              - name: REDIS_ALIAS
+                value: "${REDIS_ALIAS}"
+              - name: REDIS_FILE
+                value: "${REDIS_FILE}"
+            resources: {}
+          dnsPolicy: ClusterFirst
+          restartPolicy: Always
+          securityContext: {}
+          terminationGracePeriodSeconds: 30
+      test: false
+      triggers: []
+    status: {}
+
+  - apiVersion: v1
+    kind: Service
+    metadata:
+      labels:
+        name: redis-exporter
+        role: service
+      name: redis-exporter
+    spec:
+      ports:
+        - port: 9121
+          targetPort: 9121
+      selector:
+        app: "redis-exporter"
