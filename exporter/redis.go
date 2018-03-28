@@ -679,6 +679,8 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 			}
 		}
 
+		e.keyValues.Reset()
+		e.keySizes.Reset()
 		for _, key := range obtainedKeys {
 			dbLabel := "db" + k.db
 			keyLabel := key
