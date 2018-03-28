@@ -49,7 +49,7 @@ In order to deploy the exporter on Openshift environment.
 ```
 oc project <myproject>
 
-oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/master/openshift/template.yaml \
+oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/master/contrib/openshift-template.yaml \
     -p REDIS_ADDR=<redis-service>:<redis-port> \
     -p REDIS_PASSWORD=<redis-pass> \
     -p REDIS_ALIAS=<redis-alias> \
@@ -59,7 +59,7 @@ oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/
 
 *NOTE*: Some of the parameters can be ommited if no authentication is used or the default redis config is applied.
 ```
-oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/master/openshift/template.yaml \
+oc process -f https://raw.githubusercontent.com/ivanovaleksandar/redis_exporter/contrib/openshift-template.yaml \
     -p REDIS_ADDR=<redis-service>:<redis-port> \
     | oc create -f -
 ```
