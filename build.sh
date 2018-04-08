@@ -2,10 +2,33 @@
 
 export CGO_ENABLED=0
 
+gox --osarch="linux/386"   -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter"
+
+echo "Build Docker images"
+
+docker version
+
+echo "docker login"
+docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+docker info
+echo "docker login done"
+
+docker build --rm=false -t "21zoo/redis_exporter:$CIRCLE_TAG" .
+docker build --rm=false -t "21zoo/redis_exporter:latest" .
+
+docker push "21zoo/redis_exporter:latest"
+docker push "21zoo/redis_exporter:$CIRCLE_TAG"
+
+docker build --rm=false -t "oliver006/redis_exporter:$CIRCLE_TAG" .
+docker build --rm=false -t "oliver006/redis_exporter:latest" .
+docker push "oliver006/redis_exporter:latest"
+docker push "oliver006/redis_exporter:$CIRCLE_TAG"
+
+
+
 echo "Building binaries"
 echo ""
 echo $GO_LDFLAGS
-
 
 gox -rebuild --osarch="darwin/amd64"  -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.darwin-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
 gox -rebuild --osarch="darwin/386"    -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.darwin-386.tar.gz   redis_exporter && rm redis_exporter && cd ..
@@ -18,23 +41,5 @@ gox -rebuild --osarch="windows/386"   -ldflags "$GO_LDFLAGS" -output "dist/redis
 
 echo "Upload to Github"
 ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace $CIRCLE_TAG dist/
-
-
-docker version
-
-gox --osarch="linux/386"   -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter"
-
-echo "Build Docker images"
-docker build --rm=false -t "21zoo/redis_exporter:$CIRCLE_TAG" .
-docker build --rm=false -t "21zoo/redis_exporter:latest" .
-
-docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
-docker push "21zoo/redis_exporter:latest"
-docker push "21zoo/redis_exporter:$CIRCLE_TAG"
-
-docker build --rm=false -t "oliver006/redis_exporter:$CIRCLE_TAG" .
-docker build --rm=false -t "oliver006/redis_exporter:latest" .
-docker push "oliver006/redis_exporter:latest"
-docker push "oliver006/redis_exporter:$CIRCLE_TAG"
 
 echo "Done"
