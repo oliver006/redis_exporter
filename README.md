@@ -43,6 +43,11 @@ To run on Cloud Foundry, use:
 cf push -f contrib/manifest.yml
 ```
 
+#### Run on Kubernetes
+
+[Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar with a Redis instance.
+
+
 #### Run on Openshift
 
 In order to deploy the exporter on Openshift environment.
