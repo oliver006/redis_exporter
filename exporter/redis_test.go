@@ -325,6 +325,7 @@ func TestExporterMetrics(t *testing.T) {
 		"used_cpu_sys",
 		"loading_dump_file", // testing renames
 		"config_maxmemory",  // testing config extraction
+		"config_maxclients", // testing config extraction
 	}
 
 	for _, k := range wantKeys {

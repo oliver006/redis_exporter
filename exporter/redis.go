@@ -387,7 +387,8 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 
 		// todo: we can add more configs to this map if there's interest
 		if !map[string]bool{
-			"maxmemory": true,
+			"maxmemory":  true,
+			"maxclients": true,
 		}[strKey] {
 			continue
 		}
