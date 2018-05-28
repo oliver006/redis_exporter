@@ -9,8 +9,8 @@ Supports Redis 2.x and 3.x
 Locally build and run it:
 
 ```
-    $ git clone https://github.com/oliver006/redis_exporter.git
-    $ cd redis_exporter
+    $ go get github.com/oliver006/redis_exporter
+    $ cd $GOPATH/src/github.com/oliver006/redis_exporter
     $ go build
     $ ./redis_exporter <flags>
 ```
