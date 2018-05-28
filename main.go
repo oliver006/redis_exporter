@@ -115,7 +115,7 @@ func main() {
 <html>
 <head><title>Redis Exporter v` + VERSION + `</title></head>
 <body>
-<h1>Redis Exporter v` + VERSION + `</h1>
+<h1>Redis Exporter ` + VERSION + `</h1>
 <p><a href='` + *metricPath + `'>Metrics</a></p>
 </body>
 </html>
