@@ -503,6 +503,36 @@ func TestKeyValuesAndSizesWildcard(t *testing.T) {
 	}
 }
 
+func TestScript(t *testing.T) {
+
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+	e.SetScript([]byte(`return {"a", "11", "b", "12", "c", "13"}`))
+	nKeys := 3
+
+	setupDBKeys(t, defaultRedisHost.Addrs[0])
+	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	for m := range chM {
+		switch m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "test_script_value") {
+				nKeys--
+			}
+		default:
+			log.Printf("default: m: %#v", m)
+		}
+	}
+	if nKeys != 0 {
+		t.Error("didn't find expected script keys")
+	}
+}
+
 func TestKeyValueInvalidDB(t *testing.T) {
 
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "999="+url.QueryEscape(keys[0]))
