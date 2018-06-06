@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"runtime"
@@ -19,6 +20,7 @@ var (
 	redisAlias       = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
 	namespace        = flag.String("namespace", "redis", "Namespace for metrics")
 	checkKeys        = flag.String("check-keys", "", "Comma separated list of keys to export value and length/size")
+	scriptPath       = flag.String("script", "", "Path to Lua Redis script for collecting extra metrics")
 	separator        = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
 	listenAddress    = flag.String("web.listen-address", ":9121", "Address to listen on for web interface and telemetry.")
 	metricPath       = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
@@ -90,6 +92,14 @@ func main() {
 		*checkKeys)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *scriptPath != "" {
+		script, err := ioutil.ReadFile(*scriptPath)
+		if err != nil {
+			log.Fatalf("Error loading script file: %v", err)
+		}
+		exp.SetScript(script)
 	}
 
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{

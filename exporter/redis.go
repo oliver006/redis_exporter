@@ -33,6 +33,8 @@ type Exporter struct {
 	keys         []dbKeyPair
 	keyValues    *prometheus.GaugeVec
 	keySizes     *prometheus.GaugeVec
+	script       []byte
+	scriptValues *prometheus.GaugeVec
 	duration     prometheus.Gauge
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
@@ -199,6 +201,11 @@ func NewRedisExporter(host RedisHost, namespace, checkKeys string) (*Exporter, e
 			Name:      "key_size",
 			Help:      "The length or size of \"key\"",
 		}, []string{"addr", "alias", "db", "key"}),
+		scriptValues: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: namespace,
+			Name:      "script_value",
+			Help:      "Values returned by the collect script",
+		}, []string{"addr", "alias", "key"}),
 		duration: prometheus.NewGauge(prometheus.GaugeOpts{
 			Namespace: namespace,
 			Name:      "exporter_last_scrape_duration_seconds",
@@ -257,6 +264,11 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.scrapeErrors.Desc()
 }
 
+// SetScript sets the Lua Redis script to be used.
+func (e *Exporter) SetScript(script []byte) {
+	e.script = script
+}
+
 // Collect fetches new metrics from the RedisHost and updates the appropriate metrics.
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	scrapes := make(chan scrapeResult)
@@ -273,6 +285,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 	e.keySizes.Collect(ch)
 	e.keyValues.Collect(ch)
+	e.scriptValues.Collect(ch)
 
 	ch <- e.duration
 	ch <- e.totalScrapes
@@ -700,6 +713,20 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 				if tempVal, err := doRedisCmd(c, op, key); err == nil && tempVal != nil {
 					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
 					break
+				}
+			}
+		}
+	}
+
+	if e.script != nil && len(e.script) > 0 {
+		log.Debug("e.script")
+		kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.script, 0, 0))
+		if err != nil {
+			log.Errorf("Collect script error: %v", err)
+		} else if kv != nil {
+			for key, stringVal := range kv {
+				if val, err := strconv.ParseFloat(stringVal, 64); err == nil {
+					e.scriptValues.WithLabelValues(addr, e.redis.Aliases[idx], key).Set(val)
 				}
 			}
 		}

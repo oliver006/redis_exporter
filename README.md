@@ -90,6 +90,7 @@ Name               | Description
 debug              | Verbose debug output
 log-format         | Log format, valid options are `txt` (default) and `json`.
 check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.
+script             | Path to Redis Lua script for gathering extra metrics.
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
 redis.alias        | Alias for redis node addr, comma separated.
@@ -121,6 +122,7 @@ see http://redis.io/commands/info for details.<br>
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.<br>
 You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, etc. <br>
 
+If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
 ### What does it look like?
 Example [Grafana](http://grafana.org/) screenshots:<br>
