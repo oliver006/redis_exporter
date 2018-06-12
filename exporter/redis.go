@@ -739,7 +739,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	if reply, err := c.Do("SLOWLOG", "LEN"); err == nil {
 		e.metricsMtx.RLock()
-		e.metrics["slowlog_len"].WithLabelValues(addr, e.redis.Aliases[idx], "slowlog len").Set(float64(reply.(int64)))
+		e.metrics["slowlog_len_sum"].WithLabelValues(addr, e.redis.Aliases[idx], "slowlog len").Set(float64(reply.(int64)))
 		e.metricsMtx.RUnlock()
 	}
 
