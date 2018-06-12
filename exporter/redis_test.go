@@ -329,8 +329,6 @@ func TestExporterMetrics(t *testing.T) {
 		"slowlog_len",
 	}
 
-	t.Log("e.metrics is "  , e.metrics)
-
 	for _, k := range wantKeys {
 		if _, ok := e.metrics[k]; !ok {
 			t.Errorf("missing metrics key: %s", k)
