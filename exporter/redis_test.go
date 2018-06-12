@@ -326,7 +326,10 @@ func TestExporterMetrics(t *testing.T) {
 		"loading_dump_file", // testing renames
 		"config_maxmemory",  // testing config extraction
 		"config_maxclients", // testing config extraction
+		"slowlog_len",
 	}
+
+	t.Log("e.metrics is "  , e.metrics)
 
 	for _, k := range wantKeys {
 		if _, ok := e.metrics[k]; !ok {
