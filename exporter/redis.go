@@ -182,9 +182,9 @@ func (e *Exporter) initGauges() {
 		Name:      "command_call_duration_seconds_sum",
 		Help:      "Total amount of time in seconds spent per command",
 	}, []string{"addr", "alias", "cmd"})
-	e.metrics["slowlog_len_sum"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["slowlog_lenth"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "slowlog_len_sum",
+		Name:      "slowlog_lenth",
 		Help:      "Total slowlog",
 	}, []string{"addr", "alias"})
 }
@@ -739,7 +739,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	if reply, err := c.Do("SLOWLOG", "LEN"); err == nil {
 		e.metricsMtx.RLock()
-		e.metrics["slowlog_len_sum"].WithLabelValues(addr, e.redis.Aliases[idx]).Set(float64(reply.(int64)))
+		e.metrics["slowlog_lenth"].WithLabelValues(addr, e.redis.Aliases[idx]).Set(float64(reply.(int64)))
 		e.metricsMtx.RUnlock()
 	}
 
