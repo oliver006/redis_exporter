@@ -54,7 +54,8 @@ type scrapeResult struct {
 var (
 	metricMap = map[string]string{
 		// # Server
-		"process_id": "process_id",
+		"uptime_in_seconds": "uptime_in_seconds",
+		"process_id":        "process_id",
 
 		// # Clients
 		"connected_clients":          "connected_clients",
@@ -475,7 +476,6 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 				e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
 				e.metricsMtx.RUnlock()
 			}
-			continue
 		}
 
 		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
