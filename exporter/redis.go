@@ -133,6 +133,11 @@ func (e *Exporter) initGauges() {
 		Name:      "slave_info",
 		Help:      "Information about the Redis slave",
 	}, []string{"addr", "alias", "master_host", "master_port", "read_only"})
+	e.metrics["start_time_seconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "start_time_seconds",
+		Help:      "Start time of the Redis instance since unix epoch in seconds.",
+	}, []string{"addr", "alias"})
 	e.metrics["master_link_up"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "master_link_up",
@@ -464,6 +469,13 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			}
 			e.metricsMtx.RUnlock()
 			continue
+		}
+		if fieldKey == "uptime_in_seconds" {
+			if uptime, err := extractVal(fieldValue); err != nil {
+				e.metricsMtx.RLock()
+				e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
+				e.metricsMtx.RUnlock()
+			}
 		}
 
 		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
