@@ -17,6 +17,8 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -40,11 +42,12 @@ var (
 
 	keys             = []string{}
 	keysExpiring     = []string{}
-	listKeys		 = []string{}
+	listKeys         = []string{}
 	ts               = int32(time.Now().Unix())
 	defaultRedisHost = RedisHost{}
 
 	dbNumStr     = "11"
+	altDBNumStr  = "12"
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
 
 	TestServerURL = ""
@@ -117,7 +120,7 @@ func downloadUrl(t *testing.T, url string) []byte {
 }
 
 func TestLatencySpike(t *testing.T) {
-	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 
 	setupLatency(t, defaultRedisHost.Addrs[0])
 	defer resetLatency(t, defaultRedisHost.Addrs[0])
@@ -249,7 +252,7 @@ func TestHostVariations(t *testing.T) {
 	for _, prefix := range []string{"", "redis://", "tcp://"} {
 		addr := prefix + *redisAddr
 		host := RedisHost{Addrs: []string{addr}, Aliases: []string{""}}
-		e, _ := NewRedisExporter(host, "test", "")
+		e, _ := NewRedisExporter(host, "test", "", "")
 
 		scrapes := make(chan scrapeResult, 10000)
 		e.scrape(scrapes)
@@ -266,7 +269,7 @@ func TestHostVariations(t *testing.T) {
 
 func TestCountingKeys(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 
 	scrapes := make(chan scrapeResult, 10000)
 	e.scrape(scrapes)
@@ -319,7 +322,7 @@ func TestCountingKeys(t *testing.T) {
 
 func TestExporterMetrics(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -353,7 +356,7 @@ func TestExporterMetrics(t *testing.T) {
 
 func TestExporterValues(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -446,7 +449,7 @@ func TestParseConnectedSlaveString(t *testing.T) {
 
 func TestKeyValuesAndSizes(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]), "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -479,9 +482,247 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	}
 }
 
+type keyFixture struct {
+	command string
+	key     string
+	args    []interface{}
+}
+
+func newKeyFixture(command string, key string, args ...interface{}) keyFixture {
+	return keyFixture{command, key, args}
+}
+
+func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
+	for _, f := range fixtures {
+		args := append([]interface{}{f.key}, f.args...)
+		_, err := c.Do(f.command, args...)
+		if err != nil {
+			t.Errorf("Error creating fixture: %#v, %#v", f, err)
+		}
+	}
+}
+
+func deleteKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
+	for _, f := range fixtures {
+		_, err := c.Do("DEL", f.key)
+
+		if err != nil {
+			t.Errorf("Error deleting fixture: %#v, %#v", f, err)
+		}
+	}
+}
+
+func TestParseKeyArg(t *testing.T) {
+	parsed, err := parseKeyArg("")
+	if len(parsed) != 0 || err != nil {
+		t.Errorf("Parsing an empty string into a keys arg should yield an empty slice")
+	}
+}
+
+func TestScanForKeys(t *testing.T) {
+	numKeys := 1000
+	fixtures := []keyFixture{}
+
+	// Make 1000 keys that match
+	for i := 0; i < numKeys; i++ {
+		key := fmt.Sprintf("get_keys_test_shouldmatch_%v", i)
+		fixtures = append(fixtures, newKeyFixture("SET", key, "Woohoo!"))
+	}
+
+	// And 1000 that don't
+	for i := 0; i < numKeys; i++ {
+		key := fmt.Sprintf("get_keys_test_shouldnotmatch_%v", i)
+		fixtures = append(fixtures, newKeyFixture("SET", key, "Rats!"))
+	}
+
+	addr := defaultRedisHost.Addrs[0]
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	createKeyFixtures(t, c, fixtures)
+
+	matches, err := scanForKeys(c, "get_keys_test_*shouldmatch*")
+	if err != nil {
+		t.Errorf("Error getting keys matching a pattern: %#v", err)
+	}
+
+	numMatches := len(matches)
+	if numMatches != numKeys {
+		t.Errorf("Expected %#v matches, got %#v.", numKeys, numMatches)
+	}
+
+	for _, match := range matches {
+		if !strings.HasPrefix(match, "get_keys_test_shouldmatch") {
+			t.Errorf("Expected match to have prefix: get_keys_test_shouldmatch")
+		}
+	}
+}
+
+func TestGetKeysFromPatterns(t *testing.T) {
+	addr := defaultRedisHost.Addrs[0]
+	dbMain := dbNumStr
+	dbAlt := altDBNumStr
+
+	dbMainFixtures := []keyFixture{
+		newKeyFixture("SET", "dbMainNoPattern1", "woohoo!"),
+		newKeyFixture("SET", "dbMainSomePattern1", "woohoo!"),
+		newKeyFixture("SET", "dbMainSomePattern2", "woohoo!"),
+	}
+
+	dbAltFixtures := []keyFixture{
+		newKeyFixture("SET", "dbAltNoPattern1", "woohoo!"),
+		newKeyFixture("SET", "dbAltSomePattern1", "woohoo!"),
+		newKeyFixture("SET", "dbAltSomePattern2", "woohoo!"),
+	}
+
+	keys := []dbKeyPair{
+		dbKeyPair{db: dbMain, key: "dbMainNoPattern1"},
+		dbKeyPair{db: dbMain, key: "*SomePattern*"},
+		dbKeyPair{db: dbAlt, key: "dbAltNoPattern1"},
+		dbKeyPair{db: dbAlt, key: "*SomePattern*"},
+	}
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("Couldn't connect to %#v: %#v", addr, err)
+	}
+
+	defer func() {
+		_, err = c.Do("SELECT", dbMain)
+		if err != nil {
+			t.Errorf("Couldn't select database %#v", dbMain)
+		}
+		deleteKeyFixtures(t, c, dbMainFixtures)
+
+		_, err = c.Do("SELECT", dbAlt)
+		if err != nil {
+			t.Errorf("Couldn't select database %#v", dbAlt)
+		}
+		deleteKeyFixtures(t, c, dbAltFixtures)
+		c.Close()
+	}()
+
+	_, err = c.Do("SELECT", dbMain)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", dbMain)
+	}
+	createKeyFixtures(t, c, dbMainFixtures)
+
+	_, err = c.Do("SELECT", dbAlt)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", dbAlt)
+	}
+	createKeyFixtures(t, c, dbAltFixtures)
+
+	expandedKeys, err := getKeysFromPatterns(c, keys)
+	if err != nil {
+		t.Errorf("Error getting keys from patterns: %#v", err)
+	}
+
+	expectedKeys := []dbKeyPair{
+		dbKeyPair{db: dbMain, key: "dbMainNoPattern1"},
+		dbKeyPair{db: dbMain, key: "dbMainSomePattern1"},
+		dbKeyPair{db: dbMain, key: "dbMainSomePattern2"},
+		dbKeyPair{db: dbAlt, key: "dbAltNoPattern1"},
+		dbKeyPair{db: dbAlt, key: "dbAltSomePattern1"},
+		dbKeyPair{db: dbAlt, key: "dbAltSomePattern2"},
+	}
+
+	sort.Slice(expectedKeys, func(i, j int) bool {
+		return (expectedKeys[i].db + expectedKeys[i].key) < (expectedKeys[j].db + expectedKeys[j].key)
+	})
+
+	sort.Slice(expandedKeys, func(i, j int) bool {
+		return (expandedKeys[i].db + expandedKeys[i].key) < (expandedKeys[j].db + expandedKeys[j].key)
+	})
+
+	if !reflect.DeepEqual(expectedKeys, expandedKeys) {
+		t.Errorf("When expanding keys:\nexpected: %v\nactual:   %v", expectedKeys, expandedKeys)
+	}
+
+}
+
+func TestGetKeyInfo(t *testing.T) {
+	addr := defaultRedisHost.Addrs[0]
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		keyFixture{"SET", "key_info_test_string", []interface{}{"Woohoo!"}},
+		keyFixture{"HSET", "key_info_test_hash", []interface{}{"hashkey1", "hashval1"}},
+		keyFixture{"PFADD", "key_info_test_hll", []interface{}{"hllval1", "hllval2"}},
+		keyFixture{"LPUSH", "key_info_test_list", []interface{}{"listval1", "listval2", "listval3"}},
+		keyFixture{"SADD", "key_info_test_set", []interface{}{"setval1", "setval2", "setval3", "setval4"}},
+		keyFixture{"ZADD", "key_info_test_zset", []interface{}{
+			"1", "zsetval1",
+			"2", "zsetval2",
+			"3", "zsetval3",
+			"4", "zsetval4",
+			"5", "zsetval5",
+		}},
+	}
+
+	createKeyFixtures(t, c, fixtures)
+
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	expectedSizes := map[string]float64{
+		"key_info_test_string": 7,
+		"key_info_test_hash":   1,
+		"key_info_test_hll":    2,
+		"key_info_test_list":   3,
+		"key_info_test_set":    4,
+		"key_info_test_zset":   5,
+	}
+
+	// Test all known types
+	for _, f := range fixtures {
+		info, err := getKeyInfo(c, f.key)
+		if err != nil {
+			t.Errorf("Error getting key info for %#v.", f.key)
+		}
+
+		expected := expectedSizes[f.key]
+		if info.size != expected {
+			t.Logf("%#v", info)
+			t.Errorf("Wrong size for key: %#v. Expected: %#v; Actual: %#v", f.key, expected, info.size)
+		}
+	}
+
+	// Test absent key returns the correct error
+	_, err = getKeyInfo(c, "absent_key")
+	if err != errNotFound {
+		t.Error("Expected `errNotFound` for absent key.  Got a different error.")
+	}
+}
+
 func TestKeySizeList(t *testing.T) {
 	s := dbNumStrFull + "=" + listKeys[0]
-	e, _ := NewRedisExporter(defaultRedisHost, "test", s)
+	e, _ := NewRedisExporter(defaultRedisHost, "test", s, "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -513,7 +754,7 @@ func TestKeySizeList(t *testing.T) {
 
 func TestScript(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", "")
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 	e.SetScript([]byte(`return {"a", "11", "b", "12", "c", "13"}`))
 	nKeys := 3
 
@@ -543,7 +784,7 @@ func TestScript(t *testing.T) {
 
 func TestKeyValueInvalidDB(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", "999="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "999="+url.QueryEscape(keys[0]), "")
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -575,7 +816,7 @@ func TestKeyValueInvalidDB(t *testing.T) {
 
 func TestCommandStats(t *testing.T) {
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]), "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -612,7 +853,7 @@ func TestHTTPEndpoint(t *testing.T) {
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]), "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -642,7 +883,7 @@ func TestHTTPEndpoint(t *testing.T) {
 
 func TestNonExistingHost(t *testing.T) {
 	rr := RedisHost{Addrs: []string{"unix:///tmp/doesnt.exist"}, Aliases: []string{""}}
-	e, _ := NewRedisExporter(rr, "test", "")
+	e, _ := NewRedisExporter(rr, "test", "", "")
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -736,7 +977,7 @@ func TestMoreThanOneHost(t *testing.T) {
 
 	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHost}, Aliases: []string{"", ""}}
 	checkKey := dbNumStrFull + "=" + url.QueryEscape(keys[0])
-	e, _ := NewRedisExporter(twoHostCfg, "test", checkKey)
+	e, _ := NewRedisExporter(twoHostCfg, "test", checkKey, "")
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -796,7 +1037,7 @@ func TestKeysReset(t *testing.T) {
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
-	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+keys[0])
+	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+keys[0], "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -836,7 +1077,7 @@ func TestClusterMaster(t *testing.T) {
 
 	addr := "redis://" + os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
 	host := RedisHost{Addrs: []string{addr}, Aliases: []string{"master"}}
-	e, _ := NewRedisExporter(host, "test", "")
+	e, _ := NewRedisExporter(host, "test", "", "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
@@ -887,7 +1128,7 @@ func TestPasswordProtectedInstance(t *testing.T) {
 		}
 		deleteKeysFromDB(t, host.Addrs[0])
 	}()
-	e, _ := NewRedisExporter(host, "test", "")
+	e, _ := NewRedisExporter(host, "test", "", "")
 
 	prometheus.Register(e)
 
@@ -936,7 +1177,7 @@ func TestPasswordInvalid(t *testing.T) {
 		}
 		deleteKeysFromDB(t, host.Addrs[0])
 	}()
-	e, _ := NewRedisExporter(host, "test", "")
+	e, _ := NewRedisExporter(host, "test", "", "")
 
 	prometheus.Register(e)
 
@@ -965,7 +1206,7 @@ func TestClusterSlave(t *testing.T) {
 
 	addr := "redis://" + os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
 	host := RedisHost{Addrs: []string{addr}, Aliases: []string{"slave"}}
-	e, _ := NewRedisExporter(host, "test", "")
+	e, _ := NewRedisExporter(host, "test", "", "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])

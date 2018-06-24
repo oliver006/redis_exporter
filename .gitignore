@@ -5,3 +5,4 @@ pkg/
 src/
 .DS_Store
 .idea
+*.rdb
