@@ -471,7 +471,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			continue
 		}
 		if fieldKey == "uptime_in_seconds" {
-			if uptime, err := extractVal(fieldValue); err != nil {
+			if uptime, err := strconv.ParseFloat(fieldValue, 64); err == nil {
 				e.metricsMtx.RLock()
 				e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
 				e.metricsMtx.RUnlock()
