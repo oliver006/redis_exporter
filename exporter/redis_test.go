@@ -327,6 +327,8 @@ func TestExporterMetrics(t *testing.T) {
 		"config_maxmemory",  // testing config extraction
 		"config_maxclients", // testing config extraction
 		"slowlog_lenth",
+		"start_time_seconds",
+		"uptime_in_seconds",
 	}
 
 	for _, k := range wantKeys {
