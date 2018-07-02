@@ -787,6 +787,7 @@ func (e *Exporter) setMetrics(scrapes <-chan scrapeResult) {
 			e.metrics[name] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: e.namespace,
 				Name:      name,
+				Help:      "empty", // needs to be set for prometheus >= 2.3.1
 			}, []string{"addr", "alias"})
 			e.metricsMtx.Unlock()
 		}
