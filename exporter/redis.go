@@ -218,7 +218,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
 			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
 		default:
-			err = fmt.Errorf("more than one '=' in key specification in key list argument in: %s", k)
+			err = fmt.Errorf("invalid key list argument: %s", k)
 			return keys, err
 		}
 		if err != nil {
@@ -270,20 +270,18 @@ func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys stri
 		}),
 	}
 
-	parsedKeys, err := parseKeyArg(checkKeys)
-	if err != nil {
+	var err error
+
+	if e.keys, err = parseKeyArg(checkKeys); err != nil {
 		log.Fatalf("Couldn't parse check-keys: %#v", err)
 		return &e, err
 	}
-	e.keys = parsedKeys
 	log.Debugf("keys: %#v", e.keys)
 
-	parsedSingleKeys, err := parseKeyArg(checkSingleKeys)
-	if err != nil {
+	if e.singleKeys, err = parseKeyArg(checkSingleKeys); err != nil {
 		log.Fatalf("Couldn't parse check-single-keys: %#v", err)
 		return &e, err
 	}
-	e.singleKeys = parsedSingleKeys
 	log.Debugf("singleKeys: %#v", e.singleKeys)
 
 	e.initGauges()
@@ -646,14 +644,11 @@ var errNotFound = errors.New("key not found")
 // getKeyInfo takes a key and returns the type, and the size or length of the value stored at that key.
 func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 
-	keyType, err := redis.String(c.Do("TYPE", key))
-	if err != nil {
+	if info.keyType, err = redis.String(c.Do("TYPE", key)); err != nil {
 		return info, err
 	}
 
-	info.keyType = keyType
-
-	switch keyType {
+	switch info.keyType {
 	case "none":
 		return info, errNotFound
 	case "string":
@@ -680,28 +675,31 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 			info.size = float64(size)
 		}
 	default:
-		err = fmt.Errorf("Unknown type: %v for key: %v", keyType, key)
+		err = fmt.Errorf("Unknown type: %v for key: %v", info.keyType, key)
 	}
 
 	return info, err
 }
 
 // scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
-// This function was taken from: https://github.com/reisinger/examples-redigo
+// This function was adapted from: https://github.com/reisinger/examples-redigo
 func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
 	iter := 0
 	keys := []string{}
+
 	for {
 		arr, err := redis.Values(c.Do("SCAN", iter, "MATCH", pattern))
 		if err != nil {
 			return keys, fmt.Errorf("error retrieving '%s' keys", pattern)
 		}
+		if len(arr) != 2 {
+			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
+		}
 
-		iter, _ = redis.Int(arr[0], nil)
 		k, _ := redis.Strings(arr[1], nil)
 		keys = append(keys, k...)
 
-		if iter == 0 {
+		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
 			break
 		}
 	}
@@ -720,7 +718,8 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 			}
 			keyNames, err := scanForKeys(c, k.key)
 			if err != nil {
-				return expandedKeys, err
+				log.Errorf("error with SCAN for pattern: %#v", k.key)
+				continue
 			}
 			for _, keyName := range keyNames {
 				expandedKeys = append(expandedKeys, dbKeyPair{db: k.db, key: keyName})
@@ -730,7 +729,6 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 		}
 	}
 	return expandedKeys, err
-
 }
 
 func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx int) error {
@@ -825,8 +823,9 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	scannedKeys, err := getKeysFromPatterns(c, e.keys)
 	if err != nil {
 		log.Errorf("Error expanding key patterns: %#v", err)
+	} else {
+		allKeys = append(allKeys, scannedKeys...)
 	}
-	allKeys = append(allKeys, scannedKeys...)
 
 	log.Debugf("allKeys: %#v", allKeys)
 	for _, k := range allKeys {
