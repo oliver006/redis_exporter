@@ -86,8 +86,11 @@ func GetCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
 
 	for _, redisService := range redisServices {
 		credentials := redisService.Credentials
-		addr := credentials["hostname"].(string) + ":" + credentials["port"].(string)
-		password := credentials["password"].(string)
+		host := getAlternative(credentials, "host", "hostname")
+		port := getAlternative(credentials, "port")
+		password := getAlternative(credentials, "password")
+
+		addr := host + ":" + port
 		alias := redisService.Name
 
 		addrs = append(addrs, addr)
@@ -96,4 +99,13 @@ func GetCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
 	}
 
 	return
+}
+
+func getAlternative(credentials map[string]interface{}, alternatives ...string) string {
+	for _, key := range alternatives {
+		if value, ok := credentials[key]; ok {
+			return value.(string)
+		}
+	}
+	return ""
 }
