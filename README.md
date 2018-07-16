@@ -89,7 +89,8 @@ Name               | Description
 -------------------|------------
 debug              | Verbose debug output
 log-format         | Log format, valid options are `txt` (default) and `json`.
-check-keys         | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.
+check-keys         | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-keys` is faster for non-pattern keys.
+check-single-keys  | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
 script             | Path to Redis Lua script for gathering extra metrics.
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
