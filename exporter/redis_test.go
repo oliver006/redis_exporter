@@ -835,7 +835,6 @@ func TestClusterMaster(t *testing.T) {
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
-	log.Println("wut")
 	prometheus.Register(e)
 
 	chM := make(chan prometheus.Metric, 10000)
@@ -942,7 +941,6 @@ func TestPasswordInvalid(t *testing.T) {
 	}()
 
 	body := downloadUrl(t, ts.URL+"/metrics")
-	log.Println(string(body))
 	if !bytes.Contains(body, []byte("test_exporter_last_scrape_error 1")) {
 		t.Errorf(`error, expected string "test_exporter_last_scrape_error 1" in body`)
 	}

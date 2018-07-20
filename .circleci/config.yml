@@ -1,0 +1,60 @@
+# https://circleci.com/docs/2.0/
+version: 2
+jobs:
+
+  run-tests:
+    docker:
+      - image: circleci/golang:1.10-stretch
+      - image: redis:4.0.10
+      - image: redis:4.0.10
+        command: --port 6380
+      - image: grokzen/redis-cluster
+
+    working_directory: /go/src/github.com/oliver006/redis_exporter
+    steps:
+      - checkout
+      - run:
+          shell: /bin/bash
+          name: go fmt
+          command: |
+            ! gofmt -l $(find . -path ./vendor -prune -o  -type f -name '*.go' -print) 2>&1 | read
+
+      - run: echo " ! gofmt -d main.go       2>&1 | read " | bash
+      - run: echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash
+      - run: go get github.com/mattn/goveralls
+      - run: go get golang.org/x/tools/cmd/cover
+      - run: go vet ./exporter/...
+      - run: TEST_REDIS_CLUSTER_MASTER_URI=localhost:7000 TEST_REDIS_CLUSTER_SLAVE_URI=localhost:7005 go test -v -covermode=atomic -cover -race -coverprofile=coverage.out ./exporter/...
+      - run: /go/bin/goveralls -coverprofile=coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+
+
+  build-and-release:
+    docker:
+      - image: circleci/golang:1.10-stretch
+
+    working_directory: /go/src/github.com/oliver006/redis_exporter
+    environment:
+      GO_LDFLAGS: '-extldflags "-static" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)'
+
+    steps:
+      - checkout
+      - run:
+      - run: go get github.com/mitchellh/gox
+      - run: go get github.com/tcnksm/ghr
+      - run: ./build.sh
+
+
+workflows:
+  version: 2
+  test-and-release-on-tags:
+    jobs:
+      - run-tests
+      - build-and-release:
+          requires:
+            - run-tests
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only:
+                - /v.*/
