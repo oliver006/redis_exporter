@@ -702,34 +702,38 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 			continue
 		}
 
-		obtainedKeys := []string{}
-		if tempVal, err := redis.Strings(doRedisCmd(c, "KEYS", k.key)); err == nil && tempVal != nil {
-			for _, tempKey := range tempVal {
-				log.Debugf("Append result: %s", tempKey)
-				obtainedKeys = append(obtainedKeys, tempKey)
-			}
-		}
+		if keyType, err := redis.String(c.Do("TYPE", k.key)); err == nil && keyType != "" {
+			log.Debugf("Key %s is of type: %s", k.key, keyType)
 
-		for _, key := range obtainedKeys {
 			dbLabel := "db" + k.db
-			keyLabel := key
-			if tempVal, err := doRedisCmd(c, "GET", key); err == nil && tempVal != nil {
-				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(val)
-				}
-			}
 
-			for _, op := range []string{
-				"HLEN",
-				"LLEN",
-				"SCARD",
-				"ZCARD",
-				"PFCOUNT",
-				"STRLEN",
-			} {
-				if tempVal, err := doRedisCmd(c, op, key); err == nil && tempVal != nil {
+			keyLabel := k.key
+
+			switch keyType {
+			case "string":
+				if tempVal, err := c.Do("GET", k.key); err == nil && tempVal != nil {
+					if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
+						e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(val)
+					}
+					if tempVal, err := c.Do("STRLEN", k.key); err == nil && tempVal != nil {
+						e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
+					}
+				}
+			case "list":
+				if tempVal, err := c.Do("LLEN", k.key); err == nil && tempVal != nil {
 					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
-					break
+				}
+			case "set":
+				if tempVal, err := c.Do("SCARD", k.key); err == nil && tempVal != nil {
+					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
+				}
+			case "zset":
+				if tempVal, err := c.Do("ZCARD", k.key); err == nil && tempVal != nil {
+					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
+				}
+			case "hash":
+				if tempVal, err := c.Do("HLEN", k.key); err == nil && tempVal != nil {
+					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
 				}
 			}
 		}
