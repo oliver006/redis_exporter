@@ -25,7 +25,7 @@ jobs:
       - run: go get golang.org/x/tools/cmd/cover
       - run: go vet ./exporter/...
       - run: TEST_REDIS_CLUSTER_MASTER_URI=localhost:7000 TEST_REDIS_CLUSTER_SLAVE_URI=localhost:7005 go test -v -covermode=atomic -cover -race -coverprofile=coverage.out ./exporter/...
-      - run: /go/bin/goveralls -coverprofile=coverage.out -service=circle-ci -repotoken=$COVERALLS_TOKEN
+      - run: /go/bin/goveralls -coverprofile=coverage.out -service=circle-ci -repotoken=7rWMRpzVs2gcKnhfdJNbGyE6ycJ6M4fNs
 
 
   build-and-release:
