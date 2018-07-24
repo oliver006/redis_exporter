@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -26,11 +27,17 @@ type dbKeyPair struct {
 	db, key string
 }
 
+type keyInfo struct {
+	size    float64
+	keyType string
+}
+
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	redis        RedisHost
 	namespace    string
 	keys         []dbKeyPair
+	singleKeys   []dbKeyPair
 	keyValues    *prometheus.GaugeVec
 	keySizes     *prometheus.GaugeVec
 	script       []byte
@@ -194,9 +201,39 @@ func (e *Exporter) initGauges() {
 	}, []string{"addr", "alias"})
 }
 
+// splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
+func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
+	if keysArgString == "" {
+		return keys, err
+	}
+	for _, k := range strings.Split(keysArgString, ",") {
+		db := "0"
+		key := ""
+		frags := strings.Split(k, "=")
+		switch len(frags) {
+		case 1:
+			db = "0"
+			key, err = url.QueryUnescape(strings.TrimSpace(frags[0]))
+		case 2:
+			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
+			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
+		default:
+			err = fmt.Errorf("invalid key list argument: %s", k)
+			return keys, err
+		}
+		if err != nil {
+			err = fmt.Errorf("couldn't parse db/key string: %s", k)
+			return keys, err
+		}
+
+		keys = append(keys, dbKeyPair{db, key})
+	}
+	return keys, err
+}
+
 // NewRedisExporter returns a new exporter of Redis metrics.
 // note to self: next time we add an argument, instead add a RedisExporter struct
-func NewRedisExporter(host RedisHost, namespace, checkKeys string) (*Exporter, error) {
+func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys string) (*Exporter, error) {
 
 	e := Exporter{
 		redis:     host,
@@ -232,29 +269,20 @@ func NewRedisExporter(host RedisHost, namespace, checkKeys string) (*Exporter, e
 			Help:      "The last scrape error status.",
 		}),
 	}
-	for _, k := range strings.Split(checkKeys, ",") {
-		var err error
-		db := "0"
-		key := ""
-		frags := strings.Split(k, "=")
-		switch len(frags) {
-		case 1:
-			db = "0"
-			key, err = url.QueryUnescape(strings.TrimSpace(frags[0]))
-		case 2:
-			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
-			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
-		default:
-			err = fmt.Errorf("")
-		}
-		if err != nil {
-			log.Debugf("Couldn't parse db/key string: %s", k)
-			continue
-		}
-		if key != "" {
-			e.keys = append(e.keys, dbKeyPair{db, key})
-		}
+
+	var err error
+
+	if e.keys, err = parseKeyArg(checkKeys); err != nil {
+		log.Fatalf("Couldn't parse check-keys: %#v", err)
+		return &e, err
 	}
+	log.Debugf("keys: %#v", e.keys)
+
+	if e.singleKeys, err = parseKeyArg(checkSingleKeys); err != nil {
+		log.Fatalf("Couldn't parse check-single-keys: %#v", err)
+		return &e, err
+	}
+	log.Debugf("singleKeys: %#v", e.singleKeys)
 
 	e.initGauges()
 	return &e, nil
@@ -611,6 +639,98 @@ func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (reply interface{
 	return res, err
 }
 
+var errNotFound = errors.New("key not found")
+
+// getKeyInfo takes a key and returns the type, and the size or length of the value stored at that key.
+func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
+
+	if info.keyType, err = redis.String(c.Do("TYPE", key)); err != nil {
+		return info, err
+	}
+
+	switch info.keyType {
+	case "none":
+		return info, errNotFound
+	case "string":
+		if size, err := redis.Int64(c.Do("PFCOUNT", key)); err == nil {
+			info.keyType = "hyperloglog"
+			info.size = float64(size)
+		} else if size, err := redis.Int64(c.Do("STRLEN", key)); err == nil {
+			info.size = float64(size)
+		}
+	case "list":
+		if size, err := redis.Int64(c.Do("LLEN", key)); err == nil {
+			info.size = float64(size)
+		}
+	case "set":
+		if size, err := redis.Int64(c.Do("SCARD", key)); err == nil {
+			info.size = float64(size)
+		}
+	case "zset":
+		if size, err := redis.Int64(c.Do("ZCARD", key)); err == nil {
+			info.size = float64(size)
+		}
+	case "hash":
+		if size, err := redis.Int64(c.Do("HLEN", key)); err == nil {
+			info.size = float64(size)
+		}
+	default:
+		err = fmt.Errorf("Unknown type: %v for key: %v", info.keyType, key)
+	}
+
+	return info, err
+}
+
+// scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
+// This function was adapted from: https://github.com/reisinger/examples-redigo
+func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
+	iter := 0
+	keys := []string{}
+
+	for {
+		arr, err := redis.Values(c.Do("SCAN", iter, "MATCH", pattern))
+		if err != nil {
+			return keys, fmt.Errorf("error retrieving '%s' keys", pattern)
+		}
+		if len(arr) != 2 {
+			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
+		}
+
+		k, _ := redis.Strings(arr[1], nil)
+		keys = append(keys, k...)
+
+		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
+			break
+		}
+	}
+
+	return keys, nil
+}
+
+// getKeysFromPatterns does a SCAN for a key if the key contains pattern characters
+func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPair, err error) {
+	expandedKeys = []dbKeyPair{}
+	for _, k := range keys {
+		if regexp.MustCompile(`[\?\*\[\]\^]+`).MatchString(k.key) {
+			_, err := c.Do("SELECT", k.db)
+			if err != nil {
+				return expandedKeys, err
+			}
+			keyNames, err := scanForKeys(c, k.key)
+			if err != nil {
+				log.Errorf("error with SCAN for pattern: %#v", k.key)
+				continue
+			}
+			for _, keyName := range keyNames {
+				expandedKeys = append(expandedKeys, dbKeyPair{db: k.db, key: keyName})
+			}
+		} else {
+			expandedKeys = append(expandedKeys, k)
+		}
+	}
+	return expandedKeys, err
+}
+
 func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx int) error {
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(5 * time.Second),
@@ -696,42 +816,40 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
+	log.Debugf("e.singleKeys: %#v", e.singleKeys)
+	allKeys := append([]dbKeyPair{}, e.singleKeys...)
+
 	log.Debugf("e.keys: %#v", e.keys)
-	for _, k := range e.keys {
+	scannedKeys, err := getKeysFromPatterns(c, e.keys)
+	if err != nil {
+		log.Errorf("Error expanding key patterns: %#v", err)
+	} else {
+		allKeys = append(allKeys, scannedKeys...)
+	}
+
+	log.Debugf("allKeys: %#v", allKeys)
+	for _, k := range allKeys {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+			log.Debugf("Couldn't select database %#v when getting key info.", k.db)
 			continue
 		}
 
-		obtainedKeys := []string{}
-		if tempVal, err := redis.Strings(doRedisCmd(c, "KEYS", k.key)); err == nil && tempVal != nil {
-			for _, tempKey := range tempVal {
-				log.Debugf("Append result: %s", tempKey)
-				obtainedKeys = append(obtainedKeys, tempKey)
+		info, err := getKeyInfo(c, k.key)
+		if err != nil {
+			switch err {
+			case errNotFound:
+				log.Debugf("Key %v not found when trying to get type and size.", err)
+			default:
+				log.Error(err)
 			}
+			continue
 		}
+		dbLabel := "db" + k.db
+		e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, k.key).Set(info.size)
 
-		for _, key := range obtainedKeys {
-			dbLabel := "db" + k.db
-			keyLabel := key
-			if tempVal, err := doRedisCmd(c, "GET", key); err == nil && tempVal != nil {
-				if val, err := strconv.ParseFloat(fmt.Sprintf("%s", tempVal), 64); err == nil {
-					e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(val)
-				}
-			}
-
-			for _, op := range []string{
-				"HLEN",
-				"LLEN",
-				"SCARD",
-				"ZCARD",
-				"PFCOUNT",
-				"STRLEN",
-			} {
-				if tempVal, err := doRedisCmd(c, op, key); err == nil && tempVal != nil {
-					e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, keyLabel).Set(float64(tempVal.(int64)))
-					break
-				}
-			}
+		// Only record value metric if value is float-y
+		if value, err := redis.Float64(c.Do("GET", k.key)); err == nil {
+			e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, k.key).Set(value)
 		}
 	}
 
