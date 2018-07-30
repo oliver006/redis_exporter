@@ -75,6 +75,7 @@ var (
 		"used_memory_rss":         "memory_used_rss_bytes",
 		"used_memory_peak":        "memory_used_peak_bytes",
 		"used_memory_lua":         "memory_used_lua_bytes",
+		"total_system_memory":	   "total_system_memory_bytes",
 		"maxmemory":               "memory_max_bytes",
 		"mem_fragmentation_ratio": "memory_fragmentation_ratio",
 
@@ -199,6 +200,11 @@ func (e *Exporter) initGauges() {
 		Name:      "slowlog_length",
 		Help:      "Total slowlog",
 	}, []string{"addr", "alias"})
+	e.metrics["total_system_memory"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace:	e.namespace,
+		Name:		"total_system_memory",
+		Help:		"Total System Memory in this host",
+	} , []string{"addr" , "alias"})
 }
 
 // splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
