@@ -200,11 +200,6 @@ func (e *Exporter) initGauges() {
 		Name:      "slowlog_length",
 		Help:      "Total slowlog",
 	}, []string{"addr", "alias"})
-	e.metrics["total_system_memory"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Namespace: e.namespace,
-		Name:      "total_system_memory",
-		Help:      "Total System Memory in this host",
-	}, []string{"addr", "alias"})
 }
 
 // splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.

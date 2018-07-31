@@ -1,34 +1,39 @@
 #!/usr/bin/env bash
 
-export CGO_ENABLED=0
-
-gox --osarch="linux/386"   -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter"
-
 echo "Build Docker images"
 
 docker version
 
 echo "docker login"
-docker login -e $DOCKER_EMAIL -u $DOCKER_USER -p $DOCKER_PASS
+docker login -u $DOCKER_USER -p $DOCKER_PASS
 docker info
 echo "docker login done"
 
-docker build --rm=false -t "21zoo/redis_exporter:$CIRCLE_TAG" .
-docker build --rm=false -t "21zoo/redis_exporter:latest" .
+export BUILD_ARGS="--rm=false --build-arg TAG=${CIRCLE_TAG} --build-arg SHA1=${CIRCLE_SHA1} --build-arg DATE=$(date +%F-%T)"
+echo  "BUILD_ARGS: $BUILD_ARGS"
 
-docker push "21zoo/redis_exporter:latest"
-docker push "21zoo/redis_exporter:$CIRCLE_TAG"
+docker build -t "21zoo/redis_exporter:$CIRCLE_TAG" $BUILD_ARGS .
+docker push     "21zoo/redis_exporter:$CIRCLE_TAG"
 
-docker build --rm=false -t "oliver006/redis_exporter:$CIRCLE_TAG" .
-docker build --rm=false -t "oliver006/redis_exporter:latest" .
-docker push "oliver006/redis_exporter:latest"
-docker push "oliver006/redis_exporter:$CIRCLE_TAG"
+docker build -t "21zoo/redis_exporter:latest" $BUILD_ARGS .
+docker push     "21zoo/redis_exporter:latest"
+
+docker build -t "oliver006/redis_exporter:$CIRCLE_TAG" $BUILD_ARGS  .
+docker push     "oliver006/redis_exporter:$CIRCLE_TAG"
+
+docker build -t "oliver006/redis_exporter:latest" $BUILD_ARGS  .
+docker push     "oliver006/redis_exporter:latest"
 
 
 
-echo "Building binaries"
+echo "Building binaries for Github"
 echo ""
-echo $GO_LDFLAGS
+export CGO_ENABLED=0
+export GO_LDFLAGS="-extldflags \"-static\" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)"
+echo  "GO_LDFLAGS: $GO_LDFLAGS"
+
+go get github.com/mitchellh/gox
+go get github.com/tcnksm/ghr
 
 gox -rebuild --osarch="darwin/amd64"  -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.darwin-amd64.tar.gz redis_exporter && rm redis_exporter && cd ..
 gox -rebuild --osarch="darwin/386"    -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter" && cd dist && tar -cvzf redis_exporter-$CIRCLE_TAG.darwin-386.tar.gz   redis_exporter && rm redis_exporter && cd ..
