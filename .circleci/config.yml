@@ -42,6 +42,12 @@ jobs:
           docker_layer_caching: true
 
       - run:
+          name: Install utilities
+          command: |
+            apt-get update
+            apt-get install -y zip
+
+      - run:
           name: Install Docker client
           command: |
             set -x
