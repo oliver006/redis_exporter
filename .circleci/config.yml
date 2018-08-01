@@ -2,9 +2,9 @@
 version: 2
 jobs:
 
-  run-tests:
+  tests:
     docker:
-      - image: circleci/golang:1.10-stretch
+      - image: golang:1.10
       - image: redis:4.0.10
       - image: redis:4.0.10
         command: --port 6380
@@ -29,33 +29,43 @@ jobs:
       - run: bash <(curl -s https://codecov.io/bash)
 
 
-  build-and-release:
+  build:
     docker:
-      - image: circleci/golang:1.10-stretch
+      - image: golang:1.10
 
     working_directory: /go/src/github.com/oliver006/redis_exporter
-    environment:
-      GO_LDFLAGS: '-extldflags "-static" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)'
 
     steps:
       - checkout
+
+      - setup_remote_docker:
+          docker_layer_caching: true
+
       - run:
-      - run: go get github.com/mitchellh/gox
-      - run: go get github.com/tcnksm/ghr
+          name: Install Docker client
+          command: |
+            set -x
+            VER="18.03.1-ce"
+            curl -L -o /tmp/docker-$VER.tgz https://download.docker.com/linux/static/stable/x86_64/docker-$VER.tgz
+            tar -xz -C /tmp -f /tmp/docker-$VER.tgz
+            mv /tmp/docker/* /usr/bin
+
       - run: ./build.sh
 
 
 workflows:
   version: 2
-  test-and-release-on-tags:
+  test-build-and-release:
     jobs:
-      - run-tests
-      - build-and-release:
-          requires:
-            - run-tests
+      - tests:
           filters:
+            tags:
+              only: /.*/
+      - build:
+          requires:
+            - tests
+          filters:
+            tags:
+              only: /^v.*/
             branches:
               ignore: /.*/
-            tags:
-              only:
-                - /v.*/
