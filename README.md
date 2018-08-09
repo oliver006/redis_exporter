@@ -100,6 +100,7 @@ namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
 use-cf-bindings    | Enable usage of Cloud Foundry service bindings. Defaults to `false`
+separator          | Separator used to split redis.addr, redis.password and redis.alias into several elements. Defaults to `,`
 
 Redis node addresses can be tcp addresses like `redis://localhost:6379`, `redis.example.com:6379` or unix socket addresses like `unix:///tmp/redis.sock`. <br>
 SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).
