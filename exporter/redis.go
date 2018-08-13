@@ -901,15 +901,15 @@ func (e *Exporter) scrape(scrapes chan<- scrapeResult) {
 func (e *Exporter) setMetrics(scrapes <-chan scrapeResult) {
 	for scr := range scrapes {
 		name := scr.Name
-		if _, ok := e.metrics[name]; !ok {
-			e.metricsMtx.Lock()
-			e.metrics[name] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-				Namespace: e.namespace,
-				Name:      name,
-				Help:      name + "metric", // needs to be set for prometheus >= 2.3.1
-			}, []string{"addr", "alias"})
-			e.metricsMtx.Unlock()
-		}
+		//if _, ok := e.metrics[name]; !ok {
+		//	e.metricsMtx.Lock()
+		//	e.metrics[name] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		//		Namespace: e.namespace,
+		//		Name:      name,
+		//		Help:      name + "metric", // needs to be set for prometheus >= 2.3.1
+		//	}, []string{"addr", "alias"})
+		//	e.metricsMtx.Unlock()
+		//}
 		var labels prometheus.Labels = map[string]string{"addr": scr.Addr, "alias": scr.Alias}
 		if len(scr.DB) > 0 {
 			labels["db"] = scr.DB
