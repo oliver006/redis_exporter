@@ -81,13 +81,20 @@ var (
 
 		// # Persistence
 		"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
+		"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
+		"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
+		"rdb_last_bgsave_status":       "rdb_last_bgsave_status",
 		"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
 		"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
+		"rdb_last_cow_size":            "rdb_last_cow_size_bytes",
 		"aof_enabled":                  "aof_enabled",
 		"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
 		"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
 		"aof_last_rewrite_time_sec":    "aof_last_rewrite_duration_sec",
 		"aof_current_rewrite_time_sec": "aof_current_rewrite_duration_sec",
+		"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
+		"aof_last_write_status":        "aof_last_write_status",
+		"aof_last_cow_size":            "aof_last_cow_size_bytes",
 
 		// # Stats
 		"total_connections_received": "connections_received_total",
