@@ -829,28 +829,33 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	}
 
 	log.Debugf("allKeys: %#v", allKeys)
-	for _, k := range allKeys {
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Debugf("Couldn't select database %#v when getting key info.", k.db)
-			continue
-		}
-
-		info, err := getKeyInfo(c, k.key)
-		if err != nil {
-			switch err {
-			case errNotFound:
-				log.Debugf("Key %v not found when trying to get type and size.", err)
-			default:
-				log.Error(err)
+	if len(allKeys) == 0 {
+		e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], "nil", "nil").Set(0)
+		e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], "nil", "nil").Set(0)
+	} else {
+		for _, k := range allKeys {
+			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+				log.Debugf("Couldn't select database %#v when getting key info.", k.db)
+				continue
 			}
-			continue
-		}
-		dbLabel := "db" + k.db
-		e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, k.key).Set(info.size)
 
-		// Only record value metric if value is float-y
-		if value, err := redis.Float64(c.Do("GET", k.key)); err == nil {
-			e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, k.key).Set(value)
+			info, err := getKeyInfo(c, k.key)
+			if err != nil {
+				switch err {
+				case errNotFound:
+					log.Debugf("Key %v not found when trying to get type and size.", err)
+				default:
+					log.Error(err)
+				}
+				continue
+			}
+			dbLabel := "db" + k.db
+			e.keySizes.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, k.key).Set(info.size)
+
+			// Only record value metric if value is float-y
+			if value, err := redis.Float64(c.Do("GET", k.key)); err == nil {
+				e.keyValues.WithLabelValues(addr, e.redis.Aliases[idx], dbLabel, k.key).Set(value)
+			}
 		}
 	}
 
