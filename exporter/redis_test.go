@@ -345,6 +345,7 @@ func TestExporterMetrics(t *testing.T) {
 		"config_maxmemory",  // testing config extraction
 		"config_maxclients", // testing config extraction
 		"slowlog_length",
+		"slowlog_last_id",
 		"start_time_seconds",
 		"uptime_in_seconds",
 	}
