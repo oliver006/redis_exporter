@@ -105,6 +105,53 @@ func resetLatency(t *testing.T, addr string) error {
 	return nil
 }
 
+func setupSlowLog(t *testing.T, addr string) error {
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+	defer c.Close()
+
+	_, err = c.Do("CONFIG", "SET", "SLOWLOG-LOG-SLOWER-THAN", 10000)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	// Have to pass in the sleep time in seconds so we have to divide
+	// the number of milliseconds by 1000 to get number of seconds
+	_, err = c.Do("DEBUG", "SLEEP", 0.5)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	return nil
+}
+
+func resetSlowLog(t *testing.T, addr string) error {
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+	defer c.Close()
+
+	_, err = c.Do("SLOWLOG", "RESET")
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	return nil
+}
+
 func downloadUrl(t *testing.T, url string) []byte {
 	log.Debugf("downloadURL() %s", url)
 	resp, err := http.Get(url)
@@ -162,6 +209,87 @@ func TestLatencySpike(t *testing.T) {
 		case prometheus.Gauge:
 			if strings.Contains(m.Desc().String(), "latency_spike_milliseconds") {
 				t.Errorf("latency threshold was not reset")
+			}
+		}
+	}
+}
+
+func TestSlowLog(t *testing.T) {
+	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	oldSlowLogId := float64(0)
+
+	for m := range chM {
+		switch m := m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "slowlog_last_id") {
+				got := &dto.Metric{}
+				m.Write(got)
+
+				oldSlowLogId = got.GetGauge().GetValue()
+			}
+		}
+	}
+
+	setupSlowLog(t, defaultRedisHost.Addrs[0])
+	defer resetSlowLog(t, defaultRedisHost.Addrs[0])
+
+	chM = make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	for m := range chM {
+		switch m := m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "slowlog_last_id") {
+				got := &dto.Metric{}
+				m.Write(got)
+
+				val := got.GetGauge().GetValue()
+
+				if oldSlowLogId > val {
+					t.Errorf("no new slowlogs found")
+				}
+			}
+			if strings.Contains(m.Desc().String(), "slowlog_length") {
+				got := &dto.Metric{}
+				m.Write(got)
+
+				val := got.GetGauge().GetValue()
+				if val == 0 {
+					t.Errorf("slowlog length is zero")
+				}
+			}
+		}
+	}
+
+	resetSlowLog(t, defaultRedisHost.Addrs[0])
+
+	chM = make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	for m := range chM {
+		switch m := m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "slowlog_length") {
+				got := &dto.Metric{}
+				m.Write(got)
+
+				val := got.GetGauge().GetValue()
+				if val != 0 {
+					t.Errorf("Slowlog was not reset")
+				}
 			}
 		}
 	}
