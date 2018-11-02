@@ -121,7 +121,7 @@ func setupSlowLog(t *testing.T, addr string) error {
 
 	// Have to pass in the sleep time in seconds so we have to divide
 	// the number of milliseconds by 1000 to get number of seconds
-	_, err = c.Do("DEBUG", "SLEEP", 0.5)
+	_, err = c.Do("DEBUG", "SLEEP", TimeToSleep/1000.0)
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
