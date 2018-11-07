@@ -138,3 +138,4 @@ Grafana dashboard with host & alias selector is available on [github.com](contri
 ### What else?
 
 Open an issue or PR if you have more suggestions or ideas about what to add.
+
