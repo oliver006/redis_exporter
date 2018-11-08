@@ -4,9 +4,10 @@ jobs:
 
   tests:
     docker:
-      - image: golang:1.10
-      - image: redis:4.0.10
-      - image: redis:4.0.10
+      - image: golang:1.11
+      - image: redis:5
+        command: --port 6379
+      - image: redis:5
         command: --port 6380
       - image: grokzen/redis-cluster
 
@@ -31,7 +32,7 @@ jobs:
 
   build:
     docker:
-      - image: golang:1.10
+      - image: golang:1.11
 
     working_directory: /go/src/github.com/oliver006/redis_exporter
 
