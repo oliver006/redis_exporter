@@ -88,6 +88,14 @@ var (
 		"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
 		"aof_last_rewrite_time_sec":    "aof_last_rewrite_duration_sec",
 		"aof_current_rewrite_time_sec": "aof_current_rewrite_duration_sec",
+		"aof_last_cow_size":            "aof_last_cow_size",
+		"aof_current_size":             "aof_current_size",
+		"aof_base_size":                "aof_base_size",
+		"aof_pending_rewrite":          "aof_pending_rewrite",
+		"aof_buffer_length":            "aof_buffer_length",
+		"aof_rewrite_buffer_length":    "aof_rewrite_buffer_length",
+		"aof_pending_bio_fsync":        "aof_pending_bio_fsync",
+		"aof_delayed_fsync":            "aof_delayed_fsync",
 
 		// # Stats
 		"total_connections_received": "connections_received_total",
