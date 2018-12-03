@@ -958,7 +958,7 @@ func TestCommandStats(t *testing.T) {
 		close(chM)
 	}()
 
-	want := map[string]bool{"test_command_call_duration_seconds_count": false, "test_command_call_duration_seconds_sum": false}
+	want := map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false}
 
 	for m := range chM {
 		switch m.(type) {
