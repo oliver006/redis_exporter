@@ -186,7 +186,7 @@ func (e *Exporter) initGauges() {
 	e.metrics["latency_spike_last"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "latency_spike_last",
-		Help:      "When the latency spike last occured",
+		Help:      "When the latency spike last occurred",
 	}, []string{"addr", "alias", "event_name"})
 	e.metrics["latency_spike_milliseconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
