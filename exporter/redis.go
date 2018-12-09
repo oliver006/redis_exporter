@@ -521,12 +521,12 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			}
 		}
 
-		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
+		if slaveOffset, slaveIP, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 			e.metricsMtx.RLock()
 			e.metrics["connected_slave_offset"].WithLabelValues(
 				addr,
 				alias,
-				slaveIp,
+				slaveIP,
 				slaveState,
 			).Set(slaveOffset)
 			e.metricsMtx.RUnlock()
@@ -889,16 +889,16 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	}
 
 	if values, err := redis.Values(c.Do("SLOWLOG", "GET", "1")); err == nil {
-		var slowlogLastId int64 = 0
+		var slowlogLastID int64
 
 		if len(values) > 0 {
 			if values, err = redis.Values(values[0], err); err == nil && len(values) > 0 {
-				slowlogLastId = values[0].(int64)
+				slowlogLastID = values[0].(int64)
 			}
 		}
 
 		e.metricsMtx.RLock()
-		e.metrics["slowlog_last_id"].WithLabelValues(addr, e.redis.Aliases[idx]).Set(float64(slowlogLastId))
+		e.metrics["slowlog_last_id"].WithLabelValues(addr, e.redis.Aliases[idx]).Set(float64(slowlogLastID))
 		e.metricsMtx.RUnlock()
 	}
 

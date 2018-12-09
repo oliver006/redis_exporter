@@ -9,7 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// loadRedisArgs loads the configuration for which redis hosts to monitor from either
+// LoadRedisArgs loads the configuration for which redis hosts to monitor from either
 // the environment or as passed from program arguments. Returns the list of host addrs,
 // passwords, and their aliases.
 func LoadRedisArgs(addr, password, alias, separator string) ([]string, []string, []string) {
@@ -28,7 +28,7 @@ func LoadRedisArgs(addr, password, alias, separator string) ([]string, []string,
 	return addrs, passwords, aliases
 }
 
-// loadRedisFile opens the specified file and loads the configuration for which redis
+// LoadRedisFile opens the specified file and loads the configuration for which redis
 // hosts to monitor. Returns the list of hosts addrs, passwords, and their aliases.
 func LoadRedisFile(fileName string) ([]string, []string, []string, error) {
 	var addrs []string

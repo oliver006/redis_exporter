@@ -152,7 +152,7 @@ func resetSlowLog(t *testing.T, addr string) error {
 	return nil
 }
 
-func downloadUrl(t *testing.T, url string) []byte {
+func downloadURL(t *testing.T, url string) []byte {
 	log.Debugf("downloadURL() %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -223,7 +223,7 @@ func TestSlowLog(t *testing.T) {
 		close(chM)
 	}()
 
-	oldSlowLogId := float64(0)
+	oldSlowLogID := float64(0)
 
 	for m := range chM {
 		switch m := m.(type) {
@@ -232,7 +232,7 @@ func TestSlowLog(t *testing.T) {
 				got := &dto.Metric{}
 				m.Write(got)
 
-				oldSlowLogId = got.GetGauge().GetValue()
+				oldSlowLogID = got.GetGauge().GetValue()
 			}
 		}
 	}
@@ -255,7 +255,7 @@ func TestSlowLog(t *testing.T) {
 
 				val := got.GetGauge().GetValue()
 
-				if oldSlowLogId > val {
+				if oldSlowLogID > val {
 					t.Errorf("no new slowlogs found")
 				}
 			}
@@ -990,7 +990,7 @@ func TestHTTPEndpoint(t *testing.T) {
 	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
 	prometheus.Register(e)
 
-	body := downloadUrl(t, ts.URL+"/metrics")
+	body := downloadURL(t, ts.URL+"/metrics")
 
 	tests := []string{
 		// metrics
@@ -1181,7 +1181,7 @@ func TestKeysReset(t *testing.T) {
 		close(chM)
 	}()
 
-	body := downloadUrl(t, ts.URL+"/metrics")
+	body := downloadURL(t, ts.URL+"/metrics")
 
 	if !bytes.Contains(body, []byte(keys[0])) {
 		t.Errorf("Did not found key %q\n%s", keys[0], body)
@@ -1189,7 +1189,7 @@ func TestKeysReset(t *testing.T) {
 
 	deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
 
-	body = downloadUrl(t, ts.URL+"/metrics")
+	body = downloadURL(t, ts.URL+"/metrics")
 
 	if bytes.Contains(body, []byte(keys[0])) {
 		t.Errorf("Metric is present in metrics list %q\n%s", keys[0], body)
@@ -1220,7 +1220,7 @@ func TestClusterMaster(t *testing.T) {
 		close(chM)
 	}()
 
-	body := downloadUrl(t, ts.URL+"/metrics")
+	body := downloadURL(t, ts.URL+"/metrics")
 	if !bytes.Contains(body, []byte("test_instance_info")) {
 		t.Errorf("Did not found key %q\n%s", keys[0], body)
 	}
@@ -1268,7 +1268,7 @@ func TestPasswordProtectedInstance(t *testing.T) {
 		close(chM)
 	}()
 
-	body := downloadUrl(t, ts.URL+"/metrics")
+	body := downloadURL(t, ts.URL+"/metrics")
 
 	if !bytes.Contains(body, []byte("test_up")) {
 		t.Errorf("error")
@@ -1317,7 +1317,7 @@ func TestPasswordInvalid(t *testing.T) {
 		close(chM)
 	}()
 
-	body := downloadUrl(t, ts.URL+"/metrics")
+	body := downloadURL(t, ts.URL+"/metrics")
 	if !bytes.Contains(body, []byte("test_exporter_last_scrape_error 1")) {
 		t.Errorf(`error, expected string "test_exporter_last_scrape_error 1" in body`)
 	}
@@ -1348,7 +1348,7 @@ func TestClusterSlave(t *testing.T) {
 		close(chM)
 	}()
 
-	body := downloadUrl(t, ts.URL+"/metrics")
+	body := downloadURL(t, ts.URL+"/metrics")
 	if !bytes.Contains(body, []byte("test_instance_info")) {
 		t.Errorf("Did not found key %q\n%s", keys[0], body)
 	}

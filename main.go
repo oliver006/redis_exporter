@@ -31,9 +31,11 @@ var (
 	useCfBindings    = flag.Bool("use-cf-bindings", false, "Use Cloud Foundry service bindings")
 	redisMetricsOnly = flag.Bool("redis-only-metrics", false, "Whether to export go runtime metrics also")
 
-	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the build script
-	VERSION     = "<<< filled in by build >>>"
-	BUILD_DATE  = "<<< filled in by build >>>"
+	// VERSION is the version string (ie. v0.23.0) filled in by the build script.
+	VERSION = "<<< filled in by build >>>"
+	// BUILD_DATE is the output of `$(date +%F-%T)` filled in by the build script.
+	BUILD_DATE = "<<< filled in by build >>>"
+	// COMMIT_SHA1 is the output of `$(git show -s --format=%H)` filled in by the build script.
 	COMMIT_SHA1 = "<<< filled in by build >>>"
 )
 
