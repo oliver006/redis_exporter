@@ -942,7 +942,7 @@ func (e *Exporter) setMetrics(scrapes <-chan scrapeResult) {
 		if len(scr.DB) > 0 {
 			labels["db"] = scr.DB
 		}
-		e.metrics[name].With(labels).Set(float64(scr.Value))
+		e.metrics[name].With(labels).Set(scr.Value)
 	}
 }
 
