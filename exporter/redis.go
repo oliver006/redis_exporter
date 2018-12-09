@@ -879,7 +879,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.script, 0, 0))
 		if err != nil {
 			log.Errorf("Collect script error: %v", err)
-		} else if kv != nil {
+		} else if len(kv) > 0 {
 			for key, stringVal := range kv {
 				if val, err := strconv.ParseFloat(stringVal, 64); err == nil {
 					e.scriptValues.WithLabelValues(addr, e.redis.Aliases[idx], key).Set(val)

@@ -2,8 +2,8 @@ package exporter
 
 import (
 	"encoding/csv"
-	"filepath"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/cloudfoundry-community/go-cfenv"
