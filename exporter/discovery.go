@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"encoding/csv"
+	"filepath"
 	"os"
 	"strings"
 
@@ -34,7 +35,7 @@ func LoadRedisFile(fileName string) ([]string, []string, []string, error) {
 	var addrs []string
 	var passwords []string
 	var aliases []string
-	file, err := os.Open(fileName)
+	file, err := os.Open(filepath.Clean(fileName))
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -44,7 +45,10 @@ func LoadRedisFile(fileName string) ([]string, []string, []string, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	file.Close()
+	err = file.Close()
+	if err != nil {
+		return nil, nil, nil, err
+	}
 	// For each line, test if it contains an optional password and alias and provide them,
 	// else give them empty strings
 	for _, record := range records {

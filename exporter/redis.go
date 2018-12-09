@@ -711,11 +711,17 @@ func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
 			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
 		}
 
-		k, _ := redis.Strings(arr[1], nil)
+		k, err := redis.Strings(arr[1], nil)
+		if err != nil {
+			log.Debugln(err)
+		}
 		keys = append(keys, k...)
 
-		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
+		if iter, err = redis.Int(arr[0], nil); iter == 0 {
 			break
+		}
+		if err != nil {
+			log.Debugln(err)
 		}
 	}
 

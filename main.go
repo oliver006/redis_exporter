@@ -115,8 +115,14 @@ func main() {
 
 	if *redisMetricsOnly {
 		registry := prometheus.NewRegistry()
-		registry.Register(exp)
-		registry.Register(buildInfo)
+		err = registry.Register(exp)
+		if err != nil {
+			log.Error(err)
+		}
+		err = registry.Register(buildInfo)
+		if err != nil {
+			log.Error(err)
+		}
 		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 		http.Handle(*metricPath, handler)
 	} else {
@@ -126,7 +132,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`
+		_, err = w.Write([]byte(`
 <html>
 <head><title>Redis Exporter v` + VERSION + `</title></head>
 <body>
@@ -135,6 +141,9 @@ func main() {
 </body>
 </html>
 						`))
+		if err != nil {
+			log.Error(err)
+		}
 	})
 
 	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)
