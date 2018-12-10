@@ -45,8 +45,7 @@ func LoadRedisFile(fileName string) ([]string, []string, []string, error) {
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	err = file.Close()
-	if err != nil {
+	if err = file.Close(); err != nil {
 		return nil, nil, nil, err
 	}
 	// For each line, test if it contains an optional password and alias and provide them,

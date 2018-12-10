@@ -115,12 +115,10 @@ func main() {
 
 	if *redisMetricsOnly {
 		registry := prometheus.NewRegistry()
-		err = registry.Register(exp)
-		if err != nil {
+		if err = registry.Register(exp); err != nil {
 			log.Error(err)
 		}
-		err = registry.Register(buildInfo)
-		if err != nil {
+		if err = registry.Register(buildInfo); err != nil {
 			log.Error(err)
 		}
 		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
