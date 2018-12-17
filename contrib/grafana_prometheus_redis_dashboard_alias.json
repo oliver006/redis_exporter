@@ -104,11 +104,11 @@
             "fillColor": "rgba(31, 118, 189, 0.18)",
             "full": false,
             "lineColor": "rgb(31, 120, 193)",
-            "show": false
+            "show": true
           },
           "targets": [
             {
-              "expr": "redis_uptime_in_seconds{instance=\"$host\",alias=\"$alias\"}",
+              "expr": "max(max_over_time(redis_uptime_in_seconds{instance=\"$host\",alias=\"$alias\"}[$__interval]))", 
               "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
@@ -127,7 +127,7 @@
               "value": "null"
             }
           ],
-          "valueName": "avg"
+          "valueName": "current"
         },
         {
           "cacheTimeout": null,
