@@ -46,7 +46,8 @@ type Exporter struct {
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
 	metrics      map[string]*prometheus.GaugeVec
-	metricsMtx   sync.RWMutex
+
+	metricsMtx sync.RWMutex
 	sync.RWMutex
 }
 
@@ -71,13 +72,14 @@ var (
 		"blocked_clients":            "blocked_clients",
 
 		// # Memory
-		"used_memory":             "memory_used_bytes",
-		"used_memory_rss":         "memory_used_rss_bytes",
-		"used_memory_peak":        "memory_used_peak_bytes",
-		"used_memory_lua":         "memory_used_lua_bytes",
-		"total_system_memory":     "total_system_memory_bytes",
-		"maxmemory":               "memory_max_bytes",
-		"mem_fragmentation_ratio": "memory_fragmentation_ratio",
+		"allocator_active":    "allocator_active_bytes",
+		"allocator_allocated": "allocator_allocated_bytes",
+		"allocator_resident":  "allocator_resident_bytes",
+		"used_memory":         "memory_used_bytes",
+		"used_memory_rss":     "memory_used_rss_bytes",
+		"used_memory_peak":    "memory_used_peak_bytes",
+		"used_memory_lua":     "memory_used_lua_bytes",
+		"maxmemory":           "memory_max_bytes",
 
 		// # Persistence
 		"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
@@ -88,6 +90,14 @@ var (
 		"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
 		"aof_last_rewrite_time_sec":    "aof_last_rewrite_duration_sec",
 		"aof_current_rewrite_time_sec": "aof_current_rewrite_duration_sec",
+		"aof_last_cow_size":            "aof_last_cow_size",
+		"aof_current_size":             "aof_current_size",
+		"aof_base_size":                "aof_base_size",
+		"aof_pending_rewrite":          "aof_pending_rewrite",
+		"aof_buffer_length":            "aof_buffer_length",
+		"aof_rewrite_buffer_length":    "aof_rewrite_buffer_length",
+		"aof_pending_bio_fsync":        "aof_pending_bio_fsync",
+		"aof_delayed_fsync":            "aof_delayed_fsync",
 
 		// # Stats
 		"total_connections_received": "connections_received_total",
@@ -184,15 +194,14 @@ func (e *Exporter) initGauges() {
 		Help:      "Length of the last latency spike in milliseconds",
 	}, []string{"addr", "alias", "event_name"})
 
-	// Emulate a Summary.
-	e.metrics["command_call_duration_seconds_count"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["commands_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "command_call_duration_seconds_count",
+		Name:      "commands_total",
 		Help:      "Total number of calls per command",
 	}, []string{"addr", "alias", "cmd"})
-	e.metrics["command_call_duration_seconds_sum"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+	e.metrics["commands_duration_seconds_total"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
-		Name:      "command_call_duration_seconds_sum",
+		Name:      "commands_duration_seconds_total",
 		Help:      "Total amount of time in seconds spent per command",
 	}, []string{"addr", "alias", "cmd"})
 	e.metrics["slowlog_length"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -558,8 +567,8 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			}
 
 			e.metricsMtx.RLock()
-			e.metrics["command_call_duration_seconds_count"].WithLabelValues(addr, alias, cmd).Set(calls)
-			e.metrics["command_call_duration_seconds_sum"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
+			e.metrics["commands_total"].WithLabelValues(addr, alias, cmd).Set(calls)
+			e.metrics["commands_duration_seconds_total"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
 			e.metricsMtx.RUnlock()
 			continue
 		}

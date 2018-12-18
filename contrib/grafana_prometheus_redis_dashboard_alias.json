@@ -948,7 +948,7 @@
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(5, irate(redis_command_call_duration_seconds_count{instance=\"$host\",alias=\"$alias\"} [1m]))",
+              "expr": "topk(5, irate(redis_commands_total{instance=\"$host\",alias=\"$alias\"} [1m]))",
               "interval": "",
               "intervalFactor": 2,
               "legendFormat": "{{ cmd }}",
