@@ -603,7 +603,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		case "ok":
 			val = 1
 
-		case "fail":
+		case "err", "fail":
 			val = 0
 
 		default:
