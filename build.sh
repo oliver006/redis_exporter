@@ -29,7 +29,7 @@ docker push     "oliver006/redis_exporter:latest"
 echo "Building binaries for Github"
 echo ""
 export CGO_ENABLED=0
-export GO_LDFLAGS="-extldflags \"-static\" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)"
+export GO_LDFLAGS="-s -w -extldflags \"-static\" -X main.VERSION=$CIRCLE_TAG -X main.COMMIT_SHA1=$CIRCLE_SHA1 -X main.BUILD_DATE=$(date +%F-%T)"
 echo  "GO_LDFLAGS: $GO_LDFLAGS"
 
 go get github.com/mitchellh/gox
