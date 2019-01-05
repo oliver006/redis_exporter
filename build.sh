@@ -12,18 +12,31 @@ echo "docker login done"
 export BUILD_ARGS="--rm=false --build-arg TAG=${CIRCLE_TAG} --build-arg SHA1=${CIRCLE_SHA1} --build-arg DATE=$(date +%F-%T)"
 echo  "BUILD_ARGS: $BUILD_ARGS"
 
-docker build -t "21zoo/redis_exporter:$CIRCLE_TAG" $BUILD_ARGS .
-docker push     "21zoo/redis_exporter:$CIRCLE_TAG"
+# Scratch image
+docker build --target scratch \
+             -t "21zoo/redis_exporter:$CIRCLE_TAG" \
+             -t "21zoo/redis_exporter:latest" \
+             -t "oliver006/redis_exporter:$CIRCLE_TAG" \
+             -t "oliver006/redis_exporter:latest" \
+            $BUILD_ARGS .
 
-docker build -t "21zoo/redis_exporter:latest" $BUILD_ARGS .
-docker push     "21zoo/redis_exporter:latest"
+docker push "21zoo/redis_exporter:$CIRCLE_TAG"
+docker push "21zoo/redis_exporter:latest"
+docker push "oliver006/redis_exporter:$CIRCLE_TAG"
+docker push "oliver006/redis_exporter:latest"
 
-docker build -t "oliver006/redis_exporter:$CIRCLE_TAG" $BUILD_ARGS  .
-docker push     "oliver006/redis_exporter:$CIRCLE_TAG"
+# Alpine image
+docker build --target alpine \
+             -t "21zoo/redis_exporter:$CIRCLE_TAG-alpine" \
+             -t "21zoo/redis_exporter:alpine" \
+             -t "oliver006/redis_exporter:$CIRCLE_TAG-alpine" \
+             -t "oliver006/redis_exporter:alpine" \
+            $BUILD_ARGS .
 
-docker build -t "oliver006/redis_exporter:latest" $BUILD_ARGS  .
-docker push     "oliver006/redis_exporter:latest"
-
+docker push "21zoo/redis_exporter:$CIRCLE_TAG-alpine"
+docker push "21zoo/redis_exporter:alpine"
+docker push "oliver006/redis_exporter:$CIRCLE_TAG-alpine"
+docker push "oliver006/redis_exporter:alpine"
 
 
 echo "Building binaries for Github"
