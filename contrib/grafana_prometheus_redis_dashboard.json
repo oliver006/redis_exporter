@@ -112,7 +112,7 @@
           },
           "targets": [
             {
-              "expr": "max(max_over_time(redis_uptime_in_seconds{addr=\"$addr\"}[$__interval]))",
+              "expr": "max(max_over_time(redis_uptime_in_seconds{addr=\"$addr\"}[$__interval]))", 
               "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",

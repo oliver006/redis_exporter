@@ -108,7 +108,7 @@
           },
           "targets": [
             {
-              "expr": "max(max_over_time(redis_uptime_in_seconds{instance=\"$host\",alias=\"$alias\"}[$__interval]))",
+              "expr": "max(max_over_time(redis_uptime_in_seconds{instance=\"$host\",alias=\"$alias\"}[$__interval]))", 
               "intervalFactor": 2,
               "legendFormat": "",
               "metric": "",
