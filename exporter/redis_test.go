@@ -547,15 +547,15 @@ func TestKeyspaceStringParser(t *testing.T) {
 }
 
 type slaveData struct {
-	k, v      string
-	ip, state string
-	offset    float64
-	ok        bool
+	k, v            string
+	ip, state, port string
+	offset          float64
+	ok              bool
 }
 
 func TestParseConnectedSlaveString(t *testing.T) {
 	tsts := []slaveData{
-		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", state: "online", ok: true},
+		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", port: "6379", state: "online", ok: true},
 		{k: "slave1", v: "offset=1", offset: 1, ok: true},
 		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123", offset: 123, ip: "1.2.3.4", state: "online", ok: true},
 		{k: "slave", v: "offset=1751844676", ok: false},
@@ -564,15 +564,15 @@ func TestParseConnectedSlaveString(t *testing.T) {
 	}
 
 	for _, tst := range tsts {
-		if offset, ip, state, ok := parseConnectedSlaveString(tst.k, tst.v); true {
+		if offset, ip, port, state, ok := parseConnectedSlaveString(tst.k, tst.v); true {
 
 			if ok != tst.ok {
 				t.Errorf("failed for: db:%s stats:%s", tst.k, tst.v)
 				continue
 			}
 
-			if offset != tst.offset || ip != tst.ip || state != tst.state {
-				t.Errorf("values not matching, string:%s   %f %s %s", tst.v, offset, ip, state)
+			if offset != tst.offset || ip != tst.ip || port != tst.port || state != tst.state {
+				t.Errorf("values not matching, string:%s %f %s %s %s", tst.v, offset, ip, port, state)
 			}
 		}
 	}
