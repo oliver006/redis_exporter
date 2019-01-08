@@ -171,7 +171,7 @@ func (e *Exporter) initGauges() {
 		Namespace: e.namespace,
 		Name:      "connected_slave_offset",
 		Help:      "Offset of connected slave",
-	}, []string{"addr", "alias", "slave_ip", "slave_state"})
+	}, []string{"addr", "alias", "slave_ip", "slave_port", "slave_state"})
 	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "db_keys",
@@ -416,7 +416,7 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
 	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
-func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, state string, ok bool) {
+func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, port string, state string, ok bool) {
 	ok = false
 	if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
 		return
@@ -437,6 +437,7 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 	}
 	ok = true
 	ip = connectedSlaveInfo["ip"]
+	port = connectedSlaveInfo["port"]
 	state = connectedSlaveInfo["state"]
 
 	return
@@ -472,7 +473,7 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 	return
 }
 
-func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int, padDBKeyCounts bool) error {
+func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
 	cmdstats := false
 	lines := strings.Split(info, "\r\n")
 
@@ -527,12 +528,13 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			}
 		}
 
-		if slaveOffset, slaveIp, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
+		if slaveOffset, slaveIp, slavePort, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 			e.metricsMtx.RLock()
 			e.metrics["connected_slave_offset"].WithLabelValues(
 				addr,
 				alias,
 				slaveIp,
+				slavePort,
 				slaveState,
 			).Set(slaveOffset)
 			e.metricsMtx.RUnlock()
@@ -618,13 +620,11 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
 	}
 
-	if padDBKeyCounts {
-		for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
-			dbName := "db" + strconv.Itoa(dbIndex)
-			if _, exists := handledDBs[dbName]; !exists {
-				scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: 0}
-				scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: 0}
-			}
+	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+		dbName := "db" + strconv.Itoa(dbIndex)
+		if _, exists := handledDBs[dbName]; !exists {
+			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: 0}
+			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: 0}
 		}
 	}
 
@@ -646,6 +646,54 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		).Set(1)
 	}
 	e.metricsMtx.RUnlock()
+
+	return nil
+}
+
+func (e *Exporter) extractClusterInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
+	lines := strings.Split(info, "\r\n")
+
+	for _, line := range lines {
+		log.Debugf("info: %s", line)
+
+		split := strings.Split(line, ":")
+		if len(split) != 2 {
+			continue
+		}
+		fieldKey := split[0]
+		fieldValue := split[1]
+
+		if !includeMetric(fieldKey) {
+			continue
+		}
+
+		metricName := sanitizeMetricName(fieldKey)
+		if newName, ok := metricMap[metricName]; ok {
+			metricName = newName
+		}
+
+		var err error
+		var val float64
+
+		switch fieldValue {
+
+		case "ok":
+			val = 1
+
+		case "err", "fail":
+			val = 0
+
+		default:
+			val, err = strconv.ParseFloat(fieldValue, 64)
+
+		}
+		if err != nil {
+			log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
+			continue
+		}
+
+		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
+	}
 
 	return nil
 }
@@ -806,7 +854,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	if isClusterEnabled {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
-			e.extractInfoMetrics(clusterInfo, addr, e.redis.Aliases[idx], scrapes, dbCount, false)
+			e.extractClusterInfoMetrics(clusterInfo, addr, e.redis.Aliases[idx], scrapes)
 
 			// in cluster mode Redis only supports one database so no extra padding beyond that needed
 			dbCount = 1
@@ -821,7 +869,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
-	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount, true)
+	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount)
 
 	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
 		var eventName string
