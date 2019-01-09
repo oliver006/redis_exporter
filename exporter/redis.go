@@ -859,7 +859,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		if err != nil {
 			switch err {
 			case errNotFound:
-				log.Debugf("Key '%v' not found when trying to get type and size.", k.key)
+				log.Debugf("Key '%s' not found when trying to get type and size.", k.key)
 			default:
 				log.Error(err)
 			}
