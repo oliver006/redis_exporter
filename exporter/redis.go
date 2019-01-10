@@ -353,7 +353,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func includeMetric(s string) bool {
-	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
+	if strings.HasPrefix(s, "cluster_") {
 		return true
 	}
 	_, ok := metricMap[s]
@@ -473,24 +473,18 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 	return
 }
 
-func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
-	cmdstats := false
+func handleInfoString(info, addr, alias string, scrapes chan<- scrapeResult, handlerFunc func(fieldClass, fieldKey, fieldValue string) (needScrape bool)) {
+	var fieldClass string
 	lines := strings.Split(info, "\r\n")
 
-	instanceInfo := map[string]string{}
-	slaveInfo := map[string]string{}
-	handledDBs := map[string]bool{}
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
-			if strings.Contains(line, "Commandstats") {
-				cmdstats = true
-			}
+			fieldClass = line[2:]
 			continue
 		}
 
 		if (len(line) < 2) || (!strings.Contains(line, ":")) {
-			cmdstats = false
 			continue
 		}
 
@@ -500,51 +494,97 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		}
 		fieldKey := split[0]
 		fieldValue := split[1]
+
+		needScrape := handlerFunc(fieldClass, fieldKey, fieldValue)
+		if needScrape {
+			if !includeMetric(fieldKey) {
+				continue
+			}
+
+			metricName := sanitizeMetricName(fieldKey)
+			if newName, ok := metricMap[metricName]; ok {
+				metricName = newName
+			}
+
+			var err error
+			var val float64
+
+			switch fieldValue {
+
+			case "ok":
+				val = 1
+
+			case "err", "fail":
+				val = 0
+
+			default:
+				val, err = strconv.ParseFloat(fieldValue, 64)
+
+			}
+			if err != nil {
+				log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
+				continue
+			}
+
+			scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
+		}
+	}
+}
+
+func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- scrapeResult, dbCount int) error {
+	instanceInfo := map[string]string{}
+	slaveInfo := map[string]string{}
+	handledDBs := map[string]bool{}
+
+	handleInfoString(info, addr, alias, scrapes, func(fieldClass, fieldKey, fieldValue string) (needScrape bool) {
+		needScrape = true
+
 		if _, ok := instanceInfoFields[fieldKey]; ok {
 			instanceInfo[fieldKey] = fieldValue
-			continue
 		}
 
 		if _, ok := slaveInfoFields[fieldKey]; ok {
 			slaveInfo[fieldKey] = fieldValue
-			continue
 		}
 
-		if fieldKey == "master_link_status" {
-			e.metricsMtx.RLock()
-			if fieldValue == "up" {
-				e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(1)
-			} else {
-				e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
-			}
-			e.metricsMtx.RUnlock()
-			continue
-		}
-		if fieldKey == "uptime_in_seconds" {
-			if uptime, err := strconv.ParseFloat(fieldValue, 64); err == nil {
+		switch fieldClass {
+
+		case "Replication":
+			// only slave have this field
+			if fieldKey == "master_link_status" {
 				e.metricsMtx.RLock()
-				e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
+				if fieldValue == "up" {
+					e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(1)
+				} else {
+					e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
+				}
 				e.metricsMtx.RUnlock()
+				needScrape = false
 			}
-		}
 
-		if slaveOffset, slaveIp, slavePort, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
-			e.metricsMtx.RLock()
-			e.metrics["connected_slave_offset"].WithLabelValues(
-				addr,
-				alias,
-				slaveIp,
-				slavePort,
-				slaveState,
-			).Set(slaveOffset)
-			e.metricsMtx.RUnlock()
-		}
+			if slaveOffset, slaveIp, slavePort, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
+				e.metricsMtx.RLock()
+				e.metrics["connected_slave_offset"].WithLabelValues(
+					addr,
+					alias,
+					slaveIp,
+					slavePort,
+					slaveState,
+				).Set(slaveOffset)
+				e.metricsMtx.RUnlock()
+				needScrape = false
+			}
 
-		if !includeMetric(fieldKey) {
-			continue
-		}
+		case "Server":
+			if fieldKey == "uptime_in_seconds" {
+				if uptime, err := strconv.ParseFloat(fieldValue, 64); err == nil {
+					e.metricsMtx.RLock()
+					e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
+					e.metricsMtx.RUnlock()
+				}
+			}
 
-		if cmdstats {
+		case "Commandstats":
 			/*
 				Format:
 
@@ -554,71 +594,47 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			*/
 			frags := strings.Split(fieldKey, "_")
 			if len(frags) != 2 {
-				continue
+				return
 			}
 
 			cmd := frags[1]
 
 			frags = strings.Split(fieldValue, ",")
 			if len(frags) != 3 {
-				continue
+				return
 			}
 
 			var calls float64
 			var usecTotal float64
 			var err error
 			if calls, err = extractVal(frags[0]); err != nil {
-				continue
+				return
 			}
 			if usecTotal, err = extractVal(frags[1]); err != nil {
-				continue
+				return
 			}
 
 			e.metricsMtx.RLock()
 			e.metrics["commands_total"].WithLabelValues(addr, alias, cmd).Set(calls)
 			e.metrics["commands_duration_seconds_total"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
 			e.metricsMtx.RUnlock()
-			continue
-		}
+			needScrape = false
 
-		if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
-			dbName := fieldKey
-			scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: keysTotal}
-			scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: keysEx}
-			if avgTTL > -1 {
-				scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, Alias: alias, DB: dbName, Value: avgTTL}
+		case "Keyspace":
+			if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
+				dbName := fieldKey
+				scrapes <- scrapeResult{Name: "db_keys", Addr: addr, Alias: alias, DB: dbName, Value: keysTotal}
+				scrapes <- scrapeResult{Name: "db_keys_expiring", Addr: addr, Alias: alias, DB: dbName, Value: keysEx}
+				if avgTTL > -1 {
+					scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, Alias: alias, DB: dbName, Value: avgTTL}
+				}
+				handledDBs[dbName] = true
+				needScrape = false
 			}
-			handledDBs[dbName] = true
-			continue
 		}
 
-		metricName := sanitizeMetricName(fieldKey)
-		if newName, ok := metricMap[metricName]; ok {
-			metricName = newName
-		}
-
-		var err error
-		var val float64
-
-		switch fieldValue {
-
-		case "ok":
-			val = 1
-
-		case "err", "fail":
-			val = 0
-
-		default:
-			val, err = strconv.ParseFloat(fieldValue, 64)
-
-		}
-		if err != nil {
-			log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
-			continue
-		}
-
-		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
-	}
+		return
+	})
 
 	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
 		dbName := "db" + strconv.Itoa(dbIndex)
@@ -651,49 +667,9 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 }
 
 func (e *Exporter) extractClusterInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
-	lines := strings.Split(info, "\r\n")
-
-	for _, line := range lines {
-		log.Debugf("info: %s", line)
-
-		split := strings.Split(line, ":")
-		if len(split) != 2 {
-			continue
-		}
-		fieldKey := split[0]
-		fieldValue := split[1]
-
-		if !includeMetric(fieldKey) {
-			continue
-		}
-
-		metricName := sanitizeMetricName(fieldKey)
-		if newName, ok := metricMap[metricName]; ok {
-			metricName = newName
-		}
-
-		var err error
-		var val float64
-
-		switch fieldValue {
-
-		case "ok":
-			val = 1
-
-		case "err", "fail":
-			val = 0
-
-		default:
-			val, err = strconv.ParseFloat(fieldValue, 64)
-
-		}
-		if err != nil {
-			log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
-			continue
-		}
-
-		scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
-	}
+	handleInfoString(info, addr, alias, scrapes, func(fieldClass, fieldKey, fieldValue string) (handled bool) {
+		return true
+	})
 
 	return nil
 }
