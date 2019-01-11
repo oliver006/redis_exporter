@@ -115,7 +115,7 @@ script             | Path to Redis Lua script for gathering extra metrics.
 redis.addr         | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
 redis.password     | Password to use when authenticating to Redis
 redis.alias        | Alias for redis node addr, comma separated.
-redis.file         | Path to file containing one or more redis nodes, separated by newline. This option is mutually exclusive with redis.addr. Each line can optionally be comma-separated with the fields `<addr>,<password>,<alias>`.
+redis.file         | Path to file containing one or more redis nodes, separated by newline. This option is mutually exclusive with redis.addr. Each line can optionally be comma-separated with the fields `<addr>,<password>,<alias>`. See [here](./contrib/sample_redis_hosts_file.txt) for an example file.
 namespace          | Namespace for the metrics, defaults to `redis`.
 web.listen-address | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path | Path under which to expose metrics, defaults to `metrics`.
