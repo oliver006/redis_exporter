@@ -7,7 +7,7 @@ Supports Redis 2.x, 3.x, 4.x, and 5.x
 
 ## Building, configuring, and running
 
-Locally build and run it:
+### Build and run locally:
 
 ```sh
     $ go get github.com/oliver006/redis_exporter
@@ -16,12 +16,8 @@ Locally build and run it:
     $ ./redis_exporter <flags>
 ```
 
-You can also run it via docker:
 
-```sh
-    $ docker pull oliver006/redis_exporter
-    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
-```
+### Prometheus Configuration
 
 Add a block to the `scrape_configs` of your prometheus.yml config file:
 
@@ -39,15 +35,28 @@ scrape_configs:
 
 and adjust the host name accordingly.
 
-To run on Cloud Foundry, use:
+### Run via Docker:
+
+The latest release is automatically published to the [Docker registry](https://hub.docker.com/r/oliver006/redis_exporter/).
+
+You can run it like this: 
 
 ```sh
-cf push -f contrib/manifest.yml
+    $ docker pull oliver006/redis_exporter
+    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
+```
+
+The `latest` docker image contains only the exporter binary. 
+If, e.g. for debugging purposes, you need the exporter running 
+in an image that has a shell, etc then you can run the `alpine` image:
+```sh
+    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
 ```
 
 ### Run on Kubernetes
 
 [Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar with a Redis instance.
+
 
 ### Run on Openshift
 
@@ -85,6 +94,14 @@ scrape_configs:
 
 ...
 ```
+
+### Run on Cloud Foundry
+
+```sh
+cf push -f contrib/manifest.yml
+```
+
+
 
 ### Flags
 
