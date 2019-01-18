@@ -353,7 +353,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 }
 
 func includeMetric(s string) bool {
-	if strings.HasPrefix(s, "cluster_") {
+	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
 	_, ok := metricMap[s]
@@ -473,10 +473,13 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 	return
 }
 
-func handleInfoString(info, addr, alias string, scrapes chan<- scrapeResult, handlerFunc func(fieldClass, fieldKey, fieldValue string) (needScrape bool)) {
+func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
 	var fieldClass string
 	lines := strings.Split(info, "\r\n")
 
+	instanceInfo := map[string]string{}
+	slaveInfo := map[string]string{}
+	handledDBs := map[string]bool{}
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
@@ -492,59 +495,18 @@ func handleInfoString(info, addr, alias string, scrapes chan<- scrapeResult, han
 		if len(split) != 2 {
 			continue
 		}
+
 		fieldKey := split[0]
 		fieldValue := split[1]
 
-		needScrape := handlerFunc(fieldClass, fieldKey, fieldValue)
-		if needScrape {
-			if !includeMetric(fieldKey) {
-				continue
-			}
-
-			metricName := sanitizeMetricName(fieldKey)
-			if newName, ok := metricMap[metricName]; ok {
-				metricName = newName
-			}
-
-			var err error
-			var val float64
-
-			switch fieldValue {
-
-			case "ok":
-				val = 1
-
-			case "err", "fail":
-				val = 0
-
-			default:
-				val, err = strconv.ParseFloat(fieldValue, 64)
-
-			}
-			if err != nil {
-				log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
-				continue
-			}
-
-			scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
-		}
-	}
-}
-
-func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- scrapeResult, dbCount int) error {
-	instanceInfo := map[string]string{}
-	slaveInfo := map[string]string{}
-	handledDBs := map[string]bool{}
-
-	handleInfoString(info, addr, alias, scrapes, func(fieldClass, fieldKey, fieldValue string) (needScrape bool) {
-		needScrape = true
-
 		if _, ok := instanceInfoFields[fieldKey]; ok {
 			instanceInfo[fieldKey] = fieldValue
+			continue
 		}
 
 		if _, ok := slaveInfoFields[fieldKey]; ok {
 			slaveInfo[fieldKey] = fieldValue
+			continue
 		}
 
 		switch fieldClass {
@@ -559,7 +521,7 @@ func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- s
 					e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
 				}
 				e.metricsMtx.RUnlock()
-				needScrape = false
+				continue
 			}
 
 			if slaveOffset, slaveIp, slavePort, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
@@ -572,7 +534,7 @@ func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- s
 					slaveState,
 				).Set(slaveOffset)
 				e.metricsMtx.RUnlock()
-				needScrape = false
+				continue
 			}
 
 		case "Server":
@@ -594,31 +556,31 @@ func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- s
 			*/
 			frags := strings.Split(fieldKey, "_")
 			if len(frags) != 2 {
-				return
+				continue
 			}
 
 			cmd := frags[1]
 
 			frags = strings.Split(fieldValue, ",")
 			if len(frags) != 3 {
-				return
+				continue
 			}
 
 			var calls float64
 			var usecTotal float64
 			var err error
 			if calls, err = extractVal(frags[0]); err != nil {
-				return
+				continue
 			}
 			if usecTotal, err = extractVal(frags[1]); err != nil {
-				return
+				continue
 			}
 
 			e.metricsMtx.RLock()
 			e.metrics["commands_total"].WithLabelValues(addr, alias, cmd).Set(calls)
 			e.metrics["commands_duration_seconds_total"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
 			e.metricsMtx.RUnlock()
-			needScrape = false
+			continue
 
 		case "Keyspace":
 			if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
@@ -629,12 +591,16 @@ func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- s
 					scrapes <- scrapeResult{Name: "db_avg_ttl_seconds", Addr: addr, Alias: alias, DB: dbName, Value: avgTTL}
 				}
 				handledDBs[dbName] = true
-				needScrape = false
+				continue
 			}
 		}
 
-		return
-	})
+		if !includeMetric(fieldKey) {
+			continue
+		}
+
+		registerMetric(addr, alias, fieldKey, fieldValue, scrapes)
+	}
 
 	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
 		dbName := "db" + strconv.Itoa(dbIndex)
@@ -666,10 +632,55 @@ func (e *Exporter) extractInfoMetrics(info, addr, alias string, scrapes chan<- s
 	return nil
 }
 
-func (e *Exporter) extractClusterInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult) error {
-	handleInfoString(info, addr, alias, scrapes, func(fieldClass, fieldKey, fieldValue string) (handled bool) {
-		return true
-	})
+func (e *Exporter) extractClusterInfoMetrics(info, addr, alias string, scrapes chan<- scrapeResult) error {
+	lines := strings.Split(info, "\r\n")
+
+	for _, line := range lines {
+		log.Debugf("info: %s", line)
+
+		split := strings.Split(line, ":")
+		if len(split) != 2 {
+			continue
+		}
+		fieldKey := split[0]
+		fieldValue := split[1]
+
+		if !includeMetric(fieldKey) {
+			continue
+		}
+
+		registerMetric(addr, alias, fieldKey, fieldValue, scrapes)
+	}
+
+	return nil
+}
+
+func registerMetric(addr, alias, fieldKey, fieldValue string, scrapes chan<- scrapeResult) error {
+	metricName := sanitizeMetricName(fieldKey)
+	if newName, ok := metricMap[metricName]; ok {
+		metricName = newName
+	}
+
+	var err error
+	var val float64
+
+	switch fieldValue {
+
+	case "ok":
+		val = 1
+
+	case "err", "fail":
+		val = 0
+
+	default:
+		val, err = strconv.ParseFloat(fieldValue, 64)
+
+	}
+	if err != nil {
+		log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
+	}
+
+	scrapes <- scrapeResult{Name: metricName, Addr: addr, Alias: alias, Value: val}
 
 	return nil
 }
