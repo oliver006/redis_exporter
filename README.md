@@ -53,6 +53,13 @@ in an image that has a shell, etc then you can run the `alpine` image:
     $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
 ```
 
+If you try to access a redis instance running on the host node, you'll need to add `--network host` so the
+redis_exporter container can access it:
+
+```sh
+    $ docker run -d --name redis_exporter --network host oliver006/redis_exporter
+```
+
 ### Run on Kubernetes
 
 [Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar with a Redis instance.
