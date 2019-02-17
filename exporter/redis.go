@@ -47,6 +47,8 @@ type Exporter struct {
 	totalScrapes prometheus.Counter
 	metrics      map[string]*prometheus.GaugeVec
 
+	isTile38 bool
+
 	metricsMtx sync.RWMutex
 	sync.RWMutex
 }
@@ -139,6 +141,17 @@ var (
 		// # Cluster
 		"cluster_stats_messages_sent":     "cluster_messages_sent_total",
 		"cluster_stats_messages_received": "cluster_messages_received_total",
+
+		// # Tile38
+		"aof_size":        "aof_size_bytes",
+		"avg_item_size":   "avg_item_size_bytes",
+		"cpu":             "cpu_total",
+		"num_collections": "num_collections_total",
+		"num_objects":     "num_objects_total",
+		"num_points":      "num_points_total",
+		"heap_size":       "heap_size_bytes",
+		"version":         "version", // since tile38 version 1.14.1
+		"threads":         "threads_total",
 	}
 
 	instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
@@ -255,7 +268,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 // note to self: next time we add an argument, instead add a RedisExporter struct
-func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys string) (*Exporter, error) {
+func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys string, isTile38 bool) (*Exporter, error) {
 
 	e := Exporter{
 		redis:     host,
@@ -291,6 +304,8 @@ func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys stri
 			Help:      "The last scrape error status.",
 		}),
 	}
+
+	e.isTile38 = isTile38
 
 	var err error
 
@@ -472,6 +487,23 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 		}
 	}
 	return
+}
+
+func (e *Exporter) extractTile38Metrics(info []string, addr string, alias string, scrapes chan<- scrapeResult) error {
+	for i := 0; i < len(info); i += 2 {
+		log.Debugf("tile38: %s:%s", info[i], info[i+1])
+
+		fieldKey := info[i]
+		fieldValue := info[i+1]
+
+		if !includeMetric(fieldKey) {
+			continue
+		}
+
+		registerMetric(addr, alias, fieldKey, fieldValue, scrapes)
+	}
+
+	return nil
 }
 
 func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
@@ -858,6 +890,14 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	}
 
 	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount)
+
+	if e.isTile38 {
+		if serverInfo, err := redis.Strings(doRedisCmd(c, "SERVER")); err == nil {
+			e.extractTile38Metrics(serverInfo, addr, e.redis.Aliases[idx], scrapes)
+		} else {
+			log.Errorf("Redis SERVER err: %s", err)
+		}
+	}
 
 	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
 		var eventName string
