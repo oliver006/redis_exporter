@@ -143,15 +143,24 @@ var (
 		"cluster_stats_messages_received": "cluster_messages_received_total",
 
 		// # Tile38
+		// based on https://tile38.com/commands/server/
 		"aof_size":        "aof_size_bytes",
 		"avg_item_size":   "avg_item_size_bytes",
-		"cpu":             "cpu_total",
+		"cpus":            "cpus_total",
+		"heap_released":   "heap_released_byte",
+		"heap_size":       "heap_size_bytes",
+		"http_transport":  "http_transport",
+		"in_memory_size":  "in_memory_size_bytes",
+		"max_heap_size":   "max_heap_size_bytes",
+		"mem_alloc":       "mem_alloc_bytes",
 		"num_collections": "num_collections_total",
+		"num_hooks":       "num_hooks_total",
 		"num_objects":     "num_objects_total",
 		"num_points":      "num_points_total",
-		"heap_size":       "heap_size_bytes",
-		"version":         "version", // since tile38 version 1.14.1
+		"pointer_size":    "pointer_size_bytes",
+		"read_only":       "read_only",
 		"threads":         "threads_total",
+		"version":         "version", // since tile38 version 1.14.1
 	}
 
 	instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
