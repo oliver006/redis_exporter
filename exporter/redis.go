@@ -277,7 +277,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 // note to self: next time we add an argument, instead add a RedisExporter struct
-func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys string, isTile38 bool) (*Exporter, error) {
+func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys string) (*Exporter, error) {
 
 	e := Exporter{
 		redis:     host,
@@ -314,8 +314,6 @@ func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys stri
 		}),
 	}
 
-	e.isTile38 = isTile38
-
 	var err error
 
 	if e.keys, err = parseKeyArg(checkKeys); err != nil {
@@ -332,6 +330,16 @@ func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys stri
 
 	e.initGauges()
 	return &e, nil
+}
+
+// NewTile38Exporter returns a new exporter of Til38 metrics.
+func NewTile38Exporter(host RedisHost, namespace, checkSingleKeys, checkKeys string) (*Exporter, error) {
+	e, err := NewRedisExporter(host, namespace, checkSingleKeys, checkKeys)
+	if err != nil {
+		return nil, err
+	}
+	e.isTile38 = true
+	return e, nil
 }
 
 // Describe outputs Redis metric descriptions.
