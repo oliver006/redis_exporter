@@ -112,15 +112,30 @@ func main() {
 		addrs, passwords, aliases = exporter.LoadRedisArgs(*redisAddr, parsedRedisPassword, *redisAlias, *separator)
 	}
 
-	exp, err := exporter.NewRedisExporter(
-		exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
-		*namespace,
-		*checkSingleKeys,
-		*checkKeys,
-		*isTile38,
-	)
-	if err != nil {
-		log.Fatal(err)
+	var exp *exporter.Exporter
+	if *isTile38 {
+		var err error
+		exp, err = exporter.NewTile38Exporter(
+			exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
+			*namespace,
+			*checkSingleKeys,
+			*checkKeys,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+	} else {
+		var err error
+		exp, err = exporter.NewRedisExporter(
+			exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
+			*namespace,
+			*checkSingleKeys,
+			*checkKeys,
+		)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	if *scriptPath != "" {
