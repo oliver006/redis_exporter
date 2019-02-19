@@ -550,29 +550,30 @@ type slaveData struct {
 	k, v            string
 	ip, state, port string
 	offset          float64
+	lag             float64
 	ok              bool
 }
 
 func TestParseConnectedSlaveString(t *testing.T) {
 	tsts := []slaveData{
-		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", port: "6379", state: "online", ok: true},
-		{k: "slave1", v: "offset=1", offset: 1, ok: true},
-		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123", offset: 123, ip: "1.2.3.4", state: "online", ok: true},
-		{k: "slave", v: "offset=1751844676", ok: false},
-		{k: "slaveA", v: "offset=1751844676", ok: false},
-		{k: "slave0", v: "offset=abc", ok: false},
+		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", port: "6379", state: "online", ok: true, lag: 0},
+		{k: "slave1", v: "offset=1,lag=0", offset: 1, ok: true},
+		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123,lag=42", offset: 123, ip: "1.2.3.4", state: "online", ok: true, lag: 42},
+		{k: "slave", v: "offset=1751844676,lag=0", ok: false},
+		{k: "slaveA", v: "offset=1751844676,lag=0", ok: false},
+		{k: "slave0", v: "offset=abc,lag=0", ok: false},
 	}
 
 	for _, tst := range tsts {
-		if offset, ip, port, state, ok := parseConnectedSlaveString(tst.k, tst.v); true {
+		if offset, ip, port, state, lag, ok := parseConnectedSlaveString(tst.k, tst.v); true {
 
 			if ok != tst.ok {
 				t.Errorf("failed for: db:%s stats:%s", tst.k, tst.v)
 				continue
 			}
 
-			if offset != tst.offset || ip != tst.ip || port != tst.port || state != tst.state {
-				t.Errorf("values not matching, string:%s %f %s %s %s", tst.v, offset, ip, port, state)
+			if offset != tst.offset || ip != tst.ip || port != tst.port || state != tst.state || lag != tst.lag {
+				t.Errorf("values not matching, string:%s %f %s %s %s %f", tst.v, offset, ip, port, state, lag)
 			}
 		}
 	}
