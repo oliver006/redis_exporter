@@ -47,8 +47,6 @@ type Exporter struct {
 	totalScrapes prometheus.Counter
 	metrics      map[string]*prometheus.GaugeVec
 
-	isTile38 bool
-
 	metricsMtx sync.RWMutex
 	sync.RWMutex
 }
@@ -330,16 +328,6 @@ func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys stri
 
 	e.initGauges()
 	return &e, nil
-}
-
-// NewTile38Exporter returns a new exporter of Til38 metrics.
-func NewTile38Exporter(host RedisHost, namespace, checkSingleKeys, checkKeys string) (*Exporter, error) {
-	e, err := NewRedisExporter(host, namespace, checkSingleKeys, checkKeys)
-	if err != nil {
-		return nil, err
-	}
-	e.isTile38 = true
-	return e, nil
 }
 
 // Describe outputs Redis metric descriptions.
@@ -908,12 +896,10 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount)
 
-	if e.isTile38 {
-		if serverInfo, err := redis.Strings(doRedisCmd(c, "SERVER")); err == nil {
-			e.extractTile38Metrics(serverInfo, addr, e.redis.Aliases[idx], scrapes)
-		} else {
-			log.Errorf("Redis SERVER err: %s", err)
-		}
+	if serverInfo, err := redis.Strings(doRedisCmd(c, "SERVER")); err == nil {
+		e.extractTile38Metrics(serverInfo, addr, e.redis.Aliases[idx], scrapes)
+	} else {
+		log.Errorf("Redis SERVER err: %s", err)
 	}
 
 	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
