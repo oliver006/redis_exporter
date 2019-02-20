@@ -442,10 +442,15 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 		return
 	}
 
-	lag, err = strconv.ParseFloat(connectedSlaveInfo["lag"], 64)
-	if err != nil {
+	if lagStr, exists := connectedSlaveInfo["lag"]; exists == false {
 		// Prior to 3.0, "lag" property does not exist
 		lag = -1
+	} else {
+		lag, err = strconv.ParseFloat(lagStr, 64)
+		if err != nil {
+			log.Debugf("Can not parse connected slave lag, got: %s", lagStr)
+			return
+		}
 	}
 
 	ok = true
