@@ -32,7 +32,6 @@ var (
 	showVersion       = flag.Bool("version", false, "Show version information and exit")
 	useCfBindings     = flag.Bool("use-cf-bindings", getEnvBool("REDIS_EXPORTER_USE-CF-BINDINGS"), "Use Cloud Foundry service bindings")
 	redisMetricsOnly  = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS"), "Whether to export go runtime metrics also")
-	isTile38          = flag.Bool("tile38", getEnvBool("REDIS_EXPORTER_TILE38"), "Assume that all nodes are tile38 nodes that are using redis protocol")
 
 	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the build script
 	VERSION     = "<<< filled in by build >>>"
@@ -112,30 +111,14 @@ func main() {
 		addrs, passwords, aliases = exporter.LoadRedisArgs(*redisAddr, parsedRedisPassword, *redisAlias, *separator)
 	}
 
-	var exp *exporter.Exporter
-	if *isTile38 {
-		var err error
-		exp, err = exporter.NewTile38Exporter(
-			exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
-			*namespace,
-			*checkSingleKeys,
-			*checkKeys,
-		)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-	} else {
-		var err error
-		exp, err = exporter.NewRedisExporter(
-			exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
-			*namespace,
-			*checkSingleKeys,
-			*checkKeys,
-		)
-		if err != nil {
-			log.Fatal(err)
-		}
+	exp, err := exporter.NewRedisExporter(
+		exporter.RedisHost{Addrs: addrs, Passwords: passwords, Aliases: aliases},
+		*namespace,
+		*checkSingleKeys,
+		*checkKeys,
+	)
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	if *scriptPath != "" {
