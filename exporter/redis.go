@@ -173,6 +173,11 @@ func (e *Exporter) initGauges() {
 		Name:      "connected_slave_offset",
 		Help:      "Offset of connected slave",
 	}, []string{"addr", "alias", "slave_ip", "slave_port", "slave_state"})
+	e.metrics["connected_slave_lag_seconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "connected_slave_lag_seconds",
+		Help:      "Lag of connected slave",
+	}, []string{"addr", "alias", "slave_ip", "slave_port", "slave_state"})
 	e.metrics["db_keys"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "db_keys",
@@ -417,7 +422,7 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
 	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
-func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, port string, state string, ok bool) {
+func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
 	if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
 		return
@@ -436,6 +441,18 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 		log.Debugf("Can not parse connected slave offset, got: %s", connectedSlaveInfo["offset"])
 		return
 	}
+
+	if lagStr, exists := connectedSlaveInfo["lag"]; exists == false {
+		// Prior to 3.0, "lag" property does not exist
+		lag = -1
+	} else {
+		lag, err = strconv.ParseFloat(lagStr, 64)
+		if err != nil {
+			log.Debugf("Can not parse connected slave lag, got: %s", lagStr)
+			return
+		}
+	}
+
 	ok = true
 	ip = connectedSlaveInfo["ip"]
 	port = connectedSlaveInfo["port"]
@@ -525,8 +542,9 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 				continue
 			}
 
-			if slaveOffset, slaveIp, slavePort, slaveState, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
+			if slaveOffset, slaveIp, slavePort, slaveState, lag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 				e.metricsMtx.RLock()
+
 				e.metrics["connected_slave_offset"].WithLabelValues(
 					addr,
 					alias,
@@ -534,6 +552,16 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 					slavePort,
 					slaveState,
 				).Set(slaveOffset)
+				if lag > -1 {
+					e.metrics["connected_slave_lag_seconds"].WithLabelValues(
+						addr,
+						alias,
+						slaveIp,
+						slavePort,
+						slaveState,
+					).Set(lag)
+				}
+
 				e.metricsMtx.RUnlock()
 				continue
 			}
