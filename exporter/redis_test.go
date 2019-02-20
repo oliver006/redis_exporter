@@ -45,7 +45,7 @@ var (
 	listKeys         = []string{}
 	ts               = int32(time.Now().Unix())
 	defaultRedisHost = RedisHost{}
-	defaultTileHost  = RedisHost{Addrs: []string{":9851"}}
+	defaultTileHost  = RedisHost{Addrs: []string{":9851"}, Aliases: []string{"tile"}}
 
 	dbNumStr     = "11"
 	altDBNumStr  = "12"
