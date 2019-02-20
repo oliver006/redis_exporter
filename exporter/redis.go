@@ -444,8 +444,8 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 
 	lag, err = strconv.ParseFloat(connectedSlaveInfo["lag"], 64)
 	if err != nil {
-		log.Debugf("Can not parse connected slave lag, got: %s", connectedSlaveInfo["lag"])
-		return
+		// Prior to 3.0, "lag" property does not exist
+		lag = -1
 	}
 
 	ok = true
@@ -539,6 +539,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 
 			if slaveOffset, slaveIp, slavePort, slaveState, lag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 				e.metricsMtx.RLock()
+
 				e.metrics["connected_slave_offset"].WithLabelValues(
 					addr,
 					alias,
@@ -546,13 +547,16 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 					slavePort,
 					slaveState,
 				).Set(slaveOffset)
-				e.metrics["connected_slave_lag_seconds"].WithLabelValues(
-					addr,
-					alias,
-					slaveIp,
-					slavePort,
-					slaveState,
-				).Set(lag)
+				if lag > -1 {
+					e.metrics["connected_slave_lag_seconds"].WithLabelValues(
+						addr,
+						alias,
+						slaveIp,
+						slavePort,
+						slaveState,
+					).Set(lag)
+				}
+
 				e.metricsMtx.RUnlock()
 				continue
 			}

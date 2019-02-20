@@ -563,6 +563,7 @@ func TestParseConnectedSlaveString(t *testing.T) {
 		{k: "slaveA", v: "offset=1751844676,lag=0", ok: false},
 		{k: "slave0", v: "offset=abc,lag=0", ok: false},
 		{k: "slave0", v: "offset=0,lag=abc", ok: false},
+		{k: "slave0", v: "offset=0", ok: false, lag: -1},
 	}
 
 	for _, tst := range tsts {
