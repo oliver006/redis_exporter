@@ -896,10 +896,12 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount)
 
+	// SERVER command only works on tile38 database. check the following link to
+	// findout more: https://tile38.com/
 	if serverInfo, err := redis.Strings(doRedisCmd(c, "SERVER")); err == nil {
 		e.extractTile38Metrics(serverInfo, addr, e.redis.Aliases[idx], scrapes)
 	} else {
-		log.Errorf("Redis SERVER err: %s", err)
+		log.Debugf("Tile38 SERVER err: %s", err)
 	}
 
 	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
