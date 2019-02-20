@@ -10,6 +10,7 @@ jobs:
       - image: redis:5
         command: --port 6380
       - image: grokzen/redis-cluster
+      - image: tile38/tile38:latest
 
     working_directory: /go/src/github.com/oliver006/redis_exporter
     steps:
