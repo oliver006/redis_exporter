@@ -558,12 +558,12 @@ func TestParseConnectedSlaveString(t *testing.T) {
 	tsts := []slaveData{
 		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", port: "6379", state: "online", ok: true, lag: 0},
 		{k: "slave1", v: "offset=1,lag=0", offset: 1, ok: true},
+		{k: "slave1", v: "offset=1", offset: 1, ok: true, lag: -1},
 		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123,lag=42", offset: 123, ip: "1.2.3.4", state: "online", ok: true, lag: 42},
 		{k: "slave", v: "offset=1751844676,lag=0", ok: false},
 		{k: "slaveA", v: "offset=1751844676,lag=0", ok: false},
 		{k: "slave0", v: "offset=abc,lag=0", ok: false},
 		{k: "slave0", v: "offset=0,lag=abc", ok: false},
-		{k: "slave0", v: "offset=0", ok: false, lag: -1},
 	}
 
 	for _, tst := range tsts {
