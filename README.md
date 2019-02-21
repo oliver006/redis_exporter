@@ -83,7 +83,7 @@ oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/
 *NOTE*: Some of the parameters can be ommited if no authentication is used or the default redis config is applied.
 
 ```sh
-oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/contrib/openshift-template.yaml \
+oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/contrib/openshift-template.yaml \
     -p REDIS_ADDR=<redis-service>:<redis-port> \
     | oc create -f -
 ```
