@@ -25,7 +25,7 @@ parameters:
     description: The URL of the repository with your application source code.
     displayName: Git Repository URL
     required: true
-    value: 'https://github.com/ivanovaleksandar/redis_exporter.git'
+    value: 'https://github.com/oliver006/redis_exporter.git'
   - name: SOURCE_REPOSITORY_REF
     description: Set the branch name if you are not using master branch
     displayName: Git Reference    
