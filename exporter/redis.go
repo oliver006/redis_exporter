@@ -139,6 +139,26 @@ var (
 		// # Cluster
 		"cluster_stats_messages_sent":     "cluster_messages_sent_total",
 		"cluster_stats_messages_received": "cluster_messages_received_total",
+
+		// # Tile38
+		// based on https://tile38.com/commands/server/
+		"aof_size":        "aof_size_bytes",
+		"avg_item_size":   "avg_item_size_bytes",
+		"cpus":            "cpus_total",
+		"heap_released":   "heap_released_bytes",
+		"heap_size":       "heap_size_bytes",
+		"http_transport":  "http_transport",
+		"in_memory_size":  "in_memory_size_bytes",
+		"max_heap_size":   "max_heap_size_bytes",
+		"mem_alloc":       "mem_alloc_bytes",
+		"num_collections": "num_collections_total",
+		"num_hooks":       "num_hooks_total",
+		"num_objects":     "num_objects_total",
+		"num_points":      "num_points_total",
+		"pointer_size":    "pointer_size_bytes",
+		"read_only":       "read_only",
+		"threads":         "threads_total",
+		"version":         "version", // since tile38 version 1.14.1
 	}
 
 	instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
@@ -489,6 +509,23 @@ func extractConfigMetrics(config []string, addr string, alias string, scrapes ch
 		}
 	}
 	return
+}
+
+func (e *Exporter) extractTile38Metrics(info []string, addr string, alias string, scrapes chan<- scrapeResult) error {
+	for i := 0; i < len(info); i += 2 {
+		log.Debugf("tile38: %s:%s", info[i], info[i+1])
+
+		fieldKey := info[i]
+		fieldValue := info[i+1]
+
+		if !includeMetric(fieldKey) {
+			continue
+		}
+
+		registerMetric(addr, alias, fieldKey, fieldValue, scrapes)
+	}
+
+	return nil
 }
 
 func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
@@ -886,6 +923,14 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	}
 
 	e.extractInfoMetrics(infoAll, addr, e.redis.Aliases[idx], scrapes, dbCount)
+
+	// SERVER command only works on tile38 database. check the following link to
+	// find out more: https://tile38.com/
+	if serverInfo, err := redis.Strings(doRedisCmd(c, "SERVER")); err == nil {
+		e.extractTile38Metrics(serverInfo, addr, e.redis.Aliases[idx], scrapes)
+	} else {
+		log.Debugf("Tile38 SERVER err: %s", err)
+	}
 
 	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
 		var eventName string

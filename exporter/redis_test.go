@@ -45,6 +45,7 @@ var (
 	listKeys         = []string{}
 	ts               = int32(time.Now().Unix())
 	defaultRedisHost = RedisHost{}
+	defaultTileHost  = RedisHost{Addrs: []string{":9851"}, Aliases: []string{"tile"}}
 
 	dbNumStr     = "11"
 	altDBNumStr  = "12"
@@ -211,6 +212,29 @@ func TestLatencySpike(t *testing.T) {
 				t.Errorf("latency threshold was not reset")
 			}
 		}
+	}
+}
+
+func TestTile38(t *testing.T) {
+	e, _ := NewRedisExporter(defaultTileHost, "test", "", "")
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	find := false
+	for m := range chM {
+		switch m := m.(type) {
+		case prometheus.Gauge:
+			if strings.Contains(m.Desc().String(), "cpus_total") {
+				find = true
+			}
+		}
+	}
+	if !find {
+		t.Errorf("cpus_total was not found in tile38 metrics")
 	}
 }
 
