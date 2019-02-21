@@ -145,7 +145,7 @@ var (
 		"aof_size":        "aof_size_bytes",
 		"avg_item_size":   "avg_item_size_bytes",
 		"cpus":            "cpus_total",
-		"heap_released":   "heap_released_byte",
+		"heap_released":   "heap_released_bytes",
 		"heap_size":       "heap_size_bytes",
 		"http_transport":  "http_transport",
 		"in_memory_size":  "in_memory_size_bytes",
