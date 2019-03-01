@@ -796,6 +796,10 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 		if size, err := redis.Int64(c.Do("HLEN", key)); err == nil {
 			info.size = float64(size)
 		}
+	case "stream":
+		if size, err := redis.Int64(c.Do("XLEN", key)); err == nil {
+			info.size = float64(size)
+		}
 	default:
 		err = fmt.Errorf("Unknown type: %v for key: %v", info.keyType, key)
 	}

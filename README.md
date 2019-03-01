@@ -149,7 +149,7 @@ REDIS_FILE         | Path to file containing Redis node(s)
 Most items from the INFO command are exported,
 see https://redis.io/commands/info for details.\
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.\
-You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, etc.
+You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
