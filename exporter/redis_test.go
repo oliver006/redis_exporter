@@ -839,6 +839,7 @@ func TestGetKeyInfo(t *testing.T) {
 			"4", "zsetval4",
 			"5", "zsetval5",
 		}},
+		keyFixture{"XADD", "key_info_test_stream", []interface{}{"*", "field1", "str1"}},
 	}
 
 	createKeyFixtures(t, c, fixtures)
@@ -855,6 +856,7 @@ func TestGetKeyInfo(t *testing.T) {
 		"key_info_test_list":   3,
 		"key_info_test_set":    4,
 		"key_info_test_zset":   5,
+		"key_info_test_stream": 1,
 	}
 
 	// Test all known types
