@@ -15,12 +15,6 @@ jobs:
     working_directory: /go/src/github.com/oliver006/redis_exporter
     steps:
       - checkout
-      - run:
-          shell: /bin/bash
-          name: go fmt
-          command: |
-            ! gofmt -l $(find . -path ./vendor -prune -o  -type f -name '*.go' -print) 2>&1 | read
-
       - run: echo " ! gofmt -d main.go       2>&1 | read " | bash
       - run: echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash
       - run: go get github.com/mattn/goveralls

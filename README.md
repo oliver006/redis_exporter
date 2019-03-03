@@ -80,7 +80,7 @@ oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/
     | oc create -f -
 ```
 
-*NOTE*: Some of the parameters can be ommited if no authentication is used or the default redis config is applied.
+*NOTE*: Some of the parameters can be omitted if no authentication is used or the default redis config is applied.
 
 ```sh
 oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/contrib/openshift-template.yaml \
