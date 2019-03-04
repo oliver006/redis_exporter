@@ -15,12 +15,18 @@ jobs:
     working_directory: /go/src/github.com/oliver006/redis_exporter
     steps:
       - checkout
+      - run:
+          shell: /bin/bash
+          name: go fmt
+          command: |
+            ! gofmt -l $(find . -path ./vendor -prune -o  -type f -name '*.go' -print) 2>&1 | read
+
       - run: echo " ! gofmt -d main.go       2>&1 | read " | bash
       - run: echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash
       - run: go get github.com/mattn/goveralls
       - run: go get golang.org/x/tools/cmd/cover
       - run: go vet ./exporter/...
-      - run: TEST_REDIS_CLUSTER_MASTER_URI=localhost:7000 TEST_REDIS_CLUSTER_SLAVE_URI=localhost:7005 go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...
+      - run: TEST_REDIS_CLUSTER_MASTER_URI=localhost:7000 TEST_REDIS_CLUSTER_SLAVE_URI=localhost:7005 TEST_SECOND_REDIS_URI=moar-redis:6380 TEST_TILE_URI=localhost:9851 go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=localhost
       - run: /go/bin/goveralls -coverprofile=coverage.txt -service=circle-ci -repotoken=7rWMRpzVs2gcKnhfdJNbGyE6ycJ6M4fNs
       - run: bash <(curl -s https://codecov.io/bash)
 

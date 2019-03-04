@@ -1,0 +1,120 @@
+kind: pipeline
+name: default
+
+workspace:
+  base: /go
+  path: src/github.com/oliver006/redis_exporter
+
+
+services:
+  - name: redis
+    image: redis:5
+    ports:
+      - 6379
+  - name: moar-redis
+    image: redis:5
+    ports:
+      - 6380
+  - name: redis-cluster
+    image: grokzen/redis-cluster
+    ports:
+      - 7000
+      - 7001
+      - 7002
+      - 7003
+      - 7004
+      - 7005
+  - name: tile38
+    image: tile38/tile38:latest
+    ports:
+      - 9851
+
+
+steps:
+  - name: tests
+    image: "golang:1.12"
+    environment:
+      TEST_TILE38_URI: "tile38:9851"
+      TEST_SECOND_REDIS_URI: "redis://moar-redis:6380"
+      TEST_REDIS_CLUSTER_MASTER_URI: "redis-cluster:7000"
+      TEST_REDIS_CLUSTER_SLAVE_URI: "redis-cluster:7005"
+      COVERALLS_TOKEN:
+        from_secret: coveralls-token
+    commands:
+      - 'echo " ! gofmt -d main.go       2>&1 | read " | bash'
+      - 'echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash'
+      - 'go vet ./exporter/...'
+      - 'go build'
+      - "sleep 10"
+      - 'go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=redis'
+      - 'go get github.com/mattn/goveralls'
+      - '/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io'
+    when:
+      event:
+        - push
+
+
+  - name: coverage-codecov
+    image: plugins/codecov
+    settings:
+      token:
+        from_secret: codecov-token
+      files:
+        - coverage.txt
+    when:
+      event:
+        - push
+
+
+  - name: release-create-docker-tags
+    image: alpine
+    commands:
+      - 'echo -n "latest,$DRONE_TAG" > .tags'
+    when:
+      event:
+        - tag
+
+
+  - name: release-docker-image-scratch
+    image: plugins/docker
+    settings:
+      dockerfile: ./Dockerfile
+      repo: oliver006/redis_exporter
+      target: scratch
+      build_args:
+        - 'TAG=${DRONE_TAG}'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+    when:
+      event:
+        - tag
+
+
+  - name: release-docker-image-alpine
+    image: plugins/docker
+    settings:
+      dockerfile: ./Dockerfile
+      repo: oliver006/redis_exporter
+      target: alpine
+      build_args:
+        - 'TAG=${DRONE_TAG}'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+    when:
+      event:
+        - tag
+
+
+  - name: release-github-binaries
+    image: "golang:1.12"
+    commands:
+      - './build-github-binaries.sh'
+    when:
+      event:
+        - tag

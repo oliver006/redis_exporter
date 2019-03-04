@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	redisAddr  = flag.String("redis.addr", "localhost:6379", "Address of the test instance, without `redis://`")
+	redisAddr  = flag.String("redis.addr", ":6379", "Address of the test instance, without `redis://`")
 	redisAlias = flag.String("redis.alias", "foo", "Alias of the test instance")
 	separator  = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
 
@@ -45,7 +45,6 @@ var (
 	listKeys         = []string{}
 	ts               = int32(time.Now().Unix())
 	defaultRedisHost = RedisHost{}
-	defaultTileHost  = RedisHost{Addrs: []string{":9851"}, Aliases: []string{"tile"}}
 
 	dbNumStr     = "11"
 	altDBNumStr  = "12"
@@ -216,7 +215,14 @@ func TestLatencySpike(t *testing.T) {
 }
 
 func TestTile38(t *testing.T) {
-	e, _ := NewRedisExporter(defaultTileHost, "test", "", "")
+	if os.Getenv("TEST_TILE38_URI") == "" {
+		t.SkipNow()
+	}
+
+	e, _ := NewRedisExporter(
+		RedisHost{Addrs: []string{os.Getenv("TEST_TILE38_URI")}, Aliases: []string{"tile"}},
+		"test", "", "",
+	)
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -1098,9 +1104,12 @@ func TestNonExistingHost(t *testing.T) {
 func TestMoreThanOneHost(t *testing.T) {
 
 	firstHost := defaultRedisHost.Addrs[0]
-	secondHost := "redis://localhost:6380"
+	secondHostURI := os.Getenv("TEST_SECOND_REDIS_URI")
+	if secondHostURI == "" {
+		secondHostURI = "redis://localhost:6380"
+	}
 
-	c, err := redis.DialURL(secondHost)
+	c, err := redis.DialURL(secondHostURI)
 	if err != nil {
 		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		t.SkipNow()
@@ -1119,8 +1128,8 @@ func TestMoreThanOneHost(t *testing.T) {
 	setupDBKeys(t, firstHost)
 	defer deleteKeysFromDB(t, firstHost)
 
-	setupDBKeys(t, secondHost)
-	defer deleteKeysFromDB(t, secondHost)
+	setupDBKeys(t, secondHostURI)
+	defer deleteKeysFromDB(t, secondHostURI)
 
 	_, err = c.Do("SELECT", dbNumStr)
 	if err != nil {
@@ -1137,7 +1146,7 @@ func TestMoreThanOneHost(t *testing.T) {
 		return
 	}
 
-	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHost}, Aliases: []string{"", ""}}
+	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHostURI}, Aliases: []string{"", ""}}
 	checkKey := dbNumStrFull + "=" + url.QueryEscape(keys[0])
 	e, _ := NewRedisExporter(twoHostCfg, "test", checkKey, "")
 
@@ -1148,8 +1157,8 @@ func TestMoreThanOneHost(t *testing.T) {
 	}()
 
 	want := map[string]float64{
-		firstHost:  TestValue,
-		secondHost: secondHostValue,
+		firstHost:     TestValue,
+		secondHostURI: secondHostValue,
 	}
 
 	for m := range chM {
@@ -1416,6 +1425,8 @@ func TestCheckKeys(t *testing.T) {
 }
 
 func init() {
+	flag.Parse()
+
 	ll := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	if pl, err := log.ParseLevel(ll); err == nil {
 		log.Printf("Setting log level to: %s", ll)
@@ -1436,7 +1447,6 @@ func init() {
 		keysExpiring = append(keysExpiring, key)
 	}
 
-	flag.Parse()
 	addrs := strings.Split(*redisAddr, *separator)
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")
