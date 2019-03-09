@@ -40,12 +40,13 @@ type Exporter struct {
 	singleKeys   []dbKeyPair
 	keyValues    *prometheus.GaugeVec
 	keySizes     *prometheus.GaugeVec
-	script       []byte
 	scriptValues *prometheus.GaugeVec
 	duration     prometheus.Gauge
 	scrapeErrors prometheus.Gauge
 	totalScrapes prometheus.Counter
 	metrics      map[string]*prometheus.GaugeVec
+
+	LuaScript []byte
 
 	metricsMtx sync.RWMutex
 	sync.RWMutex
@@ -218,7 +219,7 @@ func (e *Exporter) initGauges() {
 	e.metrics["latency_spike_last"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
 		Name:      "latency_spike_last",
-		Help:      "When the latency spike last occured",
+		Help:      "When the latency spike last occurred",
 	}, []string{"addr", "alias", "event_name"})
 	e.metrics["latency_spike_milliseconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: e.namespace,
@@ -265,12 +266,10 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
 			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
 		default:
-			err = fmt.Errorf("invalid key list argument: %s", k)
-			return keys, err
+			return keys, fmt.Errorf("invalid key list argument: %s", k)
 		}
 		if err != nil {
-			err = fmt.Errorf("couldn't parse db/key string: %s", k)
-			return keys, err
+			return keys, fmt.Errorf("couldn't parse db/key string: %s", k)
 		}
 
 		keys = append(keys, dbKeyPair{db, key})
@@ -320,14 +319,12 @@ func NewRedisExporter(host RedisHost, namespace, checkSingleKeys, checkKeys stri
 	var err error
 
 	if e.keys, err = parseKeyArg(checkKeys); err != nil {
-		log.Fatalf("Couldn't parse check-keys: %#v", err)
-		return &e, err
+		return &e, fmt.Errorf("Couldn't parse check-keys: %#v", err)
 	}
 	log.Debugf("keys: %#v", e.keys)
 
 	if e.singleKeys, err = parseKeyArg(checkSingleKeys); err != nil {
-		log.Fatalf("Couldn't parse check-single-keys: %#v", err)
-		return &e, err
+		return &e, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
 	}
 	log.Debugf("singleKeys: %#v", e.singleKeys)
 
@@ -347,11 +344,6 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	ch <- e.duration.Desc()
 	ch <- e.totalScrapes.Desc()
 	ch <- e.scrapeErrors.Desc()
-}
-
-// SetScript sets the Lua Redis script to be used.
-func (e *Exporter) SetScript(script []byte) {
-	e.script = script
 }
 
 // Collect fetches new metrics from the RedisHost and updates the appropriate metrics.
@@ -528,13 +520,94 @@ func (e *Exporter) extractTile38Metrics(info []string, addr string, alias string
 	return nil
 }
 
-func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
-	var fieldClass string
-	lines := strings.Split(info, "\r\n")
+func (e *Exporter) handleMetricsCommandStats(addr string, alias string, fieldKey string, fieldValue string) {
+	/*
+		Format:
+		cmdstat_get:calls=21,usec=175,usec_per_call=8.33
+		cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
+		cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
+	*/
+	splitKey := strings.Split(fieldKey, "_")
+	if len(splitKey) != 2 {
+		return
+	}
 
+	splitValue := strings.Split(fieldValue, ",")
+	if len(splitValue) != 3 {
+		return
+	}
+
+	var calls float64
+	var usecTotal float64
+	var err error
+	if calls, err = extractVal(splitValue[0]); err != nil {
+		return
+	}
+	if usecTotal, err = extractVal(splitValue[1]); err != nil {
+		return
+	}
+
+	e.metricsMtx.RLock()
+	defer e.metricsMtx.RUnlock()
+
+	cmd := splitKey[1]
+	e.metrics["commands_total"].WithLabelValues(addr, alias, cmd).Set(calls)
+	e.metrics["commands_duration_seconds_total"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
+}
+
+func (e *Exporter) handleMetricsReplication(addr string, alias string, fieldKey string, fieldValue string) {
+	e.metricsMtx.RLock()
+	defer e.metricsMtx.RUnlock()
+
+	// only slaves have this field
+	if fieldKey == "master_link_status" {
+		if fieldValue == "up" {
+			e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(1)
+		} else {
+			e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
+		}
+		return
+	}
+
+	// not a slave, try extracting master metrics
+	if slaveOffset, slaveIp, slavePort, slaveState, lag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
+		e.metrics["connected_slave_offset"].WithLabelValues(
+			addr,
+			alias,
+			slaveIp,
+			slavePort,
+			slaveState,
+		).Set(slaveOffset)
+
+		if lag > -1 {
+			e.metrics["connected_slave_lag_seconds"].WithLabelValues(
+				addr,
+				alias,
+				slaveIp,
+				slavePort,
+				slaveState,
+			).Set(lag)
+		}
+	}
+}
+
+func (e *Exporter) handleMetricsServer(addr string, alias string, fieldKey string, fieldValue string) {
+	if fieldKey == "uptime_in_seconds" {
+		if uptime, err := strconv.ParseFloat(fieldValue, 64); err == nil {
+			e.metricsMtx.RLock()
+			e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
+			e.metricsMtx.RUnlock()
+		}
+	}
+}
+
+func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes chan<- scrapeResult, dbCount int) error {
 	instanceInfo := map[string]string{}
 	slaveInfo := map[string]string{}
 	handledDBs := map[string]bool{}
+
+	fieldClass := ""
+	lines := strings.Split(info, "\r\n")
 	for _, line := range lines {
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
@@ -567,85 +640,14 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		switch fieldClass {
 
 		case "Replication":
-			// only slave have this field
-			if fieldKey == "master_link_status" {
-				e.metricsMtx.RLock()
-				if fieldValue == "up" {
-					e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(1)
-				} else {
-					e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
-				}
-				e.metricsMtx.RUnlock()
-				continue
-			}
-
-			if slaveOffset, slaveIp, slavePort, slaveState, lag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
-				e.metricsMtx.RLock()
-
-				e.metrics["connected_slave_offset"].WithLabelValues(
-					addr,
-					alias,
-					slaveIp,
-					slavePort,
-					slaveState,
-				).Set(slaveOffset)
-				if lag > -1 {
-					e.metrics["connected_slave_lag_seconds"].WithLabelValues(
-						addr,
-						alias,
-						slaveIp,
-						slavePort,
-						slaveState,
-					).Set(lag)
-				}
-
-				e.metricsMtx.RUnlock()
-				continue
-			}
+			e.handleMetricsReplication(addr, alias, fieldKey, fieldValue)
+			continue
 
 		case "Server":
-			if fieldKey == "uptime_in_seconds" {
-				if uptime, err := strconv.ParseFloat(fieldValue, 64); err == nil {
-					e.metricsMtx.RLock()
-					e.metrics["start_time_seconds"].WithLabelValues(addr, alias).Set(float64(time.Now().Unix()) - uptime)
-					e.metricsMtx.RUnlock()
-				}
-			}
+			e.handleMetricsServer(addr, alias, fieldKey, fieldValue)
 
 		case "Commandstats":
-			/*
-				Format:
-
-				cmdstat_get:calls=21,usec=175,usec_per_call=8.33
-				cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
-				cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
-			*/
-			frags := strings.Split(fieldKey, "_")
-			if len(frags) != 2 {
-				continue
-			}
-
-			cmd := frags[1]
-
-			frags = strings.Split(fieldValue, ",")
-			if len(frags) != 3 {
-				continue
-			}
-
-			var calls float64
-			var usecTotal float64
-			var err error
-			if calls, err = extractVal(frags[0]); err != nil {
-				continue
-			}
-			if usecTotal, err = extractVal(frags[1]); err != nil {
-				continue
-			}
-
-			e.metricsMtx.RLock()
-			e.metrics["commands_total"].WithLabelValues(addr, alias, cmd).Set(calls)
-			e.metrics["commands_duration_seconds_total"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
-			e.metricsMtx.RUnlock()
+			e.handleMetricsCommandStats(addr, alias, fieldKey, fieldValue)
 			continue
 
 		case "Keyspace":
@@ -987,9 +989,9 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		}
 	}
 
-	if e.script != nil && len(e.script) > 0 {
+	if e.LuaScript != nil && len(e.LuaScript) > 0 {
 		log.Debug("e.script")
-		kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.script, 0, 0))
+		kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.LuaScript, 0, 0))
 		if err != nil {
 			log.Errorf("Collect script error: %v", err)
 		} else if kv != nil {
@@ -1061,7 +1063,7 @@ func (e *Exporter) setMetrics(scrapes <-chan scrapeResult) {
 		if len(scr.DB) > 0 {
 			labels["db"] = scr.DB
 		}
-		e.metrics[name].With(labels).Set(float64(scr.Value))
+		e.metrics[name].With(labels).Set(scr.Value)
 	}
 }
 

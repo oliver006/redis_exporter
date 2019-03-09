@@ -15,24 +15,6 @@ import (
 )
 
 var (
-	redisAddr         = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of one or more redis nodes, separated by separator")
-	redisFile         = flag.String("redis.file", getEnv("REDIS_FILE", ""), "Path to file containing one or more redis nodes, separated by newline. NOTE: mutually exclusive with redis.addr")
-	redisPassword     = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
-	redisPasswordFile = flag.String("redis.password-file", getEnv("REDIS_PASSWORD_FILE", ""), "File containing the password for one or more redis nodes, separated by separator. NOTE: mutually exclusive with redis.password")
-	redisAlias        = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
-	namespace         = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
-	checkKeys         = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
-	checkSingleKeys   = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
-	scriptPath        = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Path to Lua Redis script for collecting extra metrics")
-	separator         = flag.String("separator", getEnv("REDIS_EXPORTER_SEPARATOR", ","), "separator used to split redis.addr, redis.password and redis.alias into several elements.")
-	listenAddress     = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
-	metricPath        = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
-	isDebug           = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG"), "Output verbose debug information")
-	logFormat         = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
-	showVersion       = flag.Bool("version", false, "Show version information and exit")
-	useCfBindings     = flag.Bool("use-cf-bindings", getEnvBool("REDIS_EXPORTER_USE-CF-BINDINGS"), "Use Cloud Foundry service bindings")
-	redisMetricsOnly  = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS"), "Whether to export go runtime metrics also")
-
 	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the build script
 	VERSION     = "<<< filled in by build >>>"
 	BUILD_DATE  = "<<< filled in by build >>>"
@@ -54,6 +36,25 @@ func getEnvBool(key string) (envValBool bool) {
 }
 
 func main() {
+	var (
+		redisAddr         = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of one or more redis nodes, separated by separator")
+		redisFile         = flag.String("redis.file", getEnv("REDIS_FILE", ""), "Path to file containing one or more redis nodes, separated by newline. NOTE: mutually exclusive with redis.addr")
+		redisPassword     = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password for one or more redis nodes, separated by separator")
+		redisPasswordFile = flag.String("redis.password-file", getEnv("REDIS_PASSWORD_FILE", ""), "File containing the password for one or more redis nodes, separated by separator. NOTE: mutually exclusive with redis.password")
+		redisAlias        = flag.String("redis.alias", getEnv("REDIS_ALIAS", ""), "Redis instance alias for one or more redis nodes, separated by separator")
+		namespace         = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
+		checkKeys         = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
+		checkSingleKeys   = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
+		scriptPath        = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Path to Lua Redis script for collecting extra metrics")
+		separator         = flag.String("separator", getEnv("REDIS_EXPORTER_SEPARATOR", ","), "separator used to split redis.addr, redis.password and redis.alias into several elements.")
+		listenAddress     = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
+		metricPath        = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
+		logFormat         = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
+		isDebug           = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG"), "Output verbose debug information")
+		showVersion       = flag.Bool("version", false, "Show version information and exit")
+		useCfBindings     = flag.Bool("use-cf-bindings", getEnvBool("REDIS_EXPORTER_USE-CF-BINDINGS"), "Use Cloud Foundry service bindings")
+		redisMetricsOnly  = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS"), "Whether to export go runtime metrics also")
+	)
 	flag.Parse()
 
 	switch *logFormat {
@@ -101,8 +102,7 @@ func main() {
 	switch {
 	case *redisFile != "":
 		var err error
-		addrs, passwords, aliases, err = exporter.LoadRedisFile(*redisFile)
-		if err != nil {
+		if addrs, passwords, aliases, err = exporter.LoadRedisFile(*redisFile); err != nil {
 			log.Fatal(err)
 		}
 	case *useCfBindings:
@@ -122,11 +122,9 @@ func main() {
 	}
 
 	if *scriptPath != "" {
-		script, err := ioutil.ReadFile(*scriptPath)
-		if err != nil {
-			log.Fatalf("Error loading script file: %v", err)
+		if exp.LuaScript, err = ioutil.ReadFile(*scriptPath); err != nil {
+			log.Fatalf("Error loading script file %s    err: %s", *scriptPath, err)
 		}
-		exp.SetScript(script)
 	}
 
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -137,8 +135,7 @@ func main() {
 
 	if *redisMetricsOnly {
 		registry := prometheus.NewRegistry()
-		registry.Register(exp)
-		registry.Register(buildInfo)
+		registry.MustRegister(exp)
 		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
 		http.Handle(*metricPath, handler)
 	} else {
@@ -156,7 +153,7 @@ func main() {
 <p><a href='` + *metricPath + `'>Metrics</a></p>
 </body>
 </html>
-						`))
+`))
 	})
 
 	log.Printf("Providing metrics at %s%s", *listenAddress, *metricPath)

@@ -36,7 +36,7 @@ const (
 )
 
 var (
-	redisAddr  = flag.String("redis.addr", "localhost:6379", "Address of the test instance, without `redis://`")
+	redisAddr  = flag.String("redis.addr", ":6379", "Address of the test instance, without `redis://`")
 	redisAlias = flag.String("redis.alias", "foo", "Alias of the test instance")
 	separator  = flag.String("separator", ",", "separator used to split redis.addr, redis.password and redis.alias into several elements.")
 
@@ -45,7 +45,6 @@ var (
 	listKeys         = []string{}
 	ts               = int32(time.Now().Unix())
 	defaultRedisHost = RedisHost{}
-	defaultTileHost  = RedisHost{Addrs: []string{":9851"}, Aliases: []string{"tile"}}
 
 	dbNumStr     = "11"
 	altDBNumStr  = "12"
@@ -216,7 +215,14 @@ func TestLatencySpike(t *testing.T) {
 }
 
 func TestTile38(t *testing.T) {
-	e, _ := NewRedisExporter(defaultTileHost, "test", "", "")
+	if os.Getenv("TEST_TILE38_URI") == "" {
+		t.SkipNow()
+	}
+
+	e, _ := NewRedisExporter(
+		RedisHost{Addrs: []string{os.Getenv("TEST_TILE38_URI")}, Aliases: []string{"tile"}},
+		"test", "", "",
+	)
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -420,7 +426,6 @@ func TestHostVariations(t *testing.T) {
 }
 
 func TestCountingKeys(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 
 	scrapes := make(chan scrapeResult, 10000)
@@ -510,7 +515,6 @@ func TestExporterMetrics(t *testing.T) {
 }
 
 func TestExporterValues(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -584,6 +588,7 @@ func TestParseConnectedSlaveString(t *testing.T) {
 		{k: "slave1", v: "offset=1,lag=0", offset: 1, ok: true},
 		{k: "slave1", v: "offset=1", offset: 1, ok: true, lag: -1},
 		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123,lag=42", offset: 123, ip: "1.2.3.4", state: "online", ok: true, lag: 42},
+
 		{k: "slave", v: "offset=1751844676,lag=0", ok: false},
 		{k: "slaveA", v: "offset=1751844676,lag=0", ok: false},
 		{k: "slave0", v: "offset=abc,lag=0", ok: false},
@@ -606,7 +611,6 @@ func TestParseConnectedSlaveString(t *testing.T) {
 }
 
 func TestKeyValuesAndSizes(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]), "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -653,8 +657,7 @@ func newKeyFixture(command string, key string, args ...interface{}) keyFixture {
 func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	for _, f := range fixtures {
 		args := append([]interface{}{f.key}, f.args...)
-		_, err := c.Do(f.command, args...)
-		if err != nil {
+		if _, err := c.Do(f.command, args...); err != nil {
 			t.Errorf("Error creating fixture: %#v, %#v", f, err)
 		}
 	}
@@ -662,18 +665,26 @@ func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 
 func deleteKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	for _, f := range fixtures {
-		_, err := c.Do("DEL", f.key)
-
-		if err != nil {
+		if _, err := c.Do("DEL", f.key); err != nil {
 			t.Errorf("Error deleting fixture: %#v, %#v", f, err)
 		}
 	}
 }
 
 func TestParseKeyArg(t *testing.T) {
-	parsed, err := parseKeyArg("")
-	if len(parsed) != 0 || err != nil {
+	if parsed, err := parseKeyArg(""); len(parsed) != 0 || err != nil {
 		t.Errorf("Parsing an empty string into a keys arg should yield an empty slice")
+		return
+	}
+
+	if parsed, err := parseKeyArg("my-key"); err != nil || len(parsed) != 1 || parsed[0].db != "0" || parsed[0].key != "my-key" {
+		t.Errorf("Expected DB: 0 and key: my-key, got: %#v", parsed[0])
+		return
+	}
+
+	if _, err := parseKeyArg("wrong=wrong=wrong"); err == nil {
+		t.Errorf("Expected an error")
+		return
 	}
 }
 
@@ -913,9 +924,8 @@ func TestKeySizeList(t *testing.T) {
 }
 
 func TestScript(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "", "")
-	e.SetScript([]byte(`return {"a", "11", "b", "12", "c", "13"}`))
+	e.LuaScript = []byte(`return {"a", "11", "b", "12", "c", "13"}`)
 	nKeys := 3
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -943,7 +953,6 @@ func TestScript(t *testing.T) {
 }
 
 func TestKeyValueInvalidDB(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", "999="+url.QueryEscape(keys[0]), "")
 
 	chM := make(chan prometheus.Metric)
@@ -975,7 +984,6 @@ func TestKeyValueInvalidDB(t *testing.T) {
 }
 
 func TestCommandStats(t *testing.T) {
-
 	e, _ := NewRedisExporter(defaultRedisHost, "test", dbNumStrFull+"="+url.QueryEscape(keys[0]), "")
 
 	setupDBKeys(t, defaultRedisHost.Addrs[0])
@@ -1096,9 +1104,12 @@ func TestNonExistingHost(t *testing.T) {
 func TestMoreThanOneHost(t *testing.T) {
 
 	firstHost := defaultRedisHost.Addrs[0]
-	secondHost := "redis://localhost:6380"
+	secondHostURI := os.Getenv("TEST_SECOND_REDIS_URI")
+	if secondHostURI == "" {
+		secondHostURI = "redis://localhost:6380"
+	}
 
-	c, err := redis.DialURL(secondHost)
+	c, err := redis.DialURL(secondHostURI)
 	if err != nil {
 		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		t.SkipNow()
@@ -1117,8 +1128,8 @@ func TestMoreThanOneHost(t *testing.T) {
 	setupDBKeys(t, firstHost)
 	defer deleteKeysFromDB(t, firstHost)
 
-	setupDBKeys(t, secondHost)
-	defer deleteKeysFromDB(t, secondHost)
+	setupDBKeys(t, secondHostURI)
+	defer deleteKeysFromDB(t, secondHostURI)
 
 	_, err = c.Do("SELECT", dbNumStr)
 	if err != nil {
@@ -1135,7 +1146,7 @@ func TestMoreThanOneHost(t *testing.T) {
 		return
 	}
 
-	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHost}, Aliases: []string{"", ""}}
+	twoHostCfg := RedisHost{Addrs: []string{firstHost, secondHostURI}, Aliases: []string{"", ""}}
 	checkKey := dbNumStrFull + "=" + url.QueryEscape(keys[0])
 	e, _ := NewRedisExporter(twoHostCfg, "test", checkKey, "")
 
@@ -1146,8 +1157,8 @@ func TestMoreThanOneHost(t *testing.T) {
 	}()
 
 	want := map[string]float64{
-		firstHost:  TestValue,
-		secondHost: secondHostValue,
+		firstHost:     TestValue,
+		secondHostURI: secondHostValue,
 	}
 
 	for m := range chM {
@@ -1383,7 +1394,39 @@ func TestClusterSlave(t *testing.T) {
 	}
 }
 
+func TestCheckKeys(t *testing.T) {
+	ts := httptest.NewServer(promhttp.Handler())
+	defer ts.Close()
+
+	for _, tst := range []struct {
+		SingleCheckKey string
+		CheckKeys      string
+		ExpectSuccess  bool
+	}{
+		{"", "", true},
+		{"db1=key3", "", true},
+		{"check-key-01", "", true},
+		{"", "check-key-02", true},
+		{"wrong=wrong=1", "", false},
+		{"", "wrong=wrong=2", false},
+	} {
+
+		_, err := NewRedisExporter(defaultRedisHost, "test", tst.SingleCheckKey, tst.CheckKeys)
+		if tst.ExpectSuccess && err != nil {
+			t.Errorf("Expected success for test: %#v, got err: %s", tst, err)
+			return
+		}
+
+		if !tst.ExpectSuccess && err == nil {
+			t.Errorf("Expected failure for test: %#v, got no err", tst)
+			return
+		}
+	}
+}
+
 func init() {
+	flag.Parse()
+
 	ll := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	if pl, err := log.ParseLevel(ll); err == nil {
 		log.Printf("Setting log level to: %s", ll)
@@ -1404,7 +1447,6 @@ func init() {
 		keysExpiring = append(keysExpiring, key)
 	}
 
-	flag.Parse()
 	addrs := strings.Split(*redisAddr, *separator)
 	if len(addrs) == 0 || len(addrs[0]) == 0 {
 		log.Fatal("Invalid parameter --redis.addr")

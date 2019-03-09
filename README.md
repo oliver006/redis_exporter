@@ -1,6 +1,8 @@
 # Redis Metrics Exporter
 
-[![Circle CI](https://circleci.com/gh/oliver006/redis_exporter.svg?style=shield)](https://circleci.com/gh/oliver006/redis_exporter) [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter)
+
+[![Build Status](https://cloud.drone.io/api/badges/oliver006/redis_exporter/status.svg)](https://cloud.drone.io/oliver006/redis_exporter)
+ [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter)
 
 Prometheus exporter for Redis metrics.\
 Supports Redis 2.x, 3.x, 4.x, and 5.x
@@ -80,7 +82,7 @@ oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/
     | oc create -f -
 ```
 
-*NOTE*: Some of the parameters can be ommited if no authentication is used or the default redis config is applied.
+*NOTE*: Some of the parameters can be omitted if no authentication is used or the default redis config is applied.
 
 ```sh
 oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/contrib/openshift-template.yaml \
