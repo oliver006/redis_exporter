@@ -818,7 +818,7 @@ func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
 	for {
 		arr, err := redis.Values(c.Do("SCAN", iter, "MATCH", pattern))
 		if err != nil {
-			return keys, fmt.Errorf("error retrieving '%s' keys", pattern)
+			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
 		}
 		if len(arr) != 2 {
 			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
@@ -846,7 +846,7 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 			}
 			keyNames, err := scanForKeys(c, k.key)
 			if err != nil {
-				log.Errorf("error with SCAN for pattern: %#v", k.key)
+				log.Errorf("error with SCAN for pattern: %#v err: %s", k.key, err)
 				continue
 			}
 			for _, keyName := range keyNames {
