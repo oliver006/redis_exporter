@@ -247,6 +247,11 @@ func (e *Exporter) initGauges() {
 		Name:      "slowlog_last_id",
 		Help:      "Last id of slowlog",
 	}, []string{"addr", "alias"})
+	e.metrics["last_slow_execution_duration_seconds"] = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Namespace: e.namespace,
+		Name:      "last_slow_execution_duration_seconds",
+		Help:      "The amount of time needed for last slow execution, in seconds",
+	}, []string{"addr", "alias"})
 }
 
 // splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
@@ -1011,15 +1016,18 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	if values, err := redis.Values(c.Do("SLOWLOG", "GET", "1")); err == nil {
 		var slowlogLastId int64 = 0
+		var lastSlowExecutionDurationSeconds float64 = 0
 
 		if len(values) > 0 {
 			if values, err = redis.Values(values[0], err); err == nil && len(values) > 0 {
 				slowlogLastId = values[0].(int64)
+				lastSlowExecutionDurationSeconds = float64(values[2].(int64)) / 1e6
 			}
 		}
 
 		e.metricsMtx.RLock()
 		e.metrics["slowlog_last_id"].WithLabelValues(addr, e.redis.Aliases[idx]).Set(float64(slowlogLastId))
+		e.metrics["last_slow_execution_duration_seconds"].WithLabelValues(addr, e.redis.Aliases[idx]).Set(lastSlowExecutionDurationSeconds)
 		e.metricsMtx.RUnlock()
 	}
 
