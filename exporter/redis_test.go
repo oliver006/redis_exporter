@@ -585,6 +585,7 @@ type slaveData struct {
 func TestParseConnectedSlaveString(t *testing.T) {
 	tsts := []slaveData{
 		{k: "slave0", v: "ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "10.254.11.1", port: "6379", state: "online", ok: true, lag: 0},
+		{k: "slave0", v: "ip=2a00:1450:400e:808::200e,port=6379,state=online,offset=1751844676,lag=0", offset: 1751844676, ip: "2a00:1450:400e:808::200e", port: "6379", state: "online", ok: true, lag: 0},
 		{k: "slave1", v: "offset=1,lag=0", offset: 1, ok: true},
 		{k: "slave1", v: "offset=1", offset: 1, ok: true, lag: -1},
 		{k: "slave2", v: "ip=1.2.3.4,state=online,offset=123,lag=42", offset: 123, ip: "1.2.3.4", state: "online", ok: true, lag: 42},
