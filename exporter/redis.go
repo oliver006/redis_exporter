@@ -1021,7 +1021,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 		if len(values) > 0 {
 			if values, err = redis.Values(values[0], err); err == nil && len(values) > 0 {
 				slowlogLastId = values[0].(int64)
-				if (len(values) > 2) {
+				if len(values) > 2 {
 					lastSlowExecutionDurationSeconds = float64(values[2].(int64)) / 1e6
 				}
 			}
