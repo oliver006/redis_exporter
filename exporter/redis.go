@@ -624,11 +624,7 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 			continue
 		}
 
-		split := strings.Split(line, ":")
-		if len(split) != 2 {
-			continue
-		}
-
+		split := strings.SplitN(line, ":", 2)
 		fieldKey := split[0]
 		fieldValue := split[1]
 
