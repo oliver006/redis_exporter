@@ -66,18 +66,10 @@ steps:
         - push
 
 
-  - name: release-create-docker-tags
-    image: alpine
-    commands:
-      - 'echo -n "latest,$DRONE_TAG" > .tags'
-    when:
-      event:
-        - tag
-
-
   - name: release-docker-image-scratch
     image: plugins/docker
     settings:
+      tags: "latest,${DRONE_TAG}"
       dockerfile: ./Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
@@ -96,6 +88,7 @@ steps:
   - name: release-docker-image-alpine
     image: plugins/docker
     settings:
+      tags: "latest,${DRONE_TAG}"
       dockerfile: ./Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
