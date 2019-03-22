@@ -106,8 +106,12 @@ steps:
 
   - name: release-github-binaries
     image: "golang:1.12"
+    environment:
+      GITHUB_TOKEN:
+        from_secret: github_token
     commands:
-      - './build-github-binaries.sh'
+      - "apt-get update && apt-get install -y zip"
+      - "./build-github-binaries.sh"
     when:
       event:
         - tag

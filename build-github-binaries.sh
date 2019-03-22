@@ -19,6 +19,11 @@ gox -rebuild --osarch="windows/amd64" -ldflags "$GO_LDFLAGS" -output "dist/redis
 gox -rebuild --osarch="windows/386"   -ldflags "$GO_LDFLAGS" -output "dist/redis_exporter" && cd dist && zip -9    redis_exporter-$DRONE_TAG.windows-386.zip     redis_exporter.exe && rm redis_exporter.exe && cd ..
 
 echo "Upload to Github"
-ghr -t $GITHUB_TOKEN -u $CIRCLE_PROJECT_USERNAME -r $CIRCLE_PROJECT_REPONAME --replace $DRONE_TAG dist/
+
+pwd
+ls -la 
+ls -la dist/
+
+ghr -u oliver006 -r redis_exporter --replace $DRONE_TAG dist/
 
 echo "Done"
