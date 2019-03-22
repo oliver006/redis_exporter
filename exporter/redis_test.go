@@ -9,7 +9,6 @@ package exporter
 */
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -152,7 +151,7 @@ func resetSlowLog(t *testing.T, addr string) error {
 	return nil
 }
 
-func downloadUrl(t *testing.T, url string) []byte {
+func downloadUrl(t *testing.T, url string) string {
 	log.Debugf("downloadURL() %s", url)
 	resp, err := http.Get(url)
 	if err != nil {
@@ -163,7 +162,7 @@ func downloadUrl(t *testing.T, url string) []byte {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return body
+	return string(body)
 }
 
 func TestLatencySpike(t *testing.T) {
@@ -334,10 +333,9 @@ func setupDBKeys(t *testing.T, addr string) error {
 	}
 	defer c.Close()
 
-	_, err = c.Do("SELECT", dbNumStr)
-	if err != nil {
-		t.Errorf("couldn't setup redis, err: %s ", err)
-		return err
+	if _, err := c.Do("SELECT", dbNumStr); err != nil {
+		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
 
 	for _, key := range keys {
@@ -384,10 +382,9 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 	}
 	defer c.Close()
 
-	_, err = c.Do("SELECT", dbNumStr)
-	if err != nil {
-		t.Errorf("couldn't setup redis, err: %s ", err)
-		return err
+	if _, err := c.Do("SELECT", dbNumStr); err != nil {
+		log.Printf("deleteKeysFromDB() - couldn't setup redis, err: %s ", err)
+		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
 
 	for _, key := range keys {
@@ -1019,6 +1016,10 @@ func TestCommandStats(t *testing.T) {
 }
 
 func TestHTTPEndpoint(t *testing.T) {
+	r := prometheus.NewRegistry()
+	prometheus.DefaultGatherer = r
+	prometheus.DefaultRegisterer = r
+
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
@@ -1044,7 +1045,7 @@ func TestHTTPEndpoint(t *testing.T) {
 		`cmd="get"`,
 	}
 	for _, test := range tests {
-		if !bytes.Contains(body, []byte(test)) {
+		if !strings.Contains(body, test) {
 			t.Errorf("want metrics to include %q, have:\n%s", test, body)
 		}
 	}
@@ -1206,6 +1207,10 @@ func TestSanitizeMetricName(t *testing.T) {
 }
 
 func TestKeysReset(t *testing.T) {
+	r := prometheus.NewRegistry()
+	prometheus.DefaultGatherer = r
+	prometheus.DefaultRegisterer = r
+
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
@@ -1223,16 +1228,14 @@ func TestKeysReset(t *testing.T) {
 	}()
 
 	body := downloadUrl(t, ts.URL+"/metrics")
-
-	if !bytes.Contains(body, []byte(keys[0])) {
+	if !strings.Contains(body, keys[0]) {
 		t.Errorf("Did not found key %q\n%s", keys[0], body)
 	}
 
 	deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
 
 	body = downloadUrl(t, ts.URL+"/metrics")
-
-	if bytes.Contains(body, []byte(keys[0])) {
+	if strings.Contains(body, keys[0]) {
 		t.Errorf("Metric is present in metrics list %q\n%s", keys[0], body)
 	}
 }
@@ -1244,15 +1247,18 @@ func TestClusterMaster(t *testing.T) {
 		return
 	}
 
+	r := prometheus.NewRegistry()
+	prometheus.DefaultGatherer = r
+	prometheus.DefaultRegisterer = r
+
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
 	addr := "redis://" + os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
 	host := RedisHost{Addrs: []string{addr}, Aliases: []string{"master"}}
+	log.Printf("master - using host cfg: %#v", host)
 	e, _ := NewRedisExporter(host, "test", "", "")
 
-	setupDBKeys(t, defaultRedisHost.Addrs[0])
-	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
 	prometheus.Register(e)
 
 	chM := make(chan prometheus.Metric, 10000)
@@ -1262,8 +1268,14 @@ func TestClusterMaster(t *testing.T) {
 	}()
 
 	body := downloadUrl(t, ts.URL+"/metrics")
-	if !bytes.Contains(body, []byte("test_instance_info")) {
-		t.Errorf("Did not found key %q\n%s", keys[0], body)
+	//	log.Printf("master - body: %s", body)
+	for _, want := range []string{
+		"test_instance_info{addr=\"redis://redis-cluster:7000\",alias=\"master\"",
+		"test_master_repl_offset",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Did not find key [%s] \nbody: %s", want, body)
+		}
 	}
 }
 
@@ -1311,12 +1323,16 @@ func TestPasswordProtectedInstance(t *testing.T) {
 
 	body := downloadUrl(t, ts.URL+"/metrics")
 
-	if !bytes.Contains(body, []byte("test_up")) {
-		t.Errorf("error")
+	if !strings.Contains(body, "test_up") {
+		t.Errorf("error, missing test_up")
 	}
 }
 
 func TestPasswordInvalid(t *testing.T) {
+	r := prometheus.NewRegistry()
+	prometheus.DefaultGatherer = r
+	prometheus.DefaultRegisterer = r
+
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
@@ -1359,7 +1375,7 @@ func TestPasswordInvalid(t *testing.T) {
 	}()
 
 	body := downloadUrl(t, ts.URL+"/metrics")
-	if !bytes.Contains(body, []byte("test_exporter_last_scrape_error 1")) {
+	if !strings.Contains(body, "test_exporter_last_scrape_error 1") {
 		t.Errorf(`error, expected string "test_exporter_last_scrape_error 1" in body`)
 	}
 }
@@ -1371,15 +1387,17 @@ func TestClusterSlave(t *testing.T) {
 		return
 	}
 
+	r := prometheus.NewRegistry()
+	prometheus.DefaultGatherer = r
+	prometheus.DefaultRegisterer = r
+
 	ts := httptest.NewServer(promhttp.Handler())
 	defer ts.Close()
 
 	addr := "redis://" + os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
 	host := RedisHost{Addrs: []string{addr}, Aliases: []string{"slave"}}
+	log.Printf("slave - using host cfg: %#v", host)
 	e, _ := NewRedisExporter(host, "test", "", "")
-
-	setupDBKeys(t, defaultRedisHost.Addrs[0])
-	defer deleteKeysFromDB(t, defaultRedisHost.Addrs[0])
 
 	prometheus.Register(e)
 
@@ -1390,15 +1408,19 @@ func TestClusterSlave(t *testing.T) {
 	}()
 
 	body := downloadUrl(t, ts.URL+"/metrics")
-	if !bytes.Contains(body, []byte("test_instance_info")) {
-		t.Errorf("Did not found key %q\n%s", keys[0], body)
+	//	log.Printf("slave - body: %s", body)
+	for _, want := range []string{
+		"test_instance_info",
+		"test_master_last_io_seconds",
+		"test_slave_info{addr=\"redis://redis-cluster:7005\",alias=\"slave\",",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Did not find key [%s] \nbody: %s", want, body)
+		}
 	}
 }
 
 func TestCheckKeys(t *testing.T) {
-	ts := httptest.NewServer(promhttp.Handler())
-	defer ts.Close()
-
 	for _, tst := range []struct {
 		SingleCheckKey string
 		CheckKeys      string

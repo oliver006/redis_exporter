@@ -34,6 +34,7 @@ steps:
   - name: tests
     image: "golang:1.12"
     environment:
+      LOG_LEVEL: "info"
       TEST_TILE38_URI: "tile38:9851"
       TEST_SECOND_REDIS_URI: "redis://moar-redis:6380"
       TEST_REDIS_CLUSTER_MASTER_URI: "redis-cluster:7000"
@@ -41,17 +42,19 @@ steps:
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
+      - 'go build'
+      - "sleep 10"   # let the redis test instances all come up first
+      - 'go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=redis'
+      - 'echo "checking gofmt"'
       - 'echo " ! gofmt -d main.go       2>&1 | read " | bash'
       - 'echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash'
+      - 'echo "checking gofmt - DONE"'
       - 'go vet ./exporter/...'
-      - 'go build'
-      - "sleep 10"
-      - 'go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=redis'
       - 'go get github.com/mattn/goveralls'
       - '/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io'
     when:
       event:
-        - push
+        - pull_request
 
 
   - name: coverage-codecov
@@ -63,7 +66,7 @@ steps:
         - coverage.txt
     when:
       event:
-        - push
+        - pull_request
 
 
   - name: release-docker-image-scratch

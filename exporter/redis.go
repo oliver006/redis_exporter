@@ -560,7 +560,7 @@ func (e *Exporter) handleMetricsCommandStats(addr string, alias string, fieldKey
 	e.metrics["commands_duration_seconds_total"].WithLabelValues(addr, alias, cmd).Set(usecTotal / 1e6)
 }
 
-func (e *Exporter) handleMetricsReplication(addr string, alias string, fieldKey string, fieldValue string) {
+func (e *Exporter) handleMetricsReplication(addr string, alias string, fieldKey string, fieldValue string) bool {
 	e.metricsMtx.RLock()
 	defer e.metricsMtx.RUnlock()
 
@@ -571,7 +571,7 @@ func (e *Exporter) handleMetricsReplication(addr string, alias string, fieldKey 
 		} else {
 			e.metrics["master_link_up"].WithLabelValues(addr, alias).Set(0)
 		}
-		return
+		return true
 	}
 
 	// not a slave, try extracting master metrics
@@ -593,7 +593,10 @@ func (e *Exporter) handleMetricsReplication(addr string, alias string, fieldKey 
 				slaveState,
 			).Set(lag)
 		}
+		return true
 	}
+
+	return false
 }
 
 func (e *Exporter) handleMetricsServer(addr string, alias string, fieldKey string, fieldValue string) {
@@ -641,8 +644,9 @@ func (e *Exporter) extractInfoMetrics(info, addr string, alias string, scrapes c
 		switch fieldClass {
 
 		case "Replication":
-			e.handleMetricsReplication(addr, alias, fieldKey, fieldValue)
-			continue
+			if ok := e.handleMetricsReplication(addr, alias, fieldKey, fieldValue); ok {
+				continue
+			}
 
 		case "Server":
 			e.handleMetricsServer(addr, alias, fieldKey, fieldValue)
