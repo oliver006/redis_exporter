@@ -1,7 +1,7 @@
 #
 # build container
 #
-FROM golang:1-alpine as builder
+FROM golang:1.12-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD main.go /go/src/github.com/oliver006/redis_exporter/
