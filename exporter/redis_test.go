@@ -1068,7 +1068,7 @@ func TestNonExistingHost(t *testing.T) {
 		descString := m.Desc().String()
 
 		switch m.(type) {
-		case prometheus.Gauge:
+		case prometheus.Counter:
 
 			for k := range want {
 				if strings.Contains(descString, k) {
