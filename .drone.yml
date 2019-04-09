@@ -113,6 +113,7 @@ steps:
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
+      GO111MODULE: on
     commands:
       - "apt-get update && apt-get install -y zip"
       - "./build-github-binaries.sh"

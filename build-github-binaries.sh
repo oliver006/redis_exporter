@@ -19,7 +19,11 @@ if [[ -f 'go.mod' ]] ; then
   go mod tidy
 fi
 
-gox -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
+
+pwd
+ls -la
+
+gox -verbose -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
 
 mkdir -p dist
 for build in $(ls .build); do
