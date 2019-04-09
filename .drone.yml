@@ -34,6 +34,7 @@ steps:
   - name: tests
     image: "golang:1.12"
     environment:
+      GO111MODULE: on
       LOG_LEVEL: "info"
       TEST_TILE38_URI: "tile38:9851"
       TEST_SECOND_REDIS_URI: "redis://moar-redis:6380"
@@ -42,9 +43,9 @@ steps:
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
-      - 'go build'
+      - 'go build -mod=vendor'
       - "sleep 10"   # let the redis test instances all come up first
-      - 'go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=redis'
+      - 'go test -mod=vendor -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=redis'
       - 'echo "checking gofmt"'
       - 'echo " ! gofmt -d main.go       2>&1 | read " | bash'
       - 'echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash'
