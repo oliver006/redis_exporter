@@ -30,7 +30,7 @@ for build in $(ls .build); do
   echo "Creating archive for ${build}"
   if [[ "${build}" =~ ^windows-.*$ ]] ; then
     # Make sure to clear out zip files to prevent zip from appending to the archive.
-    rm "dist/redis_exporter-${DRONE_TAG}.${build}.zip"
+    rm "dist/redis_exporter-${DRONE_TAG}.${build}.zip" || true
     cd ".build/${build}" && zip --quiet -9 "../../dist/redis_exporter-${DRONE_TAG}.${build}.zip" 'redis_exporter.exe' && cd ../../
   else
     tar -C ".build/${build}" -czf "dist/redis_exporter-${DRONE_TAG}.${build}.tar.gz" 'redis_exporter'
