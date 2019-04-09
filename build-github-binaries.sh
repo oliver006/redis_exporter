@@ -19,11 +19,7 @@ if [[ -f 'go.mod' ]] ; then
   go mod tidy
 fi
 
-
-pwd
-ls -la
-
-gox -verbose -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
+gox -verbose -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
 
 mkdir -p dist
 for build in $(ls .build); do
@@ -38,10 +34,6 @@ for build in $(ls .build); do
 done
 
 echo "Upload to Github"
-
-pwd
-ls -la 
-ls -la dist/
 
 cd dist
 sha256sum *.gz *.zip > sha256sums.txt
