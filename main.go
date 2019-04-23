@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	// VERSION, BUILD_DATE, GIT_COMMIT are filled in by the build script
-	VERSION     = "<<< filled in by build >>>"
-	BUILD_DATE  = "<<< filled in by build >>>"
-	COMMIT_SHA1 = "<<< filled in by build >>>"
+	// BuildVersion, BuildDate, BuildCommitSha are filled in by the build script
+	BuildVersion   = "<<< filled in by build >>>"
+	BuildDate      = "<<< filled in by build >>>"
+	BuildCommitSha = "<<< filled in by build >>>"
 )
 
 func getEnv(key string, defaultVal string) string {
@@ -64,7 +64,7 @@ func main() {
 		log.SetFormatter(&log.TextFormatter{})
 	}
 	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s",
-		VERSION, BUILD_DATE, COMMIT_SHA1,
+		BuildVersion, BuildDate, BuildCommitSha,
 		runtime.Version(),
 	)
 	if *isDebug {
@@ -131,7 +131,7 @@ func main() {
 		Name: "redis_exporter_build_info",
 		Help: "redis exporter build_info",
 	}, []string{"version", "commit_sha", "build_date", "golang_version"})
-	buildInfo.WithLabelValues(VERSION, COMMIT_SHA1, BUILD_DATE, runtime.Version()).Set(1)
+	buildInfo.WithLabelValues(BuildVersion, BuildCommitSha, BuildDate, runtime.Version()).Set(1)
 
 	if *redisMetricsOnly {
 		registry := prometheus.NewRegistry()
@@ -147,9 +147,9 @@ func main() {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`
 <html>
-<head><title>Redis Exporter v` + VERSION + `</title></head>
+<head><title>Redis Exporter v` + BuildVersion + `</title></head>
 <body>
-<h1>Redis Exporter ` + VERSION + `</h1>
+<h1>Redis Exporter ` + BuildVersion + `</h1>
 <p><a href='` + *metricPath + `'>Metrics</a></p>
 </body>
 </html>

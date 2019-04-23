@@ -1104,7 +1104,6 @@ func TestNonExistingHost(t *testing.T) {
 }
 
 func TestMoreThanOneHost(t *testing.T) {
-
 	firstHost := defaultRedisHost.Addrs[0]
 	secondHostURI := os.Getenv("TEST_SECOND_REDIS_URI")
 	if secondHostURI == "" {
