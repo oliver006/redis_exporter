@@ -911,7 +911,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err != nil {
-		infoAll, err = redis.String(doRedisCmd(c, "INFO", ""))
+		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
 			log.Errorf("Redis INFO err: %s", err)
 			return err
