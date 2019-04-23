@@ -1104,25 +1104,24 @@ func TestNonExistingHost(t *testing.T) {
 }
 
 func TestMoreThanOneHost(t *testing.T) {
-
 	firstHost := defaultRedisHost.Addrs[0]
 	secondHostURI := os.Getenv("TEST_SECOND_REDIS_URI")
 	if secondHostURI == "" {
-		secondHostURI = "redis://localhost:6380"
+		log.Printf("TEST_SECOND_REDIS_URI not set - skipping test")
+		t.SkipNow()
+		return
 	}
 
 	c, err := redis.DialURL(secondHostURI)
 	if err != nil {
-		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
-		t.SkipNow()
+		t.Errorf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		return
 	}
 	defer c.Close()
 
 	_, err = c.Do("PING")
 	if err != nil {
-		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
-		t.SkipNow()
+		t.Errorf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		return
 	}
 	defer c.Close()
@@ -1135,16 +1134,14 @@ func TestMoreThanOneHost(t *testing.T) {
 
 	_, err = c.Do("SELECT", dbNumStr)
 	if err != nil {
-		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
-		t.SkipNow()
+		t.Errorf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		return
 	}
 
 	secondHostValue := float64(5678.9)
 	_, err = c.Do("SET", keys[0], secondHostValue)
 	if err != nil {
-		log.Printf("couldn't connect to second redis host, err: %s - skipping test \n", err)
-		t.SkipNow()
+		t.Errorf("couldn't connect to second redis host, err: %s - skipping test \n", err)
 		return
 	}
 

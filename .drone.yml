@@ -13,6 +13,8 @@ services:
       - 6379
   - name: moar-redis
     image: redis:5
+    commands: 
+      - /usr/local/bin/redis-server --port 6380
     ports:
       - 6380
   - name: redis-cluster

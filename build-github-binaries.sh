@@ -10,7 +10,7 @@ fi
 echo "Building binaries for Github"
 echo ""
 export CGO_ENABLED=0
-export GO_LDFLAGS="-s -w -extldflags \"-static\" -X main.VERSION=$DRONE_TAG -X main.COMMIT_SHA1=$DRONE_COMMIT_SHA -X main.BUILD_DATE=$(date +%F-%T)"
+export GO_LDFLAGS="-s -w -extldflags \"-static\" -X main.BuildVersion=$DRONE_TAG -X main.BuildCommitSha=$DRONE_COMMIT_SHA -X main.BuildDate=$(date +%F-%T)"
 echo  "GO_LDFLAGS: $GO_LDFLAGS"
 
 go get github.com/mitchellh/gox
