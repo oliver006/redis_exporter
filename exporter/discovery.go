@@ -2,7 +2,9 @@ package exporter
 
 import (
 	"encoding/csv"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/cloudfoundry-community/go-cfenv"
@@ -104,7 +106,14 @@ func GetCloudFoundryRedisBindings() (addrs, passwords, aliases []string) {
 func getAlternative(credentials map[string]interface{}, alternatives ...string) string {
 	for _, key := range alternatives {
 		if value, ok := credentials[key]; ok {
-			return value.(string)
+			switch value.(type) {
+			case int:
+				return strconv.Itoa(value)
+			case float64:
+				return fmt.Sprintf("%.0f", value)
+			default:
+				return value.(string)
+			}
 		}
 	}
 	return ""
