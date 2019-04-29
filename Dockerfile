@@ -4,8 +4,7 @@
 FROM golang:1.12-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
-ADD main.go /go/src/github.com/oliver006/redis_exporter/
-ADD exporter /go/src/github.com/oliver006/redis_exporter/exporter
+ADD *.go /go/src/github.com/oliver006/redis_exporter/
 ADD vendor /go/src/github.com/oliver006/redis_exporter/vendor
 
 ARG SHA1

@@ -1,7 +1,5 @@
 # github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973
 github.com/beorn7/perks/quantile
-# github.com/cloudfoundry-community/go-cfenv v1.18.0
-github.com/cloudfoundry-community/go-cfenv
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 # github.com/gomodule/redigo v2.0.0+incompatible
@@ -11,8 +9,6 @@ github.com/gomodule/redigo/internal
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
-# github.com/mitchellh/mapstructure v1.1.2
-github.com/mitchellh/mapstructure
 # github.com/prometheus/client_golang v0.9.2
 github.com/prometheus/client_golang/prometheus
 github.com/prometheus/client_golang/prometheus/promhttp
