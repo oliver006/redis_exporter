@@ -94,7 +94,7 @@ steps:
   - name: release-docker-image-alpine
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG}"
+      tags: "latest,${DRONE_TAG}-alpine"
       dockerfile: ./Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
