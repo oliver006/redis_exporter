@@ -122,3 +122,27 @@ steps:
     when:
       event:
         - tag
+
+
+#
+# temporary addtl. build step while working on #256
+#
+  - name: release-docker-image-alpine-v1.0.0-rc.1
+    image: plugins/docker
+    settings:
+      tags: "v1.0.0-rc.1"
+      dockerfile: ./Dockerfile
+      repo: oliver006/redis_exporter
+      target: alpine
+      build_args:
+        - 'TAG=v1.0.0-rc.1'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+    when:
+      branch:
+        - oh_1.0_here_we_come
+      repo:
+        - oliver006/redis_exporter
