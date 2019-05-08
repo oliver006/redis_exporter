@@ -890,7 +890,7 @@ func (e *Exporter) scrapeRedisHost(scrapes chan<- scrapeResult, addr string, idx
 	}
 
 	if err != nil {
-		log.Debugf("aborting for addr: %s - redis err: %s", addr, err)
+		log.Errorf("aborting for addr: %s - redis err: %s", addr, err)
 		return err
 	}
 
