@@ -33,11 +33,12 @@ for build in $(ls .build); do
   fi
 done
 
-echo "Upload to Github"
-
 cd dist
 sha256sum *.gz *.zip > sha256sums.txt
+ls -la
 cd ..
+
+echo "Upload to Github"
 
 ghr -u oliver006 -r redis_exporter --replace "${DRONE_TAG}" dist/
 
