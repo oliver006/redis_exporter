@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 
 	"github.com/oliver006/redis_exporter/exporter"
 	"github.com/prometheus/client_golang/prometheus"
@@ -92,7 +93,7 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
-		parsedRedisPassword = string(b)
+		parsedRedisPassword = strings.TrimSpace(string(b))
 	} else {
 		parsedRedisPassword = *redisPassword
 	}
