@@ -19,7 +19,7 @@ if [[ -f 'go.mod' ]] ; then
   go mod tidy
 fi
 
-gox -verbose -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
+gox -verbose -os="darwin linux freebsd windows netbsd" -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
 
 mkdir -p dist
 for build in $(ls .build); do
