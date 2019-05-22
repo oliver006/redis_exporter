@@ -20,7 +20,7 @@ if [[ -f 'go.mod' ]] ; then
   go mod tidy
 fi
 
-gox -verbose -os="darwin linux" -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}"
+gox -verbose -os="darwin linux windows freebsd netbsd openbsd" -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}"
 
 mkdir -p dist
 for build in $(ls .build); do
@@ -39,6 +39,7 @@ for build in $(ls .build); do
 done
 
 cd dist
+ls -la
 sha256sum *.gz *.zip > sha256sums.txt
 ls -la
 cd ..
