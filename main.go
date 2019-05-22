@@ -28,31 +28,32 @@ func getEnv(key string, defaultVal string) string {
 	return defaultVal
 }
 
-func getEnvBool(key string) (envValBool bool) {
+func getEnvBool(key string) (res bool) {
 	if envVal, ok := os.LookupEnv(key); ok {
-		envValBool, _ = strconv.ParseBool(envVal)
+		res, _ = strconv.ParseBool(envVal)
 	}
-	return
+	return res
 }
 
 func main() {
 	var (
-		redisAddr         = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of the Redis instance to scrape")
-		redisPwd          = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
-		namespace         = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
-		checkKeys         = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
-		checkSingleKeys   = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
-		scriptPath        = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Path to Lua Redis script for collecting extra metrics")
-		listenAddress     = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
-		metricPath        = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
-		logFormat         = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
-		configCommand     = flag.String("config-command", getEnv("REDIS_EXPORTER_CONFIG_COMMAND", "CONFIG"), "What to use for the CONFIG command")
-		connectionTimeout = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
-		isDebug           = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG"), "Output verbose debug information")
-		isTile38          = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38"), "Whether to scrape Tile38 specific metrics")
-		showVersion       = flag.Bool("version", false, "Show version information and exit")
-		redisMetricsOnly  = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS"), "Whether to also export go runtime metrics")
-		inclSystemMetrics = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS"), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
+		redisAddr           = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of the Redis instance to scrape")
+		redisPwd            = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
+		namespace           = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
+		checkKeys           = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
+		checkSingleKeys     = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
+		scriptPath          = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Path to Lua Redis script for collecting extra metrics")
+		listenAddress       = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
+		metricPath          = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
+		logFormat           = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
+		configCommand       = flag.String("config-command", getEnv("REDIS_EXPORTER_CONFIG_COMMAND", "CONFIG"), "What to use for the CONFIG command")
+		connectionTimeout   = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
+		isDebug             = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG"), "Output verbose debug information")
+		isTile38            = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38"), "Whether to scrape Tile38 specific metrics")
+		showVersion         = flag.Bool("version", false, "Show version information and exit")
+		redisMetricsOnly    = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS"), "Whether to also export go runtime metrics")
+		inclSystemMetrics   = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS"), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
+		skipTLSVerification = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION"), "Whether to to skip TLS verification")
 	)
 	flag.Parse()
 
@@ -85,14 +86,15 @@ func main() {
 	exp, err := NewRedisExporter(
 		*redisAddr,
 		ExporterOptions{
-			Password:           *redisPwd,
-			Namespace:          *namespace,
-			ConfigCommandName:  *configCommand,
-			CheckKeys:          *checkKeys,
-			CheckSingleKeys:    *checkSingleKeys,
-			InclSystemMetrics:  *inclSystemMetrics,
-			IsTile38:           *isTile38,
-			ConnectionTimeouts: to,
+			Password:            *redisPwd,
+			Namespace:           *namespace,
+			ConfigCommandName:   *configCommand,
+			CheckKeys:           *checkKeys,
+			CheckSingleKeys:     *checkSingleKeys,
+			InclSystemMetrics:   *inclSystemMetrics,
+			IsTile38:            *isTile38,
+			SkipTLSVerification: *skipTLSVerification,
+			ConnectionTimeouts:  to,
 		},
 	)
 	if err != nil {

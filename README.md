@@ -149,22 +149,23 @@ redis_exporter container can access it:
 
 ### Flags
 
-Name                   | Environment Variable Name          | Description
------------------------|------------------------------------|-----------------
-redis.addr             | REDIS_ADDR                         | Address of the Redis instance, defaults to `redis://localhost:6379`.
-redis.password         | REDIS_PASSWORD                     | Password of the Redis instance, defaults to `""` (no password).
-check-keys             | REDIS_EXPORTER_CHECK_KEYS          | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys.
-check-single-keys      | REDIS_EXPORTER_CHECK_SINGLE_KEYS   | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
-script                 | REDIS_EXPORTER_SCRIPT              | Path to Redis Lua script for gathering extra metrics.
-debug                  | REDIS_EXPORTER_DEBUG               | Verbose debug output
-log-format             | REDIS_EXPORTER_LOG_FORMAT          | Log format, valid options are `txt` (default) and `json`.
-namespace              | REDIS_EXPORTER_NAMESPACE           | Namespace for the metrics, defaults to `redis`.
-connection-timeout     | REDIS_EXPORTER_CONNECTION_TIMEOUT  | Timeout for connection to Redis instance, defaults to "15s" (in Golang duration format)
-web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS  | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
-web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH  | Path under which to expose metrics, defaults to `/metrics`.
-redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS  | Whether to also export go runtime metrics, defaults to false.
-include-system-metrics | REDIS_EXPORTER_IS_TILE38           | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
-is-tile38              | REDIS_EXPORTER_IS_TILE38           | Whether to scrape Tile38 specific metrics, defaults to false.
+Name                   | Environment Variable Name            | Description
+-----------------------|--------------------------------------|-----------------
+redis.addr             | REDIS_ADDR                           | Address of the Redis instance, defaults to `redis://localhost:6379`.
+redis.password         | REDIS_PASSWORD                       | Password of the Redis instance, defaults to `""` (no password).
+check-keys             | REDIS_EXPORTER_CHECK_KEYS            | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys.
+check-single-keys      | REDIS_EXPORTER_CHECK_SINGLE_KEYS     | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
+script                 | REDIS_EXPORTER_SCRIPT                | Path to Redis Lua script for gathering extra metrics.
+debug                  | REDIS_EXPORTER_DEBUG                 | Verbose debug output
+log-format             | REDIS_EXPORTER_LOG_FORMAT            | Log format, valid options are `txt` (default) and `json`.
+namespace              | REDIS_EXPORTER_NAMESPACE             | Namespace for the metrics, defaults to `redis`.
+connection-timeout     | REDIS_EXPORTER_CONNECTION_TIMEOUT    | Timeout for connection to Redis instance, defaults to "15s" (in Golang duration format)
+web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS    | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
+web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH    | Path under which to expose metrics, defaults to `/metrics`.
+redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also export go runtime metrics, defaults to false.
+include-system-metrics | REDIS_EXPORTER_IS_TILE38             | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
+skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
 
 Redis instance addresses can be tcp addresses: `redis://localhost:6379`, `redis.example.com:6379` or e.g. unix sockets: `unix:///tmp/redis.sock`.\
 SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).\
