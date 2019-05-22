@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+
 set -u -e -o pipefail
 
 if [[ -z "${DRONE_TAG}" ]] ; then
@@ -19,17 +20,21 @@ if [[ -f 'go.mod' ]] ; then
   go mod tidy
 fi
 
-gox -verbose -os="darwin linux freebsd windows netbsd" -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output '.build/{{.OS}}-{{.Arch}}/{{.Dir}}'
+gox -verbose -os="darwin linux" -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}"
 
 mkdir -p dist
 for build in $(ls .build); do
   echo "Creating archive for ${build}"
-  if [[ "${build}" =~ ^windows-.*$ ]] ; then
+
+  cp LICENSE README.md ".build/${build}/"
+
+  if [[ "${build}" =~ windows-.*$ ]] ; then
+
     # Make sure to clear out zip files to prevent zip from appending to the archive.
     rm "dist/redis_exporter-${DRONE_TAG}.${build}.zip" || true
-    cd ".build/${build}" && zip --quiet -9 "../../dist/redis_exporter-${DRONE_TAG}.${build}.zip" 'redis_exporter.exe' && cd ../../
+    cd ".build/" && zip -r --quiet -9 "../dist/${build}.zip" "${build}" && cd ../
   else
-    tar -C ".build/${build}" -czf "dist/redis_exporter-${DRONE_TAG}.${build}.tar.gz" 'redis_exporter'
+    tar -C ".build/" -czf "dist/${build}.tar.gz" "${build}"
   fi
 done
 

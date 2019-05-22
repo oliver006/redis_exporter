@@ -2,12 +2,24 @@
 
 
 [![Build Status](https://cloud.drone.io/api/badges/oliver006/redis_exporter/status.svg)](https://cloud.drone.io/oliver006/redis_exporter)
- [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter)
+ [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)
+
 
 Prometheus exporter for Redis metrics.\
 Supports Redis 2.x, 3.x, 4.x, and 5.x
 
+
 ## Building, configuring, and running
+
+### Upgrading from 0.x to 1.x ?
+
+[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
+
+If you only scrape one Redis instance and use command line flags `--redis.address`
+and `--redis.password` then you're most probably not affected.
+Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and this README for more information.
+
+
 
 ### Build and run locally:
 
@@ -19,23 +31,89 @@ Supports Redis 2.x, 3.x, 4.x, and 5.x
 ```
 
 
-### Prometheus Configuration
+
+### Basic Prometheus Configuration
 
 Add a block to the `scrape_configs` of your prometheus.yml config file:
 
 ```yaml
 scrape_configs:
-
-...
-
-- job_name: redis_exporter
-  static_configs:
-  - targets: ['localhost:9121']
-
-...
+  - job_name: redis_exporter
+    static_configs:
+    - targets: ['<<REDIS-EXPORTER-HOSTNAME>>:9121']
 ```
 
 and adjust the host name accordingly.
+
+
+
+### Prometheus Configuration to Scrape Several Hosts
+
+Run the exporter with the command line flag `--redis.addr=` so it won't try to access 
+the local instance every time the `/metrics` endpoint is scraped.
+
+```yaml
+
+scrape_configs:
+  ## config for the multiple Redis targets that the exporter will scrape
+  - job_name: 'redis_exporter_targets'
+    static_configs:
+      - targets:
+        - redis://first-redis-host:6379
+        - redis://second-redis-host:6379
+    metrics_path: /scrape
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
+  
+  ## config for scraping the exporter itself
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets:
+        - <<REDIS-EXPORTER-HOSTNAME>>:9121
+```
+
+The Redis instances are listed under `targets`, the Redis exporter hostname is configured via the last relabel_config rule.\
+If authentication is needed for the Redis instances then you can set the password via the `--redis.password` command line option of
+the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several 
+exporters if this is a problem). \
+You can also use a file supply multiple targets by using `file_sd_configs` like so:
+
+```yaml
+
+scrape_configs:
+  - job_name: 'redis_exporter'
+    file_sd_configs:
+      - files:
+        - targets-redis-instances.json
+    metrics_path: /scrape
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
+```
+
+The `targets-redis-instances.json` should look something like this:
+
+```json
+[
+  {
+    "targets": [ "redis-host-01:6379", "redis-host-02:6379"],
+    "labels": { }
+  }
+]
+```
+
+Prometheus uses file watches and all changes to the json file are applied immediately.
+
+
 
 ### Run via Docker:
 
@@ -44,7 +122,6 @@ The latest release is automatically published to the [Docker registry](https://h
 You can run it like this: 
 
 ```sh
-    $ docker pull oliver006/redis_exporter
     $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
 ```
 
@@ -55,96 +132,47 @@ in an image that has a shell, etc then you can run the `alpine` image:
     $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
 ```
 
-If you try to access a redis instance running on the host node, you'll need to add `--network host` so the
+If you try to access a Redis instance running on the host node, you'll need to add `--network host` so the
 redis_exporter container can access it:
 
 ```sh
     $ docker run -d --name redis_exporter --network host oliver006/redis_exporter
 ```
 
+
+
 ### Run on Kubernetes
 
-[Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar with a Redis instance.
-
-
-### Run on Openshift
-
-In order to deploy the exporter on Openshift environment.
-
-```sh
-oc project <myproject>
-
-oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/contrib/openshift-template.yaml \
-    -p REDIS_ADDR=<redis-service>:<redis-port> \
-    -p REDIS_PASSWORD=<redis-pass> \
-    -p REDIS_ALIAS=<redis-alias> \
-    -p REDIS_FILE=<redis-file> \
-    | oc create -f -
-```
-
-*NOTE*: Some of the parameters can be omitted if no authentication is used or the default redis config is applied.
-
-```sh
-oc process -f https://raw.githubusercontent.com/oliver006/redis_exporter/master/contrib/openshift-template.yaml \
-    -p REDIS_ADDR=<redis-service>:<redis-port> \
-    | oc create -f -
-```
-
-If you are running Prometheus on Openshift on the same cluster, **target** in `prometheus.yml` should point to the correct service name of the exporter
-
-```yaml
-scrape_configs:
-
-...
-
-- job_name: redis_exporter
-  static_configs:
-  - targets: ['<redis-exporter.myproject.svc>:9121']
-
-...
-```
-
-### Run on Cloud Foundry
-
-```sh
-cf push -f contrib/manifest.yml
-```
+[Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar to a Redis instance.
 
 
 
 ### Flags
 
-Name                | Description
---------------------|------------
-debug               | Verbose debug output
-log-format          | Log format, valid options are `txt` (default) and `json`.
-check-keys          | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys.
-check-single-keys   | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
-script              | Path to Redis Lua script for gathering extra metrics.
-redis.addr          | Address of one or more redis nodes, comma separated, defaults to `redis://localhost:6379`.
-redis.password      | Password to use when authenticating to Redis
-redis.password-file | Path to a file containing the password to use when authenticating to Redis (note: this is mutually exclusive with `redis.password`)
-redis.alias         | Alias for redis node addr, comma separated.
-redis.file          | Path to file containing one or more redis nodes, separated by newline. This option is mutually exclusive with redis.addr. Each line can optionally be comma-separated with the fields `<addr>,<password>,<alias>`. See [here](./contrib/sample_redis_hosts_file.txt) for an example file.
-namespace           | Namespace for the metrics, defaults to `redis`.
-web.listen-address  | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
-web.telemetry-path  | Path under which to expose metrics, defaults to `metrics`.
-use-cf-bindings     | Enable usage of Cloud Foundry service bindings. Defaults to `false`
-separator           | Separator used to split redis.addr, redis.password and redis.alias into several elements. Defaults to `,`
+Name                   | Environment Variable Name          | Description
+-----------------------|------------------------------------|-----------------
+redis.addr             | REDIS_ADDR                         | Address of the Redis instance, defaults to `redis://localhost:6379`.
+redis.password         | REDIS_PASSWORD                     | Password of the Redis instance, defaults to `""` (no password).
+check-keys             | REDIS_EXPORTER_CHECK_KEYS          | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys.
+check-single-keys      | REDIS_EXPORTER_CHECK_SINGLE_KEYS   | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
+script                 | REDIS_EXPORTER_SCRIPT              | Path to Redis Lua script for gathering extra metrics.
+debug                  | REDIS_EXPORTER_DEBUG               | Verbose debug output
+log-format             | REDIS_EXPORTER_LOG_FORMAT          | Log format, valid options are `txt` (default) and `json`.
+namespace              | REDIS_EXPORTER_NAMESPACE           | Namespace for the metrics, defaults to `redis`.
+connection-timeout     | REDIS_EXPORTER_CONNECTION_TIMEOUT  | Timeout for connection to Redis instance, defaults to "15s" (in Golang duration format)
+web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS  | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
+web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH  | Path under which to expose metrics, defaults to `/metrics`.
+redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS  | Whether to also export go runtime metrics, defaults to false.
+include-system-metrics | REDIS_EXPORTER_IS_TILE38           | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+is-tile38              | REDIS_EXPORTER_IS_TILE38           | Whether to scrape Tile38 specific metrics, defaults to false.
 
-Redis node addresses can be tcp addresses like `redis://localhost:6379`, `redis.example.com:6379` or unix socket addresses like `unix:///tmp/redis.sock`.\
-SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).
+Redis instance addresses can be tcp addresses: `redis://localhost:6379`, `redis.example.com:6379` or e.g. unix sockets: `unix:///tmp/redis.sock`.\
+SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).\
+Password-protected instances can be accessed by using the URI format including a password: `redis://h:<<PASSWORD>>@<<HOSTNAME>>:<<PORT>>`
 
-These settings take precedence over any configurations provided by [environment variables](#environment-variables).
+Command line settings take precedence over any configurations provided by the environment variables.
 
-### Environment Variables
 
-Name               | Description
--------------------|------------
-REDIS_ADDR         | Address of Redis node(s)
-REDIS_PASSWORD     | Password to use when authenticating to Redis
-REDIS_ALIAS        | Alias name of Redis node(s)
-REDIS_FILE         | Path to file containing Redis node(s)
 
 ### What's exported?
 
@@ -155,6 +183,8 @@ You can also export values of keys if they're in numeric format by using the `-c
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
+
+
 ### What does it look like?
 
 Example [Grafana](http://grafana.org/) screenshots:\
@@ -163,8 +193,8 @@ Example [Grafana](http://grafana.org/) screenshots:\
 
 Grafana dashboard is available on [grafana.net](https://grafana.net/dashboards/763) and/or [github.com](contrib/grafana_prometheus_redis_dashboard.json).
 
-Grafana dashboard with host & alias selector is available on [github.com](contrib/grafana_prometheus_redis_dashboard_alias.json).
+
 
 ### What else?
 
-Open an issue or PR if you have more suggestions or ideas about what to add.
+Open an issue or PR if you have more suggestions, questions or ideas about what to add.

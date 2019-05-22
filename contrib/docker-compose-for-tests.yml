@@ -1,0 +1,27 @@
+version: '3'
+services:
+  redis:
+    image: 'redis:5-alpine'
+    ports:
+      - '6379:6379'
+
+  pwd-redis:
+    image: 'redis:5-alpine'
+    command: '/usr/local/bin/redis-server --port 6380 --requirepass redis-password'
+    ports:
+      - '6380:6380'
+
+  redis-cluster:
+    image: 'grokzen/redis-cluster'
+    ports:
+      - 7000
+      - 7001
+      - 7002
+      - 7003
+      - 7004
+      - 7005
+
+  tile38:
+    image: "tile38/tile38:latest"
+    ports:
+      - 9851

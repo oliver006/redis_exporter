@@ -11,10 +11,10 @@ services:
     image: redis:5
     ports:
       - 6379
-  - name: moar-redis
+  - name: pwd-redis
     image: redis:5
-    commands: 
-      - /usr/local/bin/redis-server --port 6380
+    commands:
+      - "/usr/local/bin/redis-server --port 6380 --requirepass redis-password"
     ports:
       - 6380
   - name: redis-cluster
@@ -38,21 +38,21 @@ steps:
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
-      TEST_TILE38_URI: "tile38:9851"
-      TEST_SECOND_REDIS_URI: "redis://moar-redis:6380"
-      TEST_REDIS_CLUSTER_MASTER_URI: "redis-cluster:7000"
-      TEST_REDIS_CLUSTER_SLAVE_URI: "redis-cluster:7005"
+      TEST_TILE38_URI: "redis://tile38:9851"
+      TEST_REDIS_URI: "redis://redis:6379"
+      TEST_PWD_REDIS_URI: "redis://h:redis-password@pwd-redis:6380"
+      TEST_REDIS_CLUSTER_MASTER_URI: "redis://redis-cluster:7000"
+      TEST_REDIS_CLUSTER_SLAVE_URI: "redis://redis-cluster:7005"
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
       - 'go build -mod=vendor'
       - "sleep 10"   # let the redis test instances all come up first
-      - 'go test -mod=vendor -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./exporter/...  --redis.addr=redis'
+      - 'go test -mod=vendor -v -covermode=atomic -cover -race -coverprofile=coverage.txt .'
       - 'echo "checking gofmt"'
-      - 'echo " ! gofmt -d main.go       2>&1 | read " | bash'
-      - 'echo " ! gofmt -d exporter/*.go 2>&1 | read " | bash'
+      - 'echo " ! gofmt -d *.go       2>&1 | read " | bash'
       - 'echo "checking gofmt - DONE"'
-      - 'go vet ./exporter/...'
+      - 'go vet .'
       - 'go get github.com/mattn/goveralls'
       - '/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io'
     when:
@@ -122,27 +122,3 @@ steps:
     when:
       event:
         - tag
-
-
-#
-# temporary addtl. build step while working on #256
-#
-  - name: release-docker-image-alpine-v1.0.0-rc.1
-    image: plugins/docker
-    settings:
-      tags: "v1.0.0-rc.1"
-      dockerfile: ./Dockerfile
-      repo: oliver006/redis_exporter
-      target: alpine
-      build_args:
-        - 'TAG=v1.0.0-rc.1'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-      username:
-        from_secret: docker_user
-      password:
-        from_secret: docker_pass
-    when:
-      branch:
-        - oh_1.0_here_we_come
-      repo:
-        - oliver006/redis_exporter
