@@ -20,7 +20,6 @@ and `--redis.password` then you're most probably not affected.
 Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and this README for more information.
 
 
-
 ### Build and run locally:
 
 ```sh
@@ -47,7 +46,7 @@ and adjust the host name accordingly.
 
 
 
-### Prometheus Configuration to Scrape Several Hosts
+### Prometheus Configuration to Scrape Multiple Redis Hosts
 
 Run the exporter with the command line flag `--redis.addr=` so it won't try to access 
 the local instance every time the `/metrics` endpoint is scraped.
@@ -61,6 +60,8 @@ scrape_configs:
       - targets:
         - redis://first-redis-host:6379
         - redis://second-redis-host:6379
+        - redis://second-redis-host:6380
+        - redis://second-redis-host:6381
     metrics_path: /scrape
     relabel_configs:
       - source_labels: [__address__]
