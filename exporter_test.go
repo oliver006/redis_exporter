@@ -586,7 +586,7 @@ func TestScanForKeys(t *testing.T) {
 
 	c, err := redis.DialURL(addr)
 	if err != nil {
-		t.Errorf("Couldn't connect to %#v: %#v", addr, err)
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 	_, err = c.Do("SELECT", db)
 	if err != nil {
@@ -643,7 +643,7 @@ func TestGetKeysFromPatterns(t *testing.T) {
 
 	c, err := redis.DialURL(addr)
 	if err != nil {
-		t.Errorf("Couldn't connect to %#v: %#v", addr, err)
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 
 	defer func() {
@@ -707,7 +707,7 @@ func TestGetKeyInfo(t *testing.T) {
 
 	c, err := redis.DialURL(addr)
 	if err != nil {
-		t.Errorf("Couldn't connect to %#v: %#v", addr, err)
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 	_, err = c.Do("SELECT", db)
 	if err != nil {
