@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"io/ioutil"
 	"net/http"
@@ -48,6 +49,8 @@ func main() {
 		logFormat           = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
 		configCommand       = flag.String("config-command", getEnv("REDIS_EXPORTER_CONFIG_COMMAND", "CONFIG"), "What to use for the CONFIG command")
 		connectionTimeout   = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
+		tlsClientKeyFile    = flag.String("tls-client-key-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_KEY_FILE", ""), "Optional client key file if the Redis server requires")
+		tlsClientCertFile   = flag.String("tls-client-cert-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_CERT_FILE", ""), "Optional client certificate file if the Redis server requires")
 		isDebug             = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG"), "Output verbose debug information")
 		isTile38            = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38"), "Whether to scrape Tile38 specific metrics")
 		showVersion         = flag.Bool("version", false, "Show version information and exit")
@@ -83,6 +86,16 @@ func main() {
 		log.Fatalf("Couldn't parse connection timeout duration, err: %s", err)
 	}
 
+	var tlsClientCertificates []tls.Certificate
+	if *tlsClientKeyFile != "" && *tlsClientCertFile != "" {
+		cert, err := tls.LoadX509KeyPair(*tlsClientCertFile, *tlsClientKeyFile)
+		if err != nil {
+			log.Fatalf("Couldn't load TLS client key pair, err: %s", err)
+		} else {
+			tlsClientCertificates = append(tlsClientCertificates, cert)
+		}
+	}
+
 	exp, err := NewRedisExporter(
 		*redisAddr,
 		ExporterOptions{
@@ -94,6 +107,7 @@ func main() {
 			InclSystemMetrics:   *inclSystemMetrics,
 			IsTile38:            *isTile38,
 			SkipTLSVerification: *skipTLSVerification,
+			ClientCertificates:  tlsClientCertificates,
 			ConnectionTimeouts:  to,
 		},
 	)
