@@ -164,7 +164,7 @@ connection-timeout     | REDIS_EXPORTER_CONNECTION_TIMEOUT    | Timeout for conn
 web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS    | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH    | Path under which to expose metrics, defaults to `/metrics`.
 redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also export go runtime metrics, defaults to false.
-include-system-metrics | REDIS_EXPORTER_IS_TILE38             | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
 
