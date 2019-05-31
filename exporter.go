@@ -973,15 +973,15 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 	return expandedKeys, err
 }
 
-func (e *Exporter) connectToRedis(skipTLSVerification bool, tlsClientCertificates []tls.Certificate) (redis.Conn, error) {
+func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(e.options.ConnectionTimeouts),
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
 
 		redis.DialTLSConfig(&tls.Config{
-			InsecureSkipVerify: skipTLSVerification,
-			Certificates:       tlsClientCertificates,
+			InsecureSkipVerify: e.options.SkipTLSVerification,
+			Certificates:       e.options.ClientCertificates,
 		}),
 	}
 
@@ -1009,7 +1009,7 @@ func (e *Exporter) connectToRedis(skipTLSVerification bool, tlsClientCertificate
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
-	c, err := e.connectToRedis(e.options.SkipTLSVerification, e.options.ClientCertificates)
+	c, err := e.connectToRedis()
 	if err != nil {
 		log.Errorf("Couldn't connect to redis instance")
 		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)

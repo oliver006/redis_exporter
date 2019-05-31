@@ -401,8 +401,8 @@ func TestHostVariations(t *testing.T) {
 	host := strings.ReplaceAll(os.Getenv("TEST_REDIS_URI"), "redis://", "")
 
 	for _, prefix := range []string{"", "redis://", "tcp://", ""} {
-		e, _ := NewRedisExporter(prefix+host, ExporterOptions{})
-		c, err := e.connectToRedis(true, nil)
+		e, _ := NewRedisExporter(prefix+host, ExporterOptions{SkipTLSVerification: true})
+		c, err := e.connectToRedis()
 		if err != nil {
 			t.Errorf("connectToRedis() err: %s", err)
 			continue

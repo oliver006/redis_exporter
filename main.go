@@ -87,13 +87,15 @@ func main() {
 	}
 
 	var tlsClientCertificates []tls.Certificate
+	if (*tlsClientKeyFile != "") != (*tlsClientCertFile != "") {
+		log.Fatal("TLS client key file and cert file should both be present")
+	}
 	if *tlsClientKeyFile != "" && *tlsClientCertFile != "" {
 		cert, err := tls.LoadX509KeyPair(*tlsClientCertFile, *tlsClientKeyFile)
 		if err != nil {
 			log.Fatalf("Couldn't load TLS client key pair, err: %s", err)
-		} else {
-			tlsClientCertificates = append(tlsClientCertificates, cert)
 		}
+		tlsClientCertificates = append(tlsClientCertificates, cert)
 	}
 
 	exp, err := NewRedisExporter(
