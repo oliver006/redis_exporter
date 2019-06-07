@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -981,6 +982,51 @@ func TestHTTPEndpoints(t *testing.T) {
 			ts.Close()
 		})
 	}
+}
+
+func TestSimultaneousRequests(t *testing.T) {
+	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+
+	e, _ := NewRedisExporter("", ExporterOptions{Namespace: "test", InclSystemMetrics: false})
+	prometheus.Register(e)
+	var ts *httptest.Server
+	ts = httptest.NewServer(http.HandlerFunc(e.ScrapeHandler))
+
+	goroutines := 20
+	var wg sync.WaitGroup
+	wg.Add(goroutines)
+	for ; goroutines > 0; goroutines-- {
+		go func() {
+			requests := 100
+			for ; requests > 0; requests-- {
+				v := url.Values{}
+				target := os.Getenv("TEST_REDIS_URI")
+				if requests%2 == 1 {
+					target = os.Getenv("TEST_REDIS_2_8_URI")
+				}
+				v.Add("target", target)
+				v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+				up, _ := url.Parse(ts.URL)
+				up.RawQuery = v.Encode()
+
+				body := downloadURL(t, up.String())
+				wants := []string{
+					`test_connected_clients`,
+					`test_commands_processed_total`,
+					`test_instance_info`,
+				}
+				for _, want := range wants {
+					if !strings.Contains(body, want) {
+						t.Errorf("want metrics to include %q, have:\n%s", want, body)
+						break
+					}
+				}
+			}
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
 
 func TestNonExistingHost(t *testing.T) {
