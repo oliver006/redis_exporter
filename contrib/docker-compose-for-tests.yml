@@ -5,6 +5,11 @@ services:
     ports:
       - '6379:6379'
 
+  redis-2-8:
+    image: 'redis:2.8'
+    ports:
+      - '6381:6379'
+
   pwd-redis:
     image: 'redis:5-alpine'
     command: '/usr/local/bin/redis-server --port 6380 --requirepass redis-password'

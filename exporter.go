@@ -44,6 +44,9 @@ type Exporter struct {
 
 	options   ExporterOptions
 	LuaScript []byte
+
+	metricMapCounters map[string]string
+	metricMapGauges   map[string]string
 }
 
 type ExporterOptions struct {
@@ -57,112 +60,6 @@ type ExporterOptions struct {
 	IsTile38            bool
 	ConnectionTimeouts  time.Duration
 }
-
-var (
-	metricMapGauges = map[string]string{
-		// # Server
-		"uptime_in_seconds": "uptime_in_seconds",
-		"process_id":        "process_id",
-
-		// # Clients
-		"connected_clients":          "connected_clients",
-		"client_longest_output_list": "client_longest_output_list",
-		"client_biggest_input_buf":   "client_biggest_input_buf",
-		"blocked_clients":            "blocked_clients",
-
-		// # Memory
-		"allocator_active":    "allocator_active_bytes",
-		"allocator_allocated": "allocator_allocated_bytes",
-		"allocator_resident":  "allocator_resident_bytes",
-		"used_memory":         "memory_used_bytes",
-		"used_memory_rss":     "memory_used_rss_bytes",
-		"used_memory_peak":    "memory_used_peak_bytes",
-		"used_memory_lua":     "memory_used_lua_bytes",
-		"maxmemory":           "memory_max_bytes",
-
-		// # Persistence
-		"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
-		"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
-		"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
-		"rdb_last_bgsave_status":       "rdb_last_bgsave_status",
-		"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
-		"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
-		"rdb_last_cow_size":            "rdb_last_cow_size_bytes",
-		"aof_enabled":                  "aof_enabled",
-		"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
-		"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
-		"aof_last_rewrite_time_sec":    "aof_last_rewrite_duration_sec",
-		"aof_current_rewrite_time_sec": "aof_current_rewrite_duration_sec",
-		"aof_last_cow_size":            "aof_last_cow_size_bytes",
-		"aof_current_size":             "aof_current_size_bytes",
-		"aof_base_size":                "aof_base_size_bytes",
-		"aof_pending_rewrite":          "aof_pending_rewrite",
-		"aof_buffer_length":            "aof_buffer_length",
-		"aof_rewrite_buffer_length":    "aof_rewrite_buffer_length",
-		"aof_pending_bio_fsync":        "aof_pending_bio_fsync",
-		"aof_delayed_fsync":            "aof_delayed_fsync",
-		"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
-		"aof_last_write_status":        "aof_last_write_status",
-
-		// # Stats
-		"pubsub_channels":  "pubsub_channels",
-		"pubsub_patterns":  "pubsub_patterns",
-		"latest_fork_usec": "latest_fork_usec",
-
-		// # Replication
-		"loading":                    "loading_dump_file",
-		"connected_slaves":           "connected_slaves",
-		"repl_backlog_size":          "replication_backlog_bytes",
-		"master_last_io_seconds_ago": "master_last_io_seconds",
-		"master_repl_offset":         "master_repl_offset",
-
-		// # Cluster
-		"cluster_stats_messages_sent":     "cluster_messages_sent_total",
-		"cluster_stats_messages_received": "cluster_messages_received_total",
-
-		// # Tile38
-		// based on https://tile38.com/commands/server/
-		"aof_size":        "aof_size_bytes",
-		"avg_item_size":   "avg_item_size_bytes",
-		"cpus":            "cpus_total",
-		"heap_released":   "heap_released_bytes",
-		"heap_size":       "heap_size_bytes",
-		"http_transport":  "http_transport",
-		"in_memory_size":  "in_memory_size_bytes",
-		"max_heap_size":   "max_heap_size_bytes",
-		"mem_alloc":       "mem_alloc_bytes",
-		"num_collections": "num_collections_total",
-		"num_hooks":       "num_hooks_total",
-		"num_objects":     "num_objects_total",
-		"num_points":      "num_points_total",
-		"pointer_size":    "pointer_size_bytes",
-		"read_only":       "read_only",
-		"threads":         "threads_total",
-		"version":         "version", // since tile38 version 1.14.1
-	}
-
-	metricMapCounters = map[string]string{
-		"total_connections_received": "connections_received_total",
-		"total_commands_processed":   "commands_processed_total",
-
-		"rejected_connections":   "rejected_connections_total",
-		"total_net_input_bytes":  "net_input_bytes_total",
-		"total_net_output_bytes": "net_output_bytes_total",
-
-		"expired_keys":    "expired_keys_total",
-		"evicted_keys":    "evicted_keys_total",
-		"keyspace_hits":   "keyspace_hits_total",
-		"keyspace_misses": "keyspace_misses_total",
-
-		"used_cpu_sys":           "cpu_sys_seconds_total",
-		"used_cpu_user":          "cpu_user_seconds_total",
-		"used_cpu_sys_children":  "cpu_sys_children_seconds_total",
-		"used_cpu_user_children": "cpu_user_children_seconds_total",
-	}
-
-	instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
-	slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
-)
 
 func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 	target := r.URL.Query().Get("target")
@@ -257,6 +154,107 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			Name:      "target_scrape_request_errors_total",
 			Help:      "Errors in requests to the exporter",
 		}),
+
+		metricMapGauges: map[string]string{
+			// # Server
+			"uptime_in_seconds": "uptime_in_seconds",
+			"process_id":        "process_id",
+
+			// # Clients
+			"connected_clients":          "connected_clients",
+			"client_longest_output_list": "client_longest_output_list",
+			"client_biggest_input_buf":   "client_biggest_input_buf",
+			"blocked_clients":            "blocked_clients",
+
+			// # Memory
+			"allocator_active":    "allocator_active_bytes",
+			"allocator_allocated": "allocator_allocated_bytes",
+			"allocator_resident":  "allocator_resident_bytes",
+			"used_memory":         "memory_used_bytes",
+			"used_memory_rss":     "memory_used_rss_bytes",
+			"used_memory_peak":    "memory_used_peak_bytes",
+			"used_memory_lua":     "memory_used_lua_bytes",
+			"maxmemory":           "memory_max_bytes",
+
+			// # Persistence
+			"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
+			"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
+			"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
+			"rdb_last_bgsave_status":       "rdb_last_bgsave_status",
+			"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
+			"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
+			"rdb_last_cow_size":            "rdb_last_cow_size_bytes",
+			"aof_enabled":                  "aof_enabled",
+			"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
+			"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
+			"aof_last_rewrite_time_sec":    "aof_last_rewrite_duration_sec",
+			"aof_current_rewrite_time_sec": "aof_current_rewrite_duration_sec",
+			"aof_last_cow_size":            "aof_last_cow_size_bytes",
+			"aof_current_size":             "aof_current_size_bytes",
+			"aof_base_size":                "aof_base_size_bytes",
+			"aof_pending_rewrite":          "aof_pending_rewrite",
+			"aof_buffer_length":            "aof_buffer_length",
+			"aof_rewrite_buffer_length":    "aof_rewrite_buffer_length",
+			"aof_pending_bio_fsync":        "aof_pending_bio_fsync",
+			"aof_delayed_fsync":            "aof_delayed_fsync",
+			"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
+			"aof_last_write_status":        "aof_last_write_status",
+
+			// # Stats
+			"pubsub_channels":  "pubsub_channels",
+			"pubsub_patterns":  "pubsub_patterns",
+			"latest_fork_usec": "latest_fork_usec",
+
+			// # Replication
+			"loading":                    "loading_dump_file",
+			"connected_slaves":           "connected_slaves",
+			"repl_backlog_size":          "replication_backlog_bytes",
+			"master_last_io_seconds_ago": "master_last_io_seconds",
+			"master_repl_offset":         "master_repl_offset",
+
+			// # Cluster
+			"cluster_stats_messages_sent":     "cluster_messages_sent_total",
+			"cluster_stats_messages_received": "cluster_messages_received_total",
+
+			// # Tile38
+			// based on https://tile38.com/commands/server/
+			"aof_size":        "aof_size_bytes",
+			"avg_item_size":   "avg_item_size_bytes",
+			"cpus":            "cpus_total",
+			"heap_released":   "heap_released_bytes",
+			"heap_size":       "heap_size_bytes",
+			"http_transport":  "http_transport",
+			"in_memory_size":  "in_memory_size_bytes",
+			"max_heap_size":   "max_heap_size_bytes",
+			"mem_alloc":       "mem_alloc_bytes",
+			"num_collections": "num_collections_total",
+			"num_hooks":       "num_hooks_total",
+			"num_objects":     "num_objects_total",
+			"num_points":      "num_points_total",
+			"pointer_size":    "pointer_size_bytes",
+			"read_only":       "read_only",
+			"threads":         "threads_total",
+			"version":         "version", // since tile38 version 1.14.1
+		},
+
+		metricMapCounters: map[string]string{
+			"total_connections_received": "connections_received_total",
+			"total_commands_processed":   "commands_processed_total",
+
+			"rejected_connections":   "rejected_connections_total",
+			"total_net_input_bytes":  "net_input_bytes_total",
+			"total_net_output_bytes": "net_output_bytes_total",
+
+			"expired_keys":    "expired_keys_total",
+			"evicted_keys":    "evicted_keys_total",
+			"keyspace_hits":   "keyspace_hits_total",
+			"keyspace_misses": "keyspace_misses_total",
+
+			"used_cpu_sys":           "cpu_sys_seconds_total",
+			"used_cpu_user":          "cpu_user_seconds_total",
+			"used_cpu_sys_children":  "cpu_sys_children_seconds_total",
+			"used_cpu_user_children": "cpu_user_children_seconds_total",
+		},
 	}
 
 	if e.options.ConfigCommandName == "" {
@@ -276,7 +274,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 	log.Debugf("singleKeys: %#v", e.singleKeys)
 
 	if opts.InclSystemMetrics {
-		metricMapGauges["total_system_memory"] = "total_system_memory_bytes"
+		e.metricMapGauges["total_system_memory"] = "total_system_memory_bytes"
 	}
 
 	e.metricDescriptions = map[string]*prometheus.Desc{}
@@ -319,11 +317,11 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 		ch <- desc
 	}
 
-	for _, v := range metricMapGauges {
+	for _, v := range e.metricMapGauges {
 		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
 	}
 
-	for _, v := range metricMapCounters {
+	for _, v := range e.metricMapCounters {
 		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
 	}
 
@@ -358,15 +356,15 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.targetScrapeRequestErrors
 }
 
-func includeMetric(s string) bool {
+func (e *Exporter) includeMetric(s string) bool {
 	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
-	if _, ok := metricMapGauges[s]; ok {
+	if _, ok := e.metricMapGauges[s]; ok {
 		return true
 	}
 
-	_, ok := metricMapCounters[s]
+	_, ok := e.metricMapCounters[s]
 	return ok
 }
 
@@ -602,6 +600,11 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		fieldKey := split[0]
 		fieldValue := split[1]
 
+		var (
+			instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
+			slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
+		)
+
 		if _, ok := instanceInfoFields[fieldKey]; ok {
 			instanceInfo[fieldKey] = fieldValue
 			continue
@@ -641,7 +644,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			}
 		}
 
-		if !includeMetric(fieldKey) {
+		if !e.includeMetric(fieldKey) {
 			continue
 		}
 
@@ -686,7 +689,7 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 		fieldKey := split[0]
 		fieldValue := split[1]
 
-		if !includeMetric(fieldKey) {
+		if !e.includeMetric(fieldKey) {
 			continue
 		}
 
@@ -807,7 +810,7 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 		fieldKey := info[i]
 		fieldValue := info[i+1]
 
-		if !includeMetric(fieldKey) {
+		if !e.includeMetric(fieldKey) {
 			continue
 		}
 
@@ -818,10 +821,10 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) error {
 	orgMetricName := sanitizeMetricName(fieldKey)
 	metricName := orgMetricName
-	if newName, ok := metricMapGauges[metricName]; ok {
+	if newName, ok := e.metricMapGauges[metricName]; ok {
 		metricName = newName
 	} else {
-		if newName, ok := metricMapCounters[metricName]; ok {
+		if newName, ok := e.metricMapCounters[metricName]; ok {
 			metricName = newName
 		}
 	}
@@ -846,7 +849,7 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	}
 
 	t := prometheus.GaugeValue
-	if metricMapCounters[orgMetricName] != "" {
+	if e.metricMapCounters[orgMetricName] != "" {
 		t = prometheus.CounterValue
 	}
 
