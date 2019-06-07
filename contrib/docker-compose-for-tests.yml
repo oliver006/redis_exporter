@@ -5,7 +5,7 @@ services:
     ports:
       - '6379:6379'
 
-  redis2.8:
+  redis-2-8:
     image: 'redis:2.8'
     ports:
       - '6381:6379'

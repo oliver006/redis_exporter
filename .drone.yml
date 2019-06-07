@@ -20,7 +20,7 @@ services:
   - name: redis-2-8
     image: redis:2.8
     ports:
-      - 6381
+      - '6381:6379'
   - name: redis-cluster
     image: grokzen/redis-cluster
     ports:
