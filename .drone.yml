@@ -19,8 +19,10 @@ services:
       - 6380
   - name: redis-2-8
     image: redis:2.8
+    commands:
+      - "/usr/local/bin/redis-server --port 6381"
     ports:
-      - '6381:6379'
+      - 6381
   - name: redis-cluster
     image: grokzen/redis-cluster
     ports:
