@@ -1,6 +1,5 @@
 # Redis Metrics Exporter
 
-
 [![Build Status](https://cloud.drone.io/api/badges/oliver006/redis_exporter/status.svg)](https://cloud.drone.io/oliver006/redis_exporter)
  [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)
 
@@ -8,10 +7,7 @@
 Prometheus exporter for Redis metrics.\
 Supports Redis 2.x, 3.x, 4.x, and 5.x
 
-
-## Building, configuring, and running
-
-### Upgrading from 0.x to 1.x ?
+## Upgrading from 0.x to 1.x?
 
 [PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
 
@@ -19,8 +15,7 @@ If you only scrape one Redis instance and use command line flags `--redis.addres
 and `--redis.password` then you're most probably not affected.
 Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and this README for more information.
 
-
-### Build and run locally:
+## Build and run locally
 
 ```sh
     $ go get github.com/oliver006/redis_exporter
@@ -29,7 +24,7 @@ Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull
     $ ./redis_exporter <flags>
 ```
 
-
+## Configuring
 
 ### Basic Prometheus Configuration
 
@@ -43,8 +38,6 @@ scrape_configs:
 ```
 
 and adjust the host name accordingly.
-
-
 
 ### Prometheus Configuration to Scrape Multiple Redis Hosts
 
@@ -114,39 +107,7 @@ The `targets-redis-instances.json` should look something like this:
 
 Prometheus uses file watches and all changes to the json file are applied immediately.
 
-
-
-### Run via Docker:
-
-The latest release is automatically published to the [Docker registry](https://hub.docker.com/r/oliver006/redis_exporter/).
-
-You can run it like this: 
-
-```sh
-    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
-```
-
-The `latest` docker image contains only the exporter binary. 
-If, e.g. for debugging purposes, you need the exporter running 
-in an image that has a shell, etc then you can run the `alpine` image:
-```sh
-    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
-```
-
-If you try to access a Redis instance running on the host node, you'll need to add `--network host` so the
-redis_exporter container can access it:
-
-```sh
-    $ docker run -d --name redis_exporter --network host oliver006/redis_exporter
-```
-
-
-
-### Run on Kubernetes
-
-[Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar to a Redis instance.
-
-
+## Running
 
 ### Flags
 
@@ -174,9 +135,35 @@ Password-protected instances can be accessed by using the URI format including a
 
 Command line settings take precedence over any configurations provided by the environment variables.
 
+### Run via Docker
 
+The latest release is automatically published to the [Docker registry](https://hub.docker.com/r/oliver006/redis_exporter/).
 
-### What's exported?
+You can run it like this:
+
+```sh
+    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
+```
+
+The `latest` docker image contains only the exporter binary.
+If, e.g. for debugging purposes, you need the exporter running
+in an image that has a shell, etc then you can run the `alpine` image:
+```sh
+    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
+```
+
+If you try to access a Redis instance running on the host node, you'll need to add `--network host` so the
+redis_exporter container can access it:
+
+```sh
+    $ docker run -d --name redis_exporter --network host oliver006/redis_exporter
+```
+
+### Run on Kubernetes
+
+[Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar to a Redis instance.
+
+## What's exported?
 
 Most items from the INFO command are exported,
 see https://redis.io/commands/info for details.\
@@ -185,9 +172,7 @@ You can also export values of keys if they're in numeric format by using the `-c
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
-
-
-### What does it look like?
+## What does it look like?
 
 Example [Grafana](http://grafana.org/) screenshots:\
 <img width="800" alt="redis_exporter_screen" src="https://cloud.githubusercontent.com/assets/1222339/19412031/897549c6-92da-11e6-84a0-b091f9deb81d.png">\
@@ -195,8 +180,6 @@ Example [Grafana](http://grafana.org/) screenshots:\
 
 Grafana dashboard is available on [grafana.net](https://grafana.net/dashboards/763) and/or [github.com](contrib/grafana_prometheus_redis_dashboard.json).
 
-
-
-### What else?
+## What else?
 
 Open an issue or PR if you have more suggestions, questions or ideas about what to add.
