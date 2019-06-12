@@ -19,12 +19,12 @@ services:
   redis-cluster:
     image: 'grokzen/redis-cluster'
     ports:
-      - 7000
-      - 7001
-      - 7002
-      - 7003
-      - 7004
-      - 7005
+      - 7000:7000
+      - 7001:7001
+      - 7002:7002
+      - 7003:7003
+      - 7004:7004
+      - 7005:7005
 
   tile38:
     image: "tile38/tile38:latest"
