@@ -1008,7 +1008,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	c, err := e.connectToRedis(e.options.SkipTLSVerification)
 	if err != nil {
 		log.Errorf("Couldn't connect to redis instance")
-		log.Debugf("connectToRedis() err: %s", err)
+		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
 		return err
 	}
 	defer c.Close()
