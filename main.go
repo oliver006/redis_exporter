@@ -37,7 +37,7 @@ func getEnvBool(key string) (res bool) {
 
 func main() {
 	var (
-		redisAddr           = flag.String("redis.addr", getEnv("REDIS_ADDR", ""), "Address of the Redis instance to scrape")
+		redisAddr           = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of the Redis instance to scrape")
 		redisPwd            = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
 		namespace           = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
 		checkKeys           = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
@@ -138,6 +138,6 @@ func main() {
 	})
 
 	log.Infof("Providing metrics at %s%s", *listenAddress, *metricPath)
-	log.Debugf("Connecting to redis hosts: %#v", *redisAddr)
+	log.Debugf("Configured redis addr: %#v", *redisAddr)
 	log.Fatal(http.ListenAndServe(*listenAddress, nil))
 }
