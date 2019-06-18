@@ -92,6 +92,12 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
+  ## it's also necessary
+  ## config for scraping the exporter itself
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets:
+        - <<REDIS-EXPORTER-HOSTNAME>>:9121
 ```
 
 The `targets-redis-instances.json` should look something like this:
@@ -99,7 +105,7 @@ The `targets-redis-instances.json` should look something like this:
 ```json
 [
   {
-    "targets": [ "redis-host-01:6379", "redis-host-02:6379"],
+    "targets": [ "redis://redis-host-ip-01:6379", "redis://redis-host-ip-02:6379"],
     "labels": { }
   }
 ]
