@@ -77,10 +77,8 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if u.Scheme != "rediss" {
-		// get rid of username/password info in "target" so users don't send them via http
-		u.User = nil
-	}
+	// get rid of username/password info in "target" so users don't send them via http
+	u.User = nil
 	target = u.String()
 
 	checkKeys := r.URL.Query().Get("check-keys")
