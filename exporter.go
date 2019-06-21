@@ -55,6 +55,7 @@ type ExporterOptions struct {
 	ConfigCommandName   string
 	CheckSingleKeys     string
 	CheckKeys           string
+	ClientCertificates  []tls.Certificate
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	IsTile38            bool
@@ -970,14 +971,15 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 	return expandedKeys, err
 }
 
-func (e *Exporter) connectToRedis(skipTLSVerification bool) (redis.Conn, error) {
+func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(e.options.ConnectionTimeouts),
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
 
 		redis.DialTLSConfig(&tls.Config{
-			InsecureSkipVerify: skipTLSVerification,
+			InsecureSkipVerify: e.options.SkipTLSVerification,
+			Certificates:       e.options.ClientCertificates,
 		}),
 	}
 
@@ -1005,7 +1007,7 @@ func (e *Exporter) connectToRedis(skipTLSVerification bool) (redis.Conn, error) 
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
-	c, err := e.connectToRedis(e.options.SkipTLSVerification)
+	c, err := e.connectToRedis()
 	if err != nil {
 		log.Errorf("Couldn't connect to redis instance")
 		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
