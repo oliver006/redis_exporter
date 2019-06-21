@@ -128,8 +128,8 @@ redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also 
 include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
-tls-client-key-file    | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE   | Full path to the client key file if the server requires TLS client authentication
-tls-client-cert-file   | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE  | Full path to the client cert file if the server requires for TLS client authentication
+tls-client-key-file    | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE   | Name of the client key file (including full path) if the server requires TLS client authentication
+tls-client-cert-file   | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE  | Name the client cert file (including full path) if the server requires TLS client authentication
 
 Redis instance addresses can be tcp addresses: `redis://localhost:6379`, `redis.example.com:6379` or e.g. unix sockets: `unix:///tmp/redis.sock`.\
 SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).\
