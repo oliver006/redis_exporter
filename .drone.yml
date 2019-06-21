@@ -65,6 +65,7 @@ steps:
     when:
       event:
         - pull_request
+        - push
 
 
   - name: coverage-codecov
@@ -77,6 +78,7 @@ steps:
     when:
       event:
         - pull_request
+        - push
 
 
   - name: release-docker-image-scratch
