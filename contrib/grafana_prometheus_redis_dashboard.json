@@ -48,7 +48,7 @@
       }
     ]
   },
-  "description": "Prometheus dashboard for Redis servers",
+  "description": "Redis Dashboard for Prometheus Redis Exporter 1.x",
   "editable": true,
   "gnetId": 763,
   "graphTooltip": 0,
@@ -1200,6 +1200,6 @@
     ]
   },
   "timezone": "browser",
-  "title": "Prometheus Redis for Redis Exporter 1.0.0",
+  "title": "Redis Dashboard for Prometheus Redis Exporter 1.x",
   "version": 12
 }
