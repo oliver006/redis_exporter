@@ -200,5 +200,5 @@ scrape_configs:
         - redis://second-redis-host:6379
     metrics_path: /scrape
     params:
-      check-keys: "metrics:*"
+      check-keys: ["metrics:*"]
 ```
