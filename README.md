@@ -185,3 +185,20 @@ Grafana dashboard is available on [grafana.net](https://grafana.net/dashboards/7
 ## What else?
 
 Open an issue or PR if you have more suggestions, questions or ideas about what to add.
+
+## Troubleshooting / Known issues
+
+[#282 **check-keys** parameter is not working](https://github.com/oliver006/redis_exporter/issues/282) in latest build. You will need to add parameter to Prometheus like
+
+```
+scrape_configs:
+  ## config for the multiple Redis targets that the exporter will scrape
+  - job_name: 'redis_exporter_targets'
+    static_configs:
+      - targets:
+        - redis://first-redis-host:6379
+        - redis://second-redis-host:6379
+    metrics_path: /scrape
+    params:
+      check-keys: ["metrics:*"]
+```
