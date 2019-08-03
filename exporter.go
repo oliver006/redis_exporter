@@ -59,6 +59,7 @@ type ExporterOptions struct {
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	IsTile38            bool
+	IsClientList		bool
 	ConnectionTimeouts  time.Duration
 }
 
@@ -305,6 +306,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		"slowlog_length":                       {txt: `Total slowlog`},
 		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"up":                                   {txt: "Information about the Redis instance"},
+		"connected_clients_totals":             {txt: "Total number of connected clients grouped by name", lbls: []string{"name"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -819,6 +821,23 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 	}
 }
 
+func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+	if reply, err := redis.String(doRedisCmd(c, "CLIENT", "LIST")); err == nil {
+		clients := strings.Split(reply, "\n")
+		
+		var clientsMap = map[string]int{}
+		for i := 0; i < len(clients) - 1; i++ {
+			clientInfo := strings.Split(clients[i], " ")
+			name := strings.Split(clientInfo[3], "=")[1]
+			clientsMap[name]++
+		}
+
+		for name, count := range clientsMap {
+			e.registerConstMetric(ch, "connected_clients_totals", float64(count), prometheus.CounterValue, name)
+		}
+	}
+}
+
 func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) error {
 	orgMetricName := sanitizeMetricName(fieldKey)
 	metricName := orgMetricName
@@ -1063,6 +1082,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractLuaScriptMetrics(ch, c)
 
 	e.extractSlowLogMetrics(ch, c)
+
+	if e.options.IsClientList {
+		e.extractConnectedClientMetrics(ch, c)
+	}
 
 	if e.options.IsTile38 {
 		e.extractTile38Metrics(ch, c)
