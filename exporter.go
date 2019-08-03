@@ -59,7 +59,7 @@ type ExporterOptions struct {
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	IsTile38            bool
-	IsClientList		bool
+	IsClientList        bool
 	ConnectionTimeouts  time.Duration
 }
 
