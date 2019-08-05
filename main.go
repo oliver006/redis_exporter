@@ -53,7 +53,7 @@ func main() {
 		tlsClientCertFile   = flag.String("tls-client-cert-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_CERT_FILE", ""), "Name of the client certificate file (including full path) if the server requires TLS client authentication")
 		isDebug             = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG"), "Output verbose debug information")
 		isTile38            = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38"), "Whether to scrape Tile38 specific metrics")
-		isClientList        = flag.Bool("is-client-list", getEnvBool("REDIS_EXPORTER_IS_CLIENT_LIST"), "Whether to scrape Client List specific metrics")
+		exportClientList    = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST"), "Whether to scrape Client List specific metrics")
 		showVersion         = flag.Bool("version", false, "Show version information and exit")
 		redisMetricsOnly    = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS"), "Whether to also export go runtime metrics")
 		inclSystemMetrics   = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS"), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
@@ -109,7 +109,7 @@ func main() {
 			CheckSingleKeys:     *checkSingleKeys,
 			InclSystemMetrics:   *inclSystemMetrics,
 			IsTile38:            *isTile38,
-			IsClientList:        *isClientList,
+			ExportClientList:    *exportClientList,
 			SkipTLSVerification: *skipTLSVerification,
 			ClientCertificates:  tlsClientCertificates,
 			ConnectionTimeouts:  to,

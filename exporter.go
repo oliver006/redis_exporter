@@ -59,7 +59,7 @@ type ExporterOptions struct {
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	IsTile38            bool
-	IsClientList        bool
+	ExportClientList    bool
 	ConnectionTimeouts  time.Duration
 }
 
@@ -1083,7 +1083,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractSlowLogMetrics(ch, c)
 
-	if e.options.IsClientList {
+	if e.options.ExportClientList {
 		e.extractConnectedClientMetrics(ch, c)
 	}
 
