@@ -163,7 +163,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"process_id":        "process_id",
 
 			// # Clients
-			"connected_clients":          "connected_clients",
+			// "connected_clients":          "connected_clients",
 			"client_longest_output_list": "client_longest_output_list",
 			"client_biggest_input_buf":   "client_biggest_input_buf",
 			"blocked_clients":            "blocked_clients",
@@ -306,7 +306,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		"slowlog_length":                       {txt: `Total slowlog`},
 		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"up":                                   {txt: "Information about the Redis instance"},
-		"connected_clients_totals":             {txt: "Total number of connected clients grouped by name", lbls: []string{"name"}},
+		"connected_clients":                    {txt: "Total number of connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "qbuf", "qbuffree", "cmd" }},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -384,6 +384,41 @@ func extractVal(s string) (val float64, err error) {
 	if err != nil {
 		return 0, fmt.Errorf("nope")
 	}
+	return
+}
+
+/*
+	Valid Examples
+	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex
+	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client
+*/
+func parseClientListString(clientInfo string) (host string, port string, name string, age string, idle string, flags string, qbuf string, qbuffree string, cmd string, ok bool) {
+	ok = false
+	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
+		return
+	}
+	connectedClient := map[string]string{}
+	for _, kvPart := range strings.Split(clientInfo, " ") {
+		vPart := strings.Split(kvPart, "=")
+		if len(vPart) != 2 {
+			log.Debugf("Invalid format for client list string, got: %s", kvPart)
+			return
+		}
+		connectedClient[vPart[0]] = vPart[1]
+	}
+
+	hostPortString := strings.Split(connectedClient["addr"], ":")
+	host = hostPortString[0]
+	port = hostPortString[1]
+	name = connectedClient["name"]
+	age = connectedClient["age"]
+	idle = connectedClient["idle"]
+	flags = connectedClient["flags"]
+	qbuf = connectedClient["qbuf"]
+	qbuffree = connectedClient["qbuffree"]
+	cmd = connectedClient["cmd"]
+
+	ok = true
 	return
 }
 
@@ -827,13 +862,13 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 		
 		var clientsMap = map[string]int{}
 		for i := 0; i < len(clients) - 1; i++ {
-			clientInfo := strings.Split(clients[i], " ")
-			name := strings.Split(clientInfo[3], "=")[1]
-			clientsMap[name]++
+			if _, _, name, _, _, _, _, _, _, ok := parseClientListString(clients[i]); ok {
+				clientsMap[name]++
+			}
 		}
 
 		for name, count := range clientsMap {
-			e.registerConstMetric(ch, "connected_clients_totals", float64(count), prometheus.CounterValue, name)
+			e.registerConstMetricGauge(ch, "connected_clients", float64(count), name)
 		}
 	}
 }

@@ -238,6 +238,36 @@ func TestTile38(t *testing.T) {
 	}
 }
 
+func TestExportClientList(t *testing.T) {
+	if os.Getenv("TEST_EXPORT_CLIENT_LIST") == "" {
+		t.Skipf("TEST_EXPORT_CLIENT_LIST not set - skipping")
+	}
+
+	for _, isExportClientList := range []bool{true, false} {
+		e, _ := NewRedisExporter(os.Getenv("TEST_EXPORT_CLIENT_LIST"), ExporterOptions{Namespace: "test", ExportClientList: isExportClientList})
+
+		chM := make(chan prometheus.Metric)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
+
+		found := false
+		for m := range chM {
+			if strings.Contains(m.Desc().String(), "connected_clients") {
+				found = true
+				break
+			}
+		}
+
+		if isExportClientList && !found {
+			t.Errorf("connected_clients was *not* found in isExportClientList metrics but expected")
+		} else if !isExportClientList && found {
+			t.Errorf("connected_clients was *found* in isExportClientList metrics but *not* expected")
+		}
+	}
+}
+
 func TestSlowLog(t *testing.T) {
 	e := getTestExporter()
 
