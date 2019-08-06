@@ -306,7 +306,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		"slowlog_length":                       {txt: `Total slowlog`},
 		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"up":                                   {txt: "Information about the Redis instance"},
-		"connected_clients_details":            {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "qbuf", "qbuffree", "cmd"}},
+		"connected_clients_details":            {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "fd", "age", "idle", "flags", "db", "sub", "psub", "multi", "qbuf", "qbuffree", "obl", "oll", "omem", "events", "cmd"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -392,7 +392,7 @@ func extractVal(s string) (val float64, err error) {
 	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex
 	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client
 */
-func parseClientListString(clientInfo string) (id float64, host string, port string, fd string, name string, age string, idle string, flags string, db string, sub string, psub string, multi string, qbuf string, qbuffree string, obl string, omem string, events string, cmd string, ok bool) {
+func parseClientListString(clientInfo string) (id float64, host string, port string, fd string, name string, age string, idle string, flags string, db string, sub string, psub string, multi string, qbuf string, qbuffree string, obl string, oll string, omem string, events string, cmd string, ok bool) {
 	var err error
 	ok = false
 	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
@@ -430,6 +430,7 @@ func parseClientListString(clientInfo string) (id float64, host string, port str
 	qbuf = connectedClient["qbuf"]
 	qbuffree = connectedClient["qbuffree"]
 	obl = connectedClient["obl"]
+	oll = connectedClient["oll"]
 	omem = connectedClient["omem"]
 	events = connectedClient["events"]
 	cmd = connectedClient["cmd"]
@@ -875,10 +876,10 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	if reply, err := redis.String(doRedisCmd(c, "CLIENT", "LIST")); err == nil {
 		clients := strings.Split(reply, "\n")
-		
+
 		for i := 0; i < len(clients)-1; i++ {
-			if id, host, port, fd, name, age, idle, flags, db, sub, psub, multi, qbuf, qbuffree, obl, omem, events, cmd, ok := parseClientListString(clients[i]); ok {
-				e.registerConstMetricGauge(ch, "connected_clients_details", id, host, port, fd, name, age, idle, flags, db, sub, psub, multi, qbuf, qbuffree, obl, omem, events, cmd)
+			if id, host, port, fd, name, age, idle, flags, db, sub, psub, multi, qbuf, qbuffree, obl, oll, omem, events, cmd, ok := parseClientListString(clients[i]); ok {
+				e.registerConstMetricGauge(ch, "connected_clients_details", id, host, port, fd, name, age, idle, flags, db, sub, psub, multi, qbuf, qbuffree, obl, oll, omem, events, cmd)
 			}
 		}
 	}

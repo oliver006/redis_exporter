@@ -241,6 +241,8 @@ func TestTile38(t *testing.T) {
 func TestExportClientList(t *testing.T) {
 	for _, isExportClientList := range []bool{true, false} {
 		e := getTestExporter()
+		e.options.ExportClientList = isExportClientList
+
 		chM := make(chan prometheus.Metric)
 		go func() {
 			e.Collect(chM)
