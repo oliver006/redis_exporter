@@ -163,7 +163,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"process_id":        "process_id",
 
 			// # Clients
-			// "connected_clients":          "connected_clients",
+			"connected_clients":          "connected_clients",
 			"client_longest_output_list": "client_longest_output_list",
 			"client_biggest_input_buf":   "client_biggest_input_buf",
 			"blocked_clients":            "blocked_clients",
@@ -306,7 +306,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		"slowlog_length":                       {txt: `Total slowlog`},
 		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"up":                                   {txt: "Information about the Redis instance"},
-		"connected_clients":                    {txt: "Total number of connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "qbuf", "qbuffree", "cmd" }},
+		"connected_clients_details":            {txt: "Total number of connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "qbuf", "qbuffree", "cmd" }},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -868,7 +868,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 		}
 
 		for name, count := range clientsMap {
-			e.registerConstMetricGauge(ch, "connected_clients", float64(count), name)
+			e.registerConstMetricGauge(ch, "connected_clients_details", float64(count), name)
 		}
 	}
 }
