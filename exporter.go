@@ -423,6 +423,7 @@ func parseClientListString(clientInfo string) (id float64, host string, port str
 	idle = connectedClient["idle"]
 	flags = connectedClient["flags"]
 	db = connectedClient["db"]
+	cmd = connectedClient["cmd"]
 
 	ok = true
 	return
