@@ -238,6 +238,33 @@ func TestTile38(t *testing.T) {
 	}
 }
 
+func TestExportClientList(t *testing.T) {
+	for _, isExportClientList := range []bool{true, false} {
+		e := getTestExporter()
+		e.options.ExportClientList = isExportClientList
+
+		chM := make(chan prometheus.Metric)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
+
+		found := false
+		for m := range chM {
+			if strings.Contains(m.Desc().String(), "connected_clients_details") {
+				found = true
+				break
+			}
+		}
+
+		if isExportClientList && !found {
+			t.Errorf("connected_clients_details was *not* found in isExportClientList metrics but expected")
+		} else if !isExportClientList && found {
+			t.Errorf("connected_clients_details was *found* in isExportClientList metrics but *not* expected")
+		}
+	}
+}
+
 func TestSlowLog(t *testing.T) {
 	e := getTestExporter()
 

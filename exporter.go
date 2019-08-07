@@ -59,6 +59,7 @@ type ExporterOptions struct {
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	IsTile38            bool
+	ExportClientList    bool
 	ConnectionTimeouts  time.Duration
 }
 
@@ -305,6 +306,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		"slowlog_length":                       {txt: `Total slowlog`},
 		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"up":                                   {txt: "Information about the Redis instance"},
+		"connected_clients_details":            {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "db", "cmd"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -382,6 +384,44 @@ func extractVal(s string) (val float64, err error) {
 	if err != nil {
 		return 0, fmt.Errorf("nope")
 	}
+	return
+}
+
+/*
+	Valid Examples
+	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex
+	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client
+*/
+func parseClientListString(clientInfo string) (host string, port string, name string, age string, idle string, flags string, db string, cmd string, ok bool) {
+	ok = false
+	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
+		return
+	}
+	connectedClient := map[string]string{}
+	for _, kvPart := range strings.Split(clientInfo, " ") {
+		vPart := strings.Split(kvPart, "=")
+		if len(vPart) != 2 {
+			log.Debugf("Invalid format for client list string, got: %s", kvPart)
+			return
+		}
+		connectedClient[vPart[0]] = vPart[1]
+	}
+
+	hostPortString := strings.Split(connectedClient["addr"], ":")
+	if len(hostPortString) != 2 {
+		return
+	}
+	host = hostPortString[0]
+	port = hostPortString[1]
+
+	name = connectedClient["name"]
+	age = connectedClient["age"]
+	idle = connectedClient["idle"]
+	flags = connectedClient["flags"]
+	db = connectedClient["db"]
+	cmd = connectedClient["cmd"]
+
+	ok = true
 	return
 }
 
@@ -819,6 +859,18 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 	}
 }
 
+func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+	if reply, err := redis.String(doRedisCmd(c, "CLIENT", "LIST")); err == nil {
+		clients := strings.Split(reply, "\n")
+
+		for _, c := range clients {
+			if host, port, name, age, idle, flags, db, cmd, ok := parseClientListString(c); ok {
+				e.registerConstMetricGauge(ch, "connected_clients_details", 1.0, host, port, name, age, idle, flags, db, cmd)
+			}
+		}
+	}
+}
+
 func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) error {
 	orgMetricName := sanitizeMetricName(fieldKey)
 	metricName := orgMetricName
@@ -1063,6 +1115,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractLuaScriptMetrics(ch, c)
 
 	e.extractSlowLogMetrics(ch, c)
+
+	if e.options.ExportClientList {
+		e.extractConnectedClientMetrics(ch, c)
+	}
 
 	if e.options.IsTile38 {
 		e.extractTile38Metrics(ch, c)
