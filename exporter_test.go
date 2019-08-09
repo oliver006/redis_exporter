@@ -824,8 +824,9 @@ func TestLuaScript(t *testing.T) {
 	e := getTestExporter()
 
 	for _, tst := range []struct {
-		Script       string
-		ExpectedKeys int
+		Script        string
+		ExpectedKeys  int
+		ExpectedError bool
 	}{
 		{
 			Script:       `return {"a", "11", "b", "12", "c", "13"}`,
@@ -836,8 +837,13 @@ func TestLuaScript(t *testing.T) {
 			ExpectedKeys: 1,
 		},
 		{
-			Script:       `return {"key1"   BROKEN `,
+			Script:       `return {} `,
 			ExpectedKeys: 0,
+		},
+		{
+			Script:        `return {"key1"   BROKEN `,
+			ExpectedKeys:  0,
+			ExpectedError: true,
 		},
 	} {
 
@@ -852,15 +858,33 @@ func TestLuaScript(t *testing.T) {
 			e.Collect(chM)
 			close(chM)
 		}()
+		scrapeErrorFound := false
 
 		for m := range chM {
 			if strings.Contains(m.Desc().String(), "test_script_value") {
 				nKeys--
 			}
+
+			if strings.Contains(m.Desc().String(), "exporter_last_scrape_error") {
+				g := &dto.Metric{}
+				m.Write(g)
+				if g.GetGauge() != nil {
+					if *g.GetGauge().Value > 0 {
+						scrapeErrorFound = true
+					}
+				}
+			}
 		}
 		if nKeys != 0 {
 			t.Error("didn't find expected script keys")
 		}
+
+		if tst.ExpectedError {
+			if !scrapeErrorFound {
+				t.Error("didn't find expected scrape errors")
+			}
+		}
+
 	}
 }
 

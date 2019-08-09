@@ -790,21 +790,24 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	}
 }
 
-func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) error {
 	log.Debug("Evaluating e.options.LuaScript")
 	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.options.LuaScript, 0, 0))
 	if err != nil {
 		log.Errorf("LuaScript error: %v", err)
-		return
+		return err
 	}
 
-	if kv != nil {
-		for key, stringVal := range kv {
-			if val, err := strconv.ParseFloat(stringVal, 64); err == nil {
-				e.registerConstMetricGauge(ch, "script_values", val, key)
-			}
+	if kv == nil || len(kv) == 0 {
+		return nil
+	}
+
+	for key, stringVal := range kv {
+		if val, err := strconv.ParseFloat(stringVal, 64); err == nil {
+			e.registerConstMetricGauge(ch, "script_values", val, key)
 		}
 	}
+	return nil
 }
 
 func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
@@ -1119,7 +1122,9 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractSlowLogMetrics(ch, c)
 
 	if e.options.LuaScript != nil && len(e.options.LuaScript) > 0 {
-		e.extractLuaScriptMetrics(ch, c)
+		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
+			return err
+		}
 	}
 
 	if e.options.ExportClientList {
