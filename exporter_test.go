@@ -945,7 +945,14 @@ func TestHTTPEndpoints(t *testing.T) {
 			prometheus.DefaultGatherer = r
 			prometheus.DefaultRegisterer = r
 
-			e, _ := NewRedisExporter(tst.addr, ExporterOptions{Namespace: "test", Password: tst.pwd, CheckSingleKeys: csk})
+			options := ExporterOptions{
+				Namespace:       "test",
+				Password:        tst.pwd,
+				CheckSingleKeys: csk,
+				LuaScript:       []byte(`return {"a", "11", "b", "12", "c", "13"}`),
+			}
+
+			e, _ := NewRedisExporter(tst.addr, options)
 			prometheus.Register(e)
 
 			var ts *httptest.Server
@@ -989,6 +996,8 @@ func TestHTTPEndpoints(t *testing.T) {
 				`redis_mode`,
 				`standalone`,
 				`cmd="config`,
+
+				`test_script_value`, // lua script
 
 				`test_key_size{db="db11",key="` + keys[0] + `"} 7`,
 				`test_key_value{db="db11",key="` + keys[0] + `"} 1234.56`,
