@@ -822,7 +822,7 @@ func TestKeySizeList(t *testing.T) {
 
 func TestScript(t *testing.T) {
 	e := getTestExporter()
-	e.LuaScript = []byte(`return {"a", "11", "b", "12", "c", "13"}`)
+	e.options.LuaScript = []byte(`return {"a", "11", "b", "12", "c", "13"}`)
 	nKeys := 3
 
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))

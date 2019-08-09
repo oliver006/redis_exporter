@@ -99,6 +99,13 @@ func main() {
 		tlsClientCertificates = append(tlsClientCertificates, cert)
 	}
 
+	var ls []byte
+	if *scriptPath != "" {
+		if ls, err = ioutil.ReadFile(*scriptPath); err != nil {
+			log.Fatalf("Error loading script file %s    err: %s", *scriptPath, err)
+		}
+	}
+
 	exp, err := NewRedisExporter(
 		*redisAddr,
 		ExporterOptions{
@@ -107,6 +114,7 @@ func main() {
 			ConfigCommandName:   *configCommand,
 			CheckKeys:           *checkKeys,
 			CheckSingleKeys:     *checkSingleKeys,
+			LuaScript:           ls,
 			InclSystemMetrics:   *inclSystemMetrics,
 			IsTile38:            *isTile38,
 			ExportClientList:    *exportClientList,
@@ -117,12 +125,6 @@ func main() {
 	)
 	if err != nil {
 		log.Fatal(err)
-	}
-
-	if *scriptPath != "" {
-		if exp.LuaScript, err = ioutil.ReadFile(*scriptPath); err != nil {
-			log.Fatalf("Error loading script file %s    err: %s", *scriptPath, err)
-		}
 	}
 
 	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{

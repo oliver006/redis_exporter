@@ -31,10 +31,8 @@ type keyInfo struct {
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	sync.Mutex
-	redisAddr  string
-	namespace  string
-	keys       []dbKeyPair
-	singleKeys []dbKeyPair
+	redisAddr string
+	namespace string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -42,8 +40,7 @@ type Exporter struct {
 
 	metricDescriptions map[string]*prometheus.Desc
 
-	options   ExporterOptions
-	LuaScript []byte
+	options ExporterOptions
 
 	metricMapCounters map[string]string
 	metricMapGauges   map[string]string
@@ -55,6 +52,7 @@ type ExporterOptions struct {
 	ConfigCommandName   string
 	CheckSingleKeys     string
 	CheckKeys           string
+	LuaScript           []byte
 	ClientCertificates  []tls.Certificate
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
@@ -82,12 +80,17 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 	u.User = nil
 	target = u.String()
 
+	opts := e.options
+
 	checkKeys := r.URL.Query().Get("check-keys")
 	checkSingleKey := r.URL.Query().Get("check-single-keys")
+	if checkKeys != "" {
+		opts.CheckKeys = checkKeys
+	}
 
-	opts := e.options
-	opts.CheckKeys = checkKeys
-	opts.CheckSingleKeys = checkSingleKey
+	if checkSingleKey != "" {
+		opts.CheckSingleKeys = checkSingleKey
+	}
 
 	exp, err := NewRedisExporter(target, opts)
 	if err != nil {
@@ -262,17 +265,17 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		e.options.ConfigCommandName = "CONFIG"
 	}
 
-	var err error
-
-	if e.keys, err = parseKeyArg(opts.CheckKeys); err != nil {
+	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
 		return &e, fmt.Errorf("Couldn't parse check-keys: %#v", err)
+	} else {
+		log.Debugf("keys: %#v", keys)
 	}
-	log.Debugf("keys: %#v", e.keys)
 
-	if e.singleKeys, err = parseKeyArg(opts.CheckSingleKeys); err != nil {
+	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
 		return &e, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
+	} else {
+		log.Debugf("singleKeys: %#v", singleKeys)
 	}
-	log.Debugf("singleKeys: %#v", e.singleKeys)
 
 	if opts.InclSystemMetrics {
 		e.metricMapGauges["total_system_memory"] = "total_system_memory_bytes"
@@ -736,11 +739,24 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 }
 
 func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	log.Debugf("e.singleKeys: %#v", e.singleKeys)
-	allKeys := append([]dbKeyPair{}, e.singleKeys...)
+	keys, err := parseKeyArg(e.options.CheckKeys)
+	if err != nil {
+		log.Errorf("Couldn't parse check-keys: %#v", err)
+		return
+	}
+	log.Debugf("keys: %#v", keys)
 
-	log.Debugf("e.keys: %#v", e.keys)
-	scannedKeys, err := getKeysFromPatterns(c, e.keys)
+	singleKeys, err := parseKeyArg(e.options.CheckSingleKeys)
+	if err != nil {
+		log.Errorf("Couldn't parse check-single-keys: %#v", err)
+		return
+	}
+	log.Debugf("e.singleKeys: %#v", singleKeys)
+
+	allKeys := append([]dbKeyPair{}, singleKeys...)
+
+	log.Debugf("e.keys: %#v", keys)
+	scannedKeys, err := getKeysFromPatterns(c, keys)
 	if err != nil {
 		log.Errorf("Error expanding key patterns: %#v", err)
 	} else {
@@ -775,8 +791,8 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 }
 
 func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	log.Debug("Evaluating e.LuaScript")
-	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.LuaScript, 0, 0))
+	log.Debug("Evaluating e.options.LuaScript")
+	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.options.LuaScript, 0, 0))
 	if err != nil {
 		log.Errorf("LuaScript error: %v", err)
 		return
@@ -1102,7 +1118,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractSlowLogMetrics(ch, c)
 
-	if e.LuaScript != nil && len(e.LuaScript) > 0 {
+	if e.options.LuaScript != nil && len(e.options.LuaScript) > 0 {
 		e.extractLuaScriptMetrics(ch, c)
 	}
 
