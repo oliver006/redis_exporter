@@ -618,7 +618,7 @@ func (e *Exporter) handleMetricsServer(ch chan<- prometheus.Metric, fieldKey str
 	}
 }
 
-func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) error {
+func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) {
 	instanceInfo := map[string]string{}
 	slaveInfo := map[string]string{}
 	handledDBs := map[string]bool{}
@@ -712,11 +712,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			slaveInfo["master_port"],
 			slaveInfo["slave_read_only"])
 	}
-
-	return nil
 }
 
-func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info string) error {
+func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info string) {
 	lines := strings.Split(info, "\r\n")
 
 	for _, line := range lines {
@@ -735,8 +733,6 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 
 		e.parseAndRegisterConstMetric(ch, fieldKey, fieldValue)
 	}
-
-	return nil
 }
 
 func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
@@ -779,10 +775,6 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 }
 
 func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if e.LuaScript == nil || len(e.LuaScript) == 0 {
-		return
-	}
-
 	log.Debug("Evaluating e.LuaScript")
 	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.LuaScript, 0, 0))
 	if err != nil {
@@ -869,7 +861,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 	}
 }
 
-func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) error {
+func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) {
 	orgMetricName := sanitizeMetricName(fieldKey)
 	metricName := orgMetricName
 	if newName, ok := e.metricMapGauges[metricName]; ok {
@@ -911,8 +903,6 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	}
 
 	e.registerConstMetric(ch, metricName, val, t)
-
-	return nil
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (reply interface{}, err error) {
@@ -1110,9 +1100,11 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractCheckKeyMetrics(ch, c)
 
-	e.extractLuaScriptMetrics(ch, c)
-
 	e.extractSlowLogMetrics(ch, c)
+
+	if e.LuaScript != nil && len(e.LuaScript) > 0 {
+		e.extractLuaScriptMetrics(ch, c)
+	}
 
 	if e.options.ExportClientList {
 		e.extractConnectedClientMetrics(ch, c)
