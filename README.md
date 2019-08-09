@@ -75,12 +75,12 @@ The Redis instances are listed under `targets`, the Redis exporter hostname is c
 If authentication is needed for the Redis instances then you can set the password via the `--redis.password` command line option of
 the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several 
 exporters if this is a problem). \
-You can also use a file supply multiple targets by using `file_sd_configs` like so:
+You can also use a json file to supply multiple targets by using `file_sd_configs` like so:
 
 ```yaml
 
 scrape_configs:
-  - job_name: 'redis_exporter'
+  - job_name: 'redis_exporter_targets'
     file_sd_configs:
       - files:
         - targets-redis-instances.json
@@ -92,6 +92,12 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
+
+  ## config for scraping the exporter itself
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets:
+        - <<REDIS-EXPORTER-HOSTNAME>>:9121
 ```
 
 The `targets-redis-instances.json` should look something like this:
