@@ -820,27 +820,47 @@ func TestKeySizeList(t *testing.T) {
 	}
 }
 
-func TestScript(t *testing.T) {
+func TestLuaScript(t *testing.T) {
 	e := getTestExporter()
-	e.options.LuaScript = []byte(`return {"a", "11", "b", "12", "c", "13"}`)
-	nKeys := 3
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	for _, tst := range []struct {
+		Script       string
+		ExpectedKeys int
+	}{
+		{
+			Script:       `return {"a", "11", "b", "12", "c", "13"}`,
+			ExpectedKeys: 3,
+		},
+		{
+			Script:       `return {"key1", "6389"}`,
+			ExpectedKeys: 1,
+		},
+		{
+			Script:       `return {"key1"   BROKEN `,
+			ExpectedKeys: 0,
+		},
+	} {
 
-	chM := make(chan prometheus.Metric)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+		e.options.LuaScript = []byte(tst.Script)
+		nKeys := tst.ExpectedKeys
 
-	for m := range chM {
-		if strings.Contains(m.Desc().String(), "test_script_value") {
-			nKeys--
+		setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
+		defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+
+		chM := make(chan prometheus.Metric)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
+
+		for m := range chM {
+			if strings.Contains(m.Desc().String(), "test_script_value") {
+				nKeys--
+			}
 		}
-	}
-	if nKeys != 0 {
-		t.Error("didn't find expected script keys")
+		if nKeys != 0 {
+			t.Error("didn't find expected script keys")
+		}
 	}
 }
 
