@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -44,6 +45,8 @@ type Exporter struct {
 
 	metricMapCounters map[string]string
 	metricMapGauges   map[string]string
+
+	mux *http.ServeMux
 }
 
 type ExporterOptions struct {
@@ -59,6 +62,9 @@ type ExporterOptions struct {
 	IsTile38            bool
 	ExportClientList    bool
 	ConnectionTimeouts  time.Duration
+	MetricsPath         string
+	RedisMetricsOnly    bool
+	Registry            *prometheus.Registry
 }
 
 func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,14 +98,15 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 		opts.CheckSingleKeys = checkSingleKey
 	}
 
-	exp, err := NewRedisExporter(target, opts)
+	registry := prometheus.NewRegistry()
+	opts.Registry = registry
+
+	_, err = NewRedisExporter(target, opts)
 	if err != nil {
 		http.Error(w, "NewRedisExporter() err: err", 400)
 		e.targetScrapeRequestErrors.Inc()
 		return
 	}
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(exp)
 
 	promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }
@@ -138,7 +145,7 @@ func newMetricDescr(namespace string, metricName string, docString string, label
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) {
-	e := Exporter{
+	e := &Exporter{
 		redisAddr: redisURI,
 		options:   opts,
 		namespace: opts.Namespace,
@@ -150,8 +157,9 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		}),
 
 		scrapeDuration: prometheus.NewSummary(prometheus.SummaryOpts{
-			Name: "exporter_scrape_duration_seconds",
-			Help: "Duration of scrape by the exporter",
+			Namespace: opts.Namespace,
+			Name:      "exporter_scrape_duration_seconds",
+			Help:      "Duration of scrape by the exporter",
 		}),
 
 		targetScrapeRequestErrors: prometheus.NewCounter(prometheus.CounterOpts{
@@ -266,13 +274,13 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 	}
 
 	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
-		return &e, fmt.Errorf("Couldn't parse check-keys: %#v", err)
+		return nil, fmt.Errorf("Couldn't parse check-keys: %#v", err)
 	} else {
 		log.Debugf("keys: %#v", keys)
 	}
 
 	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
-		return &e, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
+		return nil, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
 	} else {
 		log.Debugf("singleKeys: %#v", singleKeys)
 	}
@@ -313,7 +321,44 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
 
-	return &e, nil
+	if e.options.MetricsPath == "" {
+		e.options.MetricsPath = "/metrics"
+	}
+
+	e.mux = http.NewServeMux()
+
+	if e.options.Registry != nil {
+		e.options.Registry.MustRegister(e)
+		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(e.options.Registry, promhttp.HandlerOpts{}))
+
+		if !e.options.RedisMetricsOnly {
+			buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: opts.Namespace,
+				Name:      "exporter_build_info",
+				Help:      "redis exporter build_info",
+			}, []string{"version", "commit_sha", "build_date", "golang_version"})
+			buildInfo.WithLabelValues(BuildVersion, BuildCommitSha, BuildDate, runtime.Version()).Set(1)
+			e.options.Registry.MustRegister(buildInfo)
+		}
+	}
+
+	e.mux.HandleFunc("/scrape", e.ScrapeHandler)
+	e.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+<head><title>Redis Exporter v` + BuildVersion + `</title></head>
+<body>
+<h1>Redis Exporter ` + BuildVersion + `</h1>
+<p><a href='` + opts.MetricsPath + `'>Metrics</a></p>
+</body>
+</html>
+`))
+	})
+
+	return e, nil
+}
+
+func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.mux.ServeHTTP(w, r)
 }
 
 // Describe outputs Redis metric descriptions.
