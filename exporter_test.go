@@ -223,17 +223,18 @@ func TestTile38(t *testing.T) {
 		}()
 
 		found := false
+		want := "tile38_threads_total"
 		for m := range chM {
-			if strings.Contains(m.Desc().String(), "cpus_total") {
+			fmt.Println(m.Desc().String())
+			if strings.Contains(m.Desc().String(), want) {
 				found = true
-				break
 			}
 		}
 
 		if isTile38 && !found {
-			t.Errorf("cpus_total was *not* found in tile38 metrics but expected")
+			t.Errorf("%s was *not* found in tile38 metrics but expected", want)
 		} else if !isTile38 && found {
-			t.Errorf("cpus_total was *found* in tile38 metrics but *not* expected")
+			t.Errorf("%s was *found* in tile38 metrics but *not* expected", want)
 		}
 	}
 }
@@ -253,7 +254,6 @@ func TestExportClientList(t *testing.T) {
 		for m := range chM {
 			if strings.Contains(m.Desc().String(), "connected_clients_details") {
 				found = true
-				break
 			}
 		}
 
@@ -812,7 +812,6 @@ func TestKeySizeList(t *testing.T) {
 	for m := range chM {
 		if strings.Contains(m.Desc().String(), "test_key_size") {
 			found = true
-			break
 		}
 	}
 
@@ -908,12 +907,9 @@ func TestCommandStats(t *testing.T) {
 func TestIncludeSystemMemoryMetric(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		r := prometheus.NewRegistry()
-		prometheus.DefaultGatherer = r
-		prometheus.DefaultRegisterer = r
-
-		ts := httptest.NewServer(promhttp.Handler())
+		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), ExporterOptions{Namespace: "test", InclSystemMetrics: inc})
-		prometheus.Register(e)
+		r.Register(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		if inc && !strings.Contains(body, "total_system_memory_bytes") {
