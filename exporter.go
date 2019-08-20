@@ -220,23 +220,22 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 
 			// # Tile38
 			// based on https://tile38.com/commands/server/
-			"aof_size":        "aof_size_bytes",
-			"avg_item_size":   "avg_item_size_bytes",
-			"cpus":            "cpus_total",
-			"heap_released":   "heap_released_bytes",
-			"heap_size":       "heap_size_bytes",
-			"http_transport":  "http_transport",
-			"in_memory_size":  "in_memory_size_bytes",
-			"max_heap_size":   "max_heap_size_bytes",
-			"mem_alloc":       "mem_alloc_bytes",
-			"num_collections": "num_collections_total",
-			"num_hooks":       "num_hooks_total",
-			"num_objects":     "num_objects_total",
-			"num_points":      "num_points_total",
-			"pointer_size":    "pointer_size_bytes",
-			"read_only":       "read_only",
-			"threads":         "threads_total",
-			"version":         "version", // since tile38 version 1.14.1
+			"tile38_aof_size":        "tile38_aof_size_bytes",
+			"tile38_avg_item_size":   "tile38_avg_item_size_bytes",
+			"tile38_cpus":            "tile38_cpus_total",
+			"tile38_heap_released":   "tile38_heap_released_bytes",
+			"tile38_heap_size":       "tile38_heap_size_bytes",
+			"tile38_http_transport":  "tile38_http_transport",
+			"tile38_in_memory_size":  "tile38_in_memory_size_bytes",
+			"tile38_max_heap_size":   "tile38_max_heap_size_bytes",
+			"tile38_mem_alloc":       "tile38_mem_alloc_bytes",
+			"tile38_num_collections": "tile38_num_collections_total",
+			"tile38_num_hooks":       "tile38_num_hooks_total",
+			"tile38_num_objects":     "tile38_num_objects_total",
+			"tile38_num_points":      "tile38_num_points_total",
+			"tile38_pointer_size":    "tile38_pointer_size_bytes",
+			"tile38_read_only":       "tile38_read_only",
+			"tile38_threads":         "tile38_threads_total",
 		},
 
 		metricMapCounters: map[string]string{
@@ -846,10 +845,9 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 	}
 
 	for i := 0; i < len(info); i += 2 {
-		log.Debugf("tile38: %s:%s", info[i], info[i+1])
-
-		fieldKey := info[i]
+		fieldKey := "tile38_" + info[i]
 		fieldValue := info[i+1]
+		log.Debugf("tile38   key:%s   val:%s", fieldKey, fieldValue)
 
 		if !e.includeMetric(fieldKey) {
 			continue
@@ -887,10 +885,10 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 
 	switch fieldValue {
 
-	case "ok":
+	case "ok", "true":
 		val = 1
 
-	case "err", "fail":
+	case "err", "fail", "false":
 		val = 0
 
 	default:
