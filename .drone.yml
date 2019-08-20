@@ -59,7 +59,7 @@ steps:
       - 'echo "checking gofmt"'
       - 'echo " ! gofmt -d *.go       2>&1 | read " | bash'
       - 'echo "checking gofmt - DONE"'
-      - 'go vet .'
+      - 'go vet -mod=vendor .'
       - 'go get github.com/mattn/goveralls'
       - '/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io'
     when:

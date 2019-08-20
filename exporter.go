@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -31,10 +32,8 @@ type keyInfo struct {
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	sync.Mutex
-	redisAddr  string
-	namespace  string
-	keys       []dbKeyPair
-	singleKeys []dbKeyPair
+	redisAddr string
+	namespace string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -42,11 +41,12 @@ type Exporter struct {
 
 	metricDescriptions map[string]*prometheus.Desc
 
-	options   ExporterOptions
-	LuaScript []byte
+	options ExporterOptions
 
 	metricMapCounters map[string]string
 	metricMapGauges   map[string]string
+
+	mux *http.ServeMux
 }
 
 type ExporterOptions struct {
@@ -55,12 +55,16 @@ type ExporterOptions struct {
 	ConfigCommandName   string
 	CheckSingleKeys     string
 	CheckKeys           string
+	LuaScript           []byte
 	ClientCertificates  []tls.Certificate
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	IsTile38            bool
 	ExportClientList    bool
 	ConnectionTimeouts  time.Duration
+	MetricsPath         string
+	RedisMetricsOnly    bool
+	Registry            *prometheus.Registry
 }
 
 func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +77,7 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(target)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %s ", err), 400)
+		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %ck ", err), 400)
 		e.targetScrapeRequestErrors.Inc()
 		return
 	}
@@ -82,21 +86,25 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 	u.User = nil
 	target = u.String()
 
-	checkKeys := r.URL.Query().Get("check-keys")
-	checkSingleKey := r.URL.Query().Get("check-single-keys")
-
 	opts := e.options
-	opts.CheckKeys = checkKeys
-	opts.CheckSingleKeys = checkSingleKey
 
-	exp, err := NewRedisExporter(target, opts)
+	if ck := r.URL.Query().Get("check-keys"); ck != "" {
+		opts.CheckKeys = ck
+	}
+
+	if csk := r.URL.Query().Get("check-single-keys"); csk != "" {
+		opts.CheckSingleKeys = csk
+	}
+
+	registry := prometheus.NewRegistry()
+	opts.Registry = registry
+
+	_, err = NewRedisExporter(target, opts)
 	if err != nil {
 		http.Error(w, "NewRedisExporter() err: err", 400)
 		e.targetScrapeRequestErrors.Inc()
 		return
 	}
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(exp)
 
 	promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }
@@ -135,7 +143,7 @@ func newMetricDescr(namespace string, metricName string, docString string, label
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) {
-	e := Exporter{
+	e := &Exporter{
 		redisAddr: redisURI,
 		options:   opts,
 		namespace: opts.Namespace,
@@ -147,8 +155,9 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		}),
 
 		scrapeDuration: prometheus.NewSummary(prometheus.SummaryOpts{
-			Name: "exporter_scrape_duration_seconds",
-			Help: "Duration of scrape by the exporter",
+			Namespace: opts.Namespace,
+			Name:      "exporter_scrape_duration_seconds",
+			Help:      "Duration of scrape by the exporter",
 		}),
 
 		targetScrapeRequestErrors: prometheus.NewCounter(prometheus.CounterOpts{
@@ -262,17 +271,17 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		e.options.ConfigCommandName = "CONFIG"
 	}
 
-	var err error
-
-	if e.keys, err = parseKeyArg(opts.CheckKeys); err != nil {
-		return &e, fmt.Errorf("Couldn't parse check-keys: %#v", err)
+	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
+		return nil, fmt.Errorf("Couldn't parse check-keys: %#v", err)
+	} else {
+		log.Debugf("keys: %#v", keys)
 	}
-	log.Debugf("keys: %#v", e.keys)
 
-	if e.singleKeys, err = parseKeyArg(opts.CheckSingleKeys); err != nil {
-		return &e, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
+	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
+		return nil, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
+	} else {
+		log.Debugf("singleKeys: %#v", singleKeys)
 	}
-	log.Debugf("singleKeys: %#v", e.singleKeys)
 
 	if opts.InclSystemMetrics {
 		e.metricMapGauges["total_system_memory"] = "total_system_memory_bytes"
@@ -310,7 +319,44 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
 
-	return &e, nil
+	if e.options.MetricsPath == "" {
+		e.options.MetricsPath = "/metrics"
+	}
+
+	e.mux = http.NewServeMux()
+
+	if e.options.Registry != nil {
+		e.options.Registry.MustRegister(e)
+		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(e.options.Registry, promhttp.HandlerOpts{}))
+
+		if !e.options.RedisMetricsOnly {
+			buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: opts.Namespace,
+				Name:      "exporter_build_info",
+				Help:      "redis exporter build_info",
+			}, []string{"version", "commit_sha", "build_date", "golang_version"})
+			buildInfo.WithLabelValues(BuildVersion, BuildCommitSha, BuildDate, runtime.Version()).Set(1)
+			e.options.Registry.MustRegister(buildInfo)
+		}
+	}
+
+	e.mux.HandleFunc("/scrape", e.ScrapeHandler)
+	e.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`<html>
+<head><title>Redis Exporter v` + BuildVersion + `</title></head>
+<body>
+<h1>Redis Exporter ` + BuildVersion + `</h1>
+<p><a href='` + opts.MetricsPath + `'>Metrics</a></p>
+</body>
+</html>
+`))
+	})
+
+	return e, nil
+}
+
+func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	e.mux.ServeHTTP(w, r)
 }
 
 // Describe outputs Redis metric descriptions.
@@ -618,7 +664,7 @@ func (e *Exporter) handleMetricsServer(ch chan<- prometheus.Metric, fieldKey str
 	}
 }
 
-func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) error {
+func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) {
 	instanceInfo := map[string]string{}
 	slaveInfo := map[string]string{}
 	handledDBs := map[string]bool{}
@@ -712,11 +758,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			slaveInfo["master_port"],
 			slaveInfo["slave_read_only"])
 	}
-
-	return nil
 }
 
-func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info string) error {
+func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info string) {
 	lines := strings.Split(info, "\r\n")
 
 	for _, line := range lines {
@@ -735,16 +779,27 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 
 		e.parseAndRegisterConstMetric(ch, fieldKey, fieldValue)
 	}
-
-	return nil
 }
 
 func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	log.Debugf("e.singleKeys: %#v", e.singleKeys)
-	allKeys := append([]dbKeyPair{}, e.singleKeys...)
+	keys, err := parseKeyArg(e.options.CheckKeys)
+	if err != nil {
+		log.Errorf("Couldn't parse check-keys: %#v", err)
+		return
+	}
+	log.Debugf("keys: %#v", keys)
 
-	log.Debugf("e.keys: %#v", e.keys)
-	scannedKeys, err := getKeysFromPatterns(c, e.keys)
+	singleKeys, err := parseKeyArg(e.options.CheckSingleKeys)
+	if err != nil {
+		log.Errorf("Couldn't parse check-single-keys: %#v", err)
+		return
+	}
+	log.Debugf("e.singleKeys: %#v", singleKeys)
+
+	allKeys := append([]dbKeyPair{}, singleKeys...)
+
+	log.Debugf("e.keys: %#v", keys)
+	scannedKeys, err := getKeysFromPatterns(c, keys)
 	if err != nil {
 		log.Errorf("Error expanding key patterns: %#v", err)
 	} else {
@@ -778,25 +833,24 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	}
 }
 
-func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if e.LuaScript == nil || len(e.LuaScript) == 0 {
-		return
-	}
-
-	log.Debug("Evaluating e.LuaScript")
-	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.LuaScript, 0, 0))
+func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) error {
+	log.Debug("Evaluating e.options.LuaScript")
+	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.options.LuaScript, 0, 0))
 	if err != nil {
 		log.Errorf("LuaScript error: %v", err)
-		return
+		return err
 	}
 
-	if kv != nil {
-		for key, stringVal := range kv {
-			if val, err := strconv.ParseFloat(stringVal, 64); err == nil {
-				e.registerConstMetricGauge(ch, "script_values", val, key)
-			}
+	if kv == nil || len(kv) == 0 {
+		return nil
+	}
+
+	for key, stringVal := range kv {
+		if val, err := strconv.ParseFloat(stringVal, 64); err == nil {
+			e.registerConstMetricGauge(ch, "script_values", val, key)
 		}
 	}
+	return nil
 }
 
 func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
@@ -869,7 +923,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 	}
 }
 
-func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) error {
+func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) {
 	orgMetricName := sanitizeMetricName(fieldKey)
 	metricName := orgMetricName
 	if newName, ok := e.metricMapGauges[metricName]; ok {
@@ -911,8 +965,6 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	}
 
 	e.registerConstMetric(ch, metricName, val, t)
-
-	return nil
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (reply interface{}, err error) {
@@ -1110,9 +1162,13 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractCheckKeyMetrics(ch, c)
 
-	e.extractLuaScriptMetrics(ch, c)
-
 	e.extractSlowLogMetrics(ch, c)
+
+	if e.options.LuaScript != nil && len(e.options.LuaScript) > 0 {
+		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
+			return err
+		}
+	}
 
 	if e.options.ExportClientList {
 		e.extractConnectedClientMetrics(ch, c)

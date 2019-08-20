@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -99,6 +98,18 @@ func main() {
 		tlsClientCertificates = append(tlsClientCertificates, cert)
 	}
 
+	var ls []byte
+	if *scriptPath != "" {
+		if ls, err = ioutil.ReadFile(*scriptPath); err != nil {
+			log.Fatalf("Error loading script file %s    err: %s", *scriptPath, err)
+		}
+	}
+
+	registry := prometheus.NewRegistry()
+	if !*redisMetricsOnly {
+		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
+	}
+
 	exp, err := NewRedisExporter(
 		*redisAddr,
 		ExporterOptions{
@@ -107,55 +118,23 @@ func main() {
 			ConfigCommandName:   *configCommand,
 			CheckKeys:           *checkKeys,
 			CheckSingleKeys:     *checkSingleKeys,
+			LuaScript:           ls,
 			InclSystemMetrics:   *inclSystemMetrics,
 			IsTile38:            *isTile38,
 			ExportClientList:    *exportClientList,
 			SkipTLSVerification: *skipTLSVerification,
 			ClientCertificates:  tlsClientCertificates,
 			ConnectionTimeouts:  to,
+			MetricsPath:         *metricPath,
+			RedisMetricsOnly:    *redisMetricsOnly,
+			Registry:            registry,
 		},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if *scriptPath != "" {
-		if exp.LuaScript, err = ioutil.ReadFile(*scriptPath); err != nil {
-			log.Fatalf("Error loading script file %s    err: %s", *scriptPath, err)
-		}
-	}
-
-	buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "redis_exporter_build_info",
-		Help: "redis exporter build_info",
-	}, []string{"version", "commit_sha", "build_date", "golang_version"})
-	buildInfo.WithLabelValues(BuildVersion, BuildCommitSha, BuildDate, runtime.Version()).Set(1)
-
-	if *redisMetricsOnly {
-		registry := prometheus.NewRegistry()
-		registry.MustRegister(exp)
-		handler := promhttp.HandlerFor(registry, promhttp.HandlerOpts{})
-		http.Handle(*metricPath, handler)
-	} else {
-		prometheus.MustRegister(exp)
-		prometheus.MustRegister(buildInfo)
-		http.Handle(*metricPath, promhttp.Handler())
-	}
-
-	http.HandleFunc("/scrape", exp.ScrapeHandler)
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-<head><title>Redis Exporter v` + BuildVersion + `</title></head>
-<body>
-<h1>Redis Exporter ` + BuildVersion + `</h1>
-<p><a href='` + *metricPath + `'>Metrics</a></p>
-</body>
-</html>
-`))
-	})
-
 	log.Infof("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Debugf("Configured redis addr: %#v", *redisAddr)
-	log.Fatal(http.ListenAndServe(*listenAddress, nil))
+	log.Fatal(http.ListenAndServe(*listenAddress, exp))
 }
