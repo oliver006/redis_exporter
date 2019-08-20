@@ -10,7 +10,6 @@ package main
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
@@ -25,6 +24,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
@@ -972,45 +972,52 @@ func TestHTTPEndpoints(t *testing.T) {
 	setupDBKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_PWD_REDIS_URI"))
 
+	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0])
+
 	for _, tst := range []struct {
 		addr   string
+		ck     string
 		csk    string
 		pwd    string
 		target string
 	}{
-		{addr: os.Getenv("TEST_REDIS_URI")},
-		{pwd: "", target: os.Getenv("TEST_REDIS_URI")},
-		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI")},
+		{addr: os.Getenv("TEST_REDIS_URI"), csk: csk},
+		{addr: os.Getenv("TEST_REDIS_URI"), ck: csk},
+		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), ck: csk},
+		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), csk: csk},
+		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), csk: csk},
 	} {
 		name := fmt.Sprintf("%s---%s", tst.target, tst.pwd)
-		csk := dbNumStrFull + "=" + url.QueryEscape(keys[0])
 		t.Run(name, func(t *testing.T) {
 			options := ExporterOptions{
-				Namespace:       "test",
-				Password:        tst.pwd,
-				CheckSingleKeys: csk,
-				LuaScript:       []byte(`return {"a", "11", "b", "12", "c", "13"}`),
-				Registry:        prometheus.NewRegistry(),
+				Namespace: "test",
+				Password:  tst.pwd,
+				LuaScript: []byte(`return {"a", "11", "b", "12", "c", "13"}`),
+				Registry:  prometheus.NewRegistry(),
+			}
+
+			if tst.target == "" {
+				options.CheckSingleKeys = tst.csk
+				options.CheckKeys = tst.ck
 			}
 
 			e, _ := NewRedisExporter(tst.addr, options)
 			ts := httptest.NewServer(e)
 
-			u := ""
+			u := ts.URL
 			if tst.target != "" {
-				u = ts.URL + "/scrape"
+				u += "/scrape"
 				v := url.Values{}
 				v.Add("target", tst.target)
-				v.Add("check-single-keys", csk)
+				v.Add("check-single-keys", tst.csk)
+				v.Add("check-keys", tst.ck)
 
 				up, _ := url.Parse(u)
 				up.RawQuery = v.Encode()
 				u = up.String()
 			} else {
-				u = ts.URL + "/metrics"
+				u += "/metrics"
 			}
-
-			body := downloadURL(t, u)
 
 			wants := []string{
 				// metrics
@@ -1042,6 +1049,8 @@ func TestHTTPEndpoints(t *testing.T) {
 				`test_db_keys{db="db11"} `,
 				`test_db_keys_expiring{db="db11"} `,
 			}
+
+			body := downloadURL(t, u)
 			for _, want := range wants {
 				if !strings.Contains(body, want) {
 					t.Errorf("url: %s    want metrics to include %q, have:\n%s", u, want, body)

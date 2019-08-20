@@ -77,7 +77,7 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(target)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %s ", err), 400)
+		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %ck ", err), 400)
 		e.targetScrapeRequestErrors.Inc()
 		return
 	}
@@ -88,14 +88,12 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	opts := e.options
 
-	checkKeys := r.URL.Query().Get("check-keys")
-	checkSingleKey := r.URL.Query().Get("check-single-keys")
-	if checkKeys != "" {
-		opts.CheckKeys = checkKeys
+	if ck := r.URL.Query().Get("check-keys"); ck != "" {
+		opts.CheckKeys = ck
 	}
 
-	if checkSingleKey != "" {
-		opts.CheckSingleKeys = checkSingleKey
+	if csk := r.URL.Query().Get("check-single-keys"); csk != "" {
+		opts.CheckSingleKeys = csk
 	}
 
 	registry := prometheus.NewRegistry()
