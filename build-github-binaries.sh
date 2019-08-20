@@ -22,6 +22,7 @@ fi
 
 gox -verbose -os="darwin linux windows freebsd netbsd openbsd" -arch="386 amd64" -rebuild -ldflags "${GO_LDFLAGS}" -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}"
 gox -verbose -os="linux freebsd netbsd" -arch="arm" -rebuild -ldflags "${GO_LDFLAGS}" -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}"
+gox -verbose -os="linux" -arch="arm64 mips64 mips64le ppc64 ppc64le s390x" -rebuild -ldflags "${GO_LDFLAGS}" -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}"
 
 mkdir -p dist
 for build in $(ls .build); do
