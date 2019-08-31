@@ -105,7 +105,7 @@ The `targets-redis-instances.json` should look something like this:
 ```json
 [
   {
-    "targets": [ "redis-host-01:6379", "redis-host-02:6379"],
+    "targets": [ "redis://redis-host-01:6379", "redis://redis-host-02:6379"],
     "labels": { }
   }
 ]
