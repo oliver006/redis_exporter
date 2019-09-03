@@ -21,7 +21,7 @@ jobs:
       uses: actions/checkout@v1
     
     - name: Publish Docker
-      uses: HurricanKai/Publish-Docker-Github-Action@1.12
+      uses: HurricanKai/Publish-Docker-Github-Action@1.12.1
       with:
         name: kaij/redis_exporter
         username: ${{ secrets.DOCKER_USERNAME }}
