@@ -17,7 +17,8 @@ RUN apk --no-cache add ca-certificates
 RUN BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -o /redis_exporter \
     -ldflags  "-s -w -extldflags \"-static\" -X main.BuildVersion=$TAG -X main.BuildCommitSha=$SHA1 -X main.BuildDate=$BUILD_DATE" .
 
-RUN /redis_exporter -version
+# Disabled to allow building for arm(64) on amd64
+# RUN /redis_exporter -version
 
 #
 # Alpine release container
