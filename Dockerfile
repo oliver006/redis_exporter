@@ -7,13 +7,14 @@ WORKDIR /go/src/github.com/oliver006/redis_exporter/
 ADD *.go /go/src/github.com/oliver006/redis_exporter/
 ADD vendor /go/src/github.com/oliver006/redis_exporter/vendor
 
+ARG GOARM
 ARG SHA1
 ENV SHA1=$SHA1
 ARG TAG
 ENV TAG=$TAG
 
 RUN apk --no-cache add ca-certificates
-RUN BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=linux go build -o /redis_exporter \
+RUN BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=linux GOARM=$GOARM go build -o /redis_exporter \
     -ldflags  "-s -w -extldflags \"-static\" -X main.BuildVersion=$TAG -X main.BuildCommitSha=$SHA1 -X main.BuildDate=$BUILD_DATE" .
 
 RUN /redis_exporter -version
