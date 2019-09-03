@@ -27,3 +27,4 @@ jobs:
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
         extra_build_params: --build-arg GOARM=${{ matrix.goarch }}
+        dockername_appendix: -${{ matrix-goarch }}
