@@ -26,5 +26,5 @@ jobs:
         name: kaij/redis_exporter
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
-        extra_build_params: --build-arg GOARM=${{ matrix.goarch }}
+        extra_build_params: --build-arg GOARCH=${{ matrix.goarch }}
         dockername_appendix: -${{ matrix.goarch }}
