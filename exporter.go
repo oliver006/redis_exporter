@@ -75,6 +75,10 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !strings.Contains(target, "://") {
+		target = "redis://" + target
+	}
+
 	u, err := url.Parse(target)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %ck ", err), 400)
@@ -82,7 +86,7 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get rid of username/password info in "target" so users don't send them via http
+	// get rid of username/password info in "target" so users don't send them in plain text via http
 	u.User = nil
 	target = u.String()
 
@@ -396,7 +400,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 		e.registerConstMetricGauge(ch, "up", up)
 		e.registerConstMetricGauge(ch, "exporter_last_scrape_duration_seconds", float64(time.Now().UnixNano()-start)/1000000000)
-
 	}
 
 	ch <- e.totalScrapes
