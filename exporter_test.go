@@ -226,7 +226,6 @@ func TestTile38(t *testing.T) {
 		found := false
 		want := "tile38_threads_total"
 		for m := range chM {
-			fmt.Println(m.Desc().String())
 			if strings.Contains(m.Desc().String(), want) {
 				found = true
 			}
