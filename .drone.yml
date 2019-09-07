@@ -7,11 +7,11 @@ workspace:
 
 
 services:
-  - name: redis
+  - name: redis5
     image: redis:5
     ports:
       - 6379
-  - name: pwd-redis
+  - name: pwd-redis5
     image: redis:5
     commands:
       - "/usr/local/bin/redis-server --port 6380 --requirepass redis-password"
@@ -45,9 +45,9 @@ steps:
       GO111MODULE: on
       LOG_LEVEL: "info"
       TEST_TILE38_URI: "redis://tile38:9851"
-      TEST_REDIS_URI: "redis://redis:6379"
+      TEST_REDIS_URI: "redis://redis5:6379"
       TEST_REDIS_2_8_URI: "redis://redis-2-8:6381"
-      TEST_PWD_REDIS_URI: "redis://h:redis-password@pwd-redis:6380"
+      TEST_PWD_REDIS_URI: "redis://h:redis-password@pwd-redis5:6380"
       TEST_REDIS_CLUSTER_MASTER_URI: "redis://redis-cluster:7000"
       TEST_REDIS_CLUSTER_SLAVE_URI: "redis://redis-cluster:7005"
       COVERALLS_TOKEN:

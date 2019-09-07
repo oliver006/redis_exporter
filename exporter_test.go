@@ -11,6 +11,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -225,7 +226,6 @@ func TestTile38(t *testing.T) {
 		found := false
 		want := "tile38_threads_total"
 		for m := range chM {
-			fmt.Println(m.Desc().String())
 			if strings.Contains(m.Desc().String(), want) {
 				found = true
 			}
@@ -884,7 +884,6 @@ func TestLuaScript(t *testing.T) {
 				t.Error("didn't find expected scrape errors")
 			}
 		}
-
 	}
 }
 
@@ -974,6 +973,22 @@ func TestHTTPEndpoints(t *testing.T) {
 
 	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0])
 
+	testRedisIPAddress := ""
+	testRedisHostname := ""
+	if u, err := url.Parse(os.Getenv("TEST_REDIS_URI")); err == nil {
+		testRedisHostname = u.Hostname()
+		ips, err := net.LookupIP(testRedisHostname)
+		if err != nil {
+			t.Fatalf("Could not get IP address: %s", err)
+		}
+		if len(ips) == 0 {
+			t.Fatal("No IP addresses found")
+		}
+		testRedisIPAddress = ips[0].String()
+		t.Logf("testRedisIPAddress: %s", testRedisIPAddress)
+		t.Logf("testRedisHostname: %s", testRedisHostname)
+	}
+
 	for _, tst := range []struct {
 		addr   string
 		ck     string
@@ -982,12 +997,14 @@ func TestHTTPEndpoints(t *testing.T) {
 		target string
 	}{
 		{addr: os.Getenv("TEST_REDIS_URI"), csk: csk},
+		{addr: testRedisIPAddress, csk: csk},
+		{addr: testRedisHostname, csk: csk},
 		{addr: os.Getenv("TEST_REDIS_URI"), ck: csk},
 		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), ck: csk},
 		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), csk: csk},
 		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), csk: csk},
 	} {
-		name := fmt.Sprintf("%s---%s", tst.target, tst.pwd)
+		name := fmt.Sprintf("addr:[%s]___target:[%s]___pwd:[%s]", tst.addr, tst.target, tst.pwd)
 		t.Run(name, func(t *testing.T) {
 			options := ExporterOptions{
 				Namespace: "test",
