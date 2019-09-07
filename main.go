@@ -66,9 +66,11 @@ func main() {
 	default:
 		log.SetFormatter(&log.TextFormatter{})
 	}
-	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s",
+	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s    GOOS: %s    GOARCH: %s",
 		BuildVersion, BuildDate, BuildCommitSha,
 		runtime.Version(),
+		runtime.GOOS,
+		runtime.GOARCH,
 	)
 	if *isDebug {
 		log.SetLevel(log.DebugLevel)
