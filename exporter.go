@@ -1122,6 +1122,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	log.Debugf("connected to: %s", e.redisAddr)
 
+	if _, err := doRedisCmd(c, "CLIENT", "SETNAME", "redis_exporter"); err != nil {
+		log.Errorf("Couldn't set client name, err: %s", err)
+	}
+
 	dbCount := 0
 	if config, err := redis.Strings(c.Do(e.options.ConfigCommandName, "GET", "*")); err == nil {
 		dbCount, err = e.extractConfigMetrics(ch, config)
