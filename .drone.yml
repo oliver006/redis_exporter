@@ -84,7 +84,7 @@ steps:
   - name: release-docker-image-scratch
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG}"
+      tags: "latest,${DRONE_TAG},latest-amd64,${DRONE_TAG}-amd64"
       dockerfile: ./Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
@@ -103,9 +103,9 @@ steps:
   - name: release-docker-image-scratch-arm64
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG}"
+      tags: "latest-arm64,${DRONE_TAG}-arm64"
       dockerfile: ./Dockerfile
-      repo: oliver006/redis_exporter-linux-arm64
+      repo: oliver006/redis_exporter
       target: scratch
       build_args:
         - 'TAG=${DRONE_TAG}'
@@ -123,9 +123,9 @@ steps:
   - name: release-docker-image-scratch-arm
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG}"
+      tags: "latest-arm,${DRONE_TAG}-arm"
       dockerfile: ./Dockerfile
-      repo: oliver006/redis_exporter-linux-arm
+      repo: oliver006/redis_exporter
       target: scratch
       build_args:
         - 'TAG=${DRONE_TAG}'
