@@ -11,6 +11,7 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"math"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -187,7 +188,7 @@ func TestLatencySpike(t *testing.T) {
 			// Because we're dealing with latency, there might be a slight delay
 			// even after sleeping for a specific amount of time so checking
 			// to see if we're between +-5 of our expected value
-			if val > float64(TimeToSleep)+5 || val < float64(TimeToSleep)-5 {
+			if math.Abs(float64(TimeToSleep) - val) > 5 {
 				t.Errorf("values not matching, %f != %f", float64(TimeToSleep), val)
 			}
 		}
