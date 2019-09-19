@@ -310,8 +310,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		"key_value":                            {txt: `The value of "key"`, lbls: []string{"db", "key"}},
 		"last_slow_execution_duration_seconds": {txt: `The amount of time needed for last slow execution, in seconds`},
 		"latency_spike_last":                   {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
-		"latency_spike_timestamp_seconds":      {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
-		"latency_spike_milliseconds":           {txt: `Length of the last latency spike in milliseconds`, lbls: []string{"event_name"}},
+		"latency_spike_duration_seconds":       {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
 		"master_link_up":                       {txt: "Master link status on Redis slave"},
 		"script_values":                        {txt: "Values returned by the collect script", lbls: []string{"key"}},
 		"slave_info":                           {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
@@ -889,8 +888,7 @@ func (e *Exporter) extractLatencyMetrics(ch chan<- prometheus.Metric, c redis.Co
 			if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &spikeDuration, &max); err == nil {
 				spikeDurationSeconds := float64(spikeDuration) / 1e3
 				e.registerConstMetricGauge(ch, "latency_spike_last", float64(spikeLast), eventName)
-				e.registerConstMetricGauge(ch, "latency_spike_timestamp_seconds", spikeDurationSeconds, eventName)
-				e.registerConstMetricGauge(ch, "latency_spike_milliseconds", float64(spikeDuration), eventName)
+				e.registerConstMetricGauge(ch, "latency_spike_duration_seconds", spikeDurationSeconds, eventName)
 			}
 		}
 	}

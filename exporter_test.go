@@ -177,15 +177,17 @@ func TestLatencySpike(t *testing.T) {
 	}()
 
 	for m := range chM {
-		if strings.Contains(m.Desc().String(), "latency_spike_milliseconds") {
+		if strings.Contains(m.Desc().String(), "latency_spike_duration_seconds") {
 			got := &dto.Metric{}
 			m.Write(got)
 
-			val := got.GetGauge().GetValue()
+			// The metric value is in seconds, but our sleep interval is specified
+			// in milliseconds, so we need to convert
+			val := got.GetGauge().GetValue() * 1000
 			// Because we're dealing with latency, there might be a slight delay
 			// even after sleeping for a specific amount of time so checking
 			// to see if we're between +-5 of our expected value
-			if val > float64(TimeToSleep)-5 && val < float64(TimeToSleep) {
+			if val > float64(TimeToSleep)-5 && val < float64(TimeToSleep)+5 {
 				t.Errorf("values not matching, %f != %f", float64(TimeToSleep), val)
 			}
 		}
@@ -202,7 +204,7 @@ func TestLatencySpike(t *testing.T) {
 	for m := range chM {
 		switch m := m.(type) {
 		case prometheus.Gauge:
-			if strings.Contains(m.Desc().String(), "latency_spike_milliseconds") {
+			if strings.Contains(m.Desc().String(), "latency_spike_duration_seconds") {
 				t.Errorf("latency threshold was not reset")
 			}
 		}
