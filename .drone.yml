@@ -84,13 +84,14 @@ steps:
   - name: release-docker-image-scratch
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG},latest-amd64,${DRONE_TAG}-amd64"
-      dockerfile: ./Dockerfile
+      tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
+      dockerfile: ./docker/Dockerfile.amd64
       repo: oliver006/redis_exporter
       target: scratch
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
+        - 'GOARCH=amd64'
       username:
         from_secret: docker_user
       password:
@@ -100,13 +101,13 @@ steps:
         - tag
 
 
-  - name: release-docker-image-scratch-arm64
+  - name: release-docker-image-alpine-arm64
     image: plugins/docker
     settings:
       tags: "latest-arm64,${DRONE_TAG}-arm64"
-      dockerfile: ./Dockerfile
+      dockerfile: ./docker/Dockerfile.arm64
       repo: oliver006/redis_exporter
-      target: scratch
+      target: alpine-arm64
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -120,13 +121,13 @@ steps:
         - tag
 
 
-  - name: release-docker-image-scratch-arm
+  - name: release-docker-image-alpine-arm
     image: plugins/docker
     settings:
       tags: "latest-arm,${DRONE_TAG}-arm"
-      dockerfile: ./Dockerfile
+      dockerfile: ./docker/Dockerfile.arm
       repo: oliver006/redis_exporter
-      target: scratch
+      target: alpine-arm
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -140,16 +141,17 @@ steps:
         - tag
 
 
-  - name: release-docker-image-alpine
+  - name: release-docker-image-alpine-amd64
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG}-alpine"
-      dockerfile: ./Dockerfile
+      tags: "${DRONE_TAG}-alpine"
+      dockerfile: ./docker/Dockerfile.amd64
       repo: oliver006/redis_exporter
       target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
+        - 'GOARCH=amd64'
       username:
         from_secret: docker_user
       password:
