@@ -84,13 +84,53 @@ steps:
   - name: release-docker-image-scratch
     image: plugins/docker
     settings:
-      tags: "latest,${DRONE_TAG}"
+      tags: "latest,${DRONE_TAG},latest-amd64,${DRONE_TAG}-amd64"
       dockerfile: ./Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+    when:
+      event:
+        - tag
+
+
+  - name: release-docker-image-scratch-arm64
+    image: plugins/docker
+    settings:
+      tags: "latest-arm64,${DRONE_TAG}-arm64"
+      dockerfile: ./Dockerfile
+      repo: oliver006/redis_exporter
+      target: scratch
+      build_args:
+        - 'TAG=${DRONE_TAG}'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
+        - 'GOARCH=arm64'
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+    when:
+      event:
+        - tag
+
+
+  - name: release-docker-image-scratch-arm
+    image: plugins/docker
+    settings:
+      tags: "latest-arm,${DRONE_TAG}-arm"
+      dockerfile: ./Dockerfile
+      repo: oliver006/redis_exporter
+      target: scratch
+      build_args:
+        - 'TAG=${DRONE_TAG}'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
+        - 'GOARCH=arm'
       username:
         from_secret: docker_user
       password:
