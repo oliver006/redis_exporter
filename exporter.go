@@ -592,7 +592,11 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 		descr = newMetricDescr(e.options.Namespace, metric, metric+" metric", nil)
 	}
 
-	ch <- prometheus.MustNewConstMetric(descr, valType, val, labelValues...)
+	if m, err := prometheus.NewConstMetric(descr, valType, val, labelValues...); err == nil {
+		ch <- m
+	} else {
+		log.Debugf("NewConstMetric() err: %s", err)
+	}
 }
 
 func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
