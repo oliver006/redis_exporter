@@ -110,7 +110,9 @@ func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(w, r)
+	promhttp.HandlerFor(
+		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
+	).ServeHTTP(w, r)
 }
 
 // splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
@@ -331,7 +333,9 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 
 	if e.options.Registry != nil {
 		e.options.Registry.MustRegister(e)
-		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(e.options.Registry, promhttp.HandlerOpts{}))
+		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(
+			e.options.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
+		))
 
 		if !e.options.RedisMetricsOnly {
 			buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
