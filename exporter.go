@@ -838,7 +838,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 		e.registerConstMetricGauge(ch, "key_size", info.size, dbLabel, k.key)
 
 		// Only record value metric if value is float-y
-		if val, err := redis.Float64(c.Do("GET", k.key)); err == nil {
+		if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
 			e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
 		}
 	}
@@ -865,11 +865,11 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 }
 
 func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if reply, err := c.Do("SLOWLOG", "LEN"); err == nil {
-		e.registerConstMetricGauge(ch, "slowlog_length", float64(reply.(int64)))
+	if reply, err := redis.Int64(doRedisCmd(c, "SLOWLOG", "LEN")); err == nil {
+		e.registerConstMetricGauge(ch, "slowlog_length", float64(reply))
 	}
 
-	if values, err := redis.Values(c.Do("SLOWLOG", "GET", "1")); err == nil {
+	if values, err := redis.Values(doRedisCmd(c, "SLOWLOG", "GET", "1")); err == nil {
 		var slowlogLastID int64
 		var lastSlowExecutionDurationSeconds float64
 
@@ -993,7 +993,7 @@ var errNotFound = errors.New("key not found")
 // getKeyInfo takes a key and returns the type, and the size or length of the value stored at that key.
 func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 
-	if info.keyType, err = redis.String(c.Do("TYPE", key)); err != nil {
+	if info.keyType, err = redis.String(doRedisCmd(c, "TYPE", key)); err != nil {
 		return info, err
 	}
 
@@ -1001,30 +1001,30 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	case "none":
 		return info, errNotFound
 	case "string":
-		if size, err := redis.Int64(c.Do("PFCOUNT", key)); err == nil {
+		if size, err := redis.Int64(doRedisCmd(c, "PFCOUNT", key)); err == nil {
 			// hyperloglog
 			info.size = float64(size)
-		} else if size, err := redis.Int64(c.Do("STRLEN", key)); err == nil {
+		} else if size, err := redis.Int64(doRedisCmd(c, "STRLEN", key)); err == nil {
 			info.size = float64(size)
 		}
 	case "list":
-		if size, err := redis.Int64(c.Do("LLEN", key)); err == nil {
+		if size, err := redis.Int64(doRedisCmd(c, "LLEN", key)); err == nil {
 			info.size = float64(size)
 		}
 	case "set":
-		if size, err := redis.Int64(c.Do("SCARD", key)); err == nil {
+		if size, err := redis.Int64(doRedisCmd(c, "SCARD", key)); err == nil {
 			info.size = float64(size)
 		}
 	case "zset":
-		if size, err := redis.Int64(c.Do("ZCARD", key)); err == nil {
+		if size, err := redis.Int64(doRedisCmd(c, "ZCARD", key)); err == nil {
 			info.size = float64(size)
 		}
 	case "hash":
-		if size, err := redis.Int64(c.Do("HLEN", key)); err == nil {
+		if size, err := redis.Int64(doRedisCmd(c, "HLEN", key)); err == nil {
 			info.size = float64(size)
 		}
 	case "stream":
-		if size, err := redis.Int64(c.Do("XLEN", key)); err == nil {
+		if size, err := redis.Int64(doRedisCmd(c, "XLEN", key)); err == nil {
 			info.size = float64(size)
 		}
 	default:
@@ -1041,7 +1041,7 @@ func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
 	keys := []string{}
 
 	for {
-		arr, err := redis.Values(c.Do("SCAN", iter, "MATCH", pattern))
+		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern))
 		if err != nil {
 			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
 		}
@@ -1065,8 +1065,7 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 	expandedKeys = []dbKeyPair{}
 	for _, k := range keys {
 		if regexp.MustCompile(`[\?\*\[\]\^]+`).MatchString(k.key) {
-			_, err := c.Do("SELECT", k.db)
-			if err != nil {
+			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
 				return expandedKeys, err
 			}
 			keyNames, err := scanForKeys(c, k.key)
@@ -1135,7 +1134,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
-	if config, err := redis.Strings(c.Do(e.options.ConfigCommandName, "GET", "*")); err == nil {
+	if config, err := redis.Strings(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
 		dbCount, err = e.extractConfigMetrics(ch, config)
 		if err != nil {
 			log.Errorf("Redis CONFIG err: %s", err)
