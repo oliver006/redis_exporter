@@ -865,8 +865,8 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 }
 
 func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if reply, err := doRedisCmd(c, "SLOWLOG", "LEN"); err == nil {
-		e.registerConstMetricGauge(ch, "slowlog_length", float64(reply.(int64)))
+	if reply, err := redis.Int64(doRedisCmd(c, "SLOWLOG", "LEN")); err == nil {
+		e.registerConstMetricGauge(ch, "slowlog_length", float64(reply))
 	}
 
 	if values, err := redis.Values(doRedisCmd(c, "SLOWLOG", "GET", "1")); err == nil {
