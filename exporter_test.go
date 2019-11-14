@@ -1348,7 +1348,7 @@ func TestHTTPIndexPage(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	want := `<head><title>Redis Exporter v`
+	want := `<head><title>Redis Exporter `
 	body := downloadURL(t, ts.URL+"/")
 	if !strings.Contains(body, want) {
 		t.Errorf(`error, expected string "%s" in body, got body: \n\n%s`, want, body)
