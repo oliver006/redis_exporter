@@ -7,7 +7,7 @@ WORKDIR /go/src/github.com/oliver006/redis_exporter/
 ADD *.go /go/src/github.com/oliver006/redis_exporter/
 ADD vendor /go/src/github.com/oliver006/redis_exporter/vendor
 
-ARG GOARCH="amd64"
+ARG GOARCH="arm64"
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 
