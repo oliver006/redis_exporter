@@ -41,7 +41,7 @@ and adjust the host name accordingly.
 
 ### Prometheus Configuration to Scrape Multiple Redis Hosts
 
-Run the exporter with the command line flag `--redis.addr=` so it won't try to access 
+Run the exporter with the command line flag `--redis.addr=` so it won't try to access
 the local instance every time the `/metrics` endpoint is scraped.
 
 ```yaml
@@ -63,7 +63,7 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
-  
+
   ## config for scraping the exporter itself
   - job_name: 'redis_exporter'
     static_configs:
@@ -73,7 +73,7 @@ scrape_configs:
 
 The Redis instances are listed under `targets`, the Redis exporter hostname is configured via the last relabel_config rule.\
 If authentication is needed for the Redis instances then you can set the password via the `--redis.password` command line option of
-the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several 
+the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several
 exporters if this is a problem). \
 You can also use a json file to supply multiple targets by using `file_sd_configs` like so:
 
@@ -121,6 +121,7 @@ Name                   | Environment Variable Name            | Description
 -----------------------|--------------------------------------|-----------------
 redis.addr             | REDIS_ADDR                           | Address of the Redis instance, defaults to `redis://localhost:6379`.
 redis.password         | REDIS_PASSWORD                       | Password of the Redis instance, defaults to `""` (no password).
+redis.file             | REDIS_FILE                           | Path to file containing one or more redis nodes, separated by newline. Format: `<redis URI>,<optional password>,<optional alias>` NOTE: mutually exclusive with redis.addr
 check-keys             | REDIS_EXPORTER_CHECK_KEYS            | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys. Warning: using `--check-keys` to match a very large number of keys can slow down the exporter to the point where it doesn't finish scraping the redis instance.
 check-single-keys      | REDIS_EXPORTER_CHECK_SINGLE_KEYS     | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
 script                 | REDIS_EXPORTER_SCRIPT                | Path to Redis Lua script for gathering extra metrics.
