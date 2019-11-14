@@ -349,9 +349,12 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 	}
 
 	e.mux.HandleFunc("/scrape", e.ScrapeHandler)
+	e.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`ok`))
+	})
 	e.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-<head><title>Redis Exporter v` + BuildVersion + `</title></head>
+<head><title>Redis Exporter ` + BuildVersion + `</title></head>
 <body>
 <h1>Redis Exporter ` + BuildVersion + `</h1>
 <p><a href='` + opts.MetricsPath + `'>Metrics</a></p>
