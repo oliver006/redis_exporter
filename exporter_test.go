@@ -968,7 +968,7 @@ func TestIncludeSystemMemoryMetric(t *testing.T) {
 	}
 }
 
-func TestHTTPEndpoints(t *testing.T) {
+func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 	setupDBKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
@@ -1339,7 +1339,7 @@ func TestCheckKeys(t *testing.T) {
 	}
 }
 
-func TestHTTPIndexPage(t *testing.T) {
+func TestHTTPHTMLPages(t *testing.T) {
 	if os.Getenv("TEST_PWD_REDIS_URI") == "" {
 		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
 	}
@@ -1348,10 +1348,25 @@ func TestHTTPIndexPage(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	want := `<head><title>Redis Exporter `
-	body := downloadURL(t, ts.URL+"/")
-	if !strings.Contains(body, want) {
-		t.Errorf(`error, expected string "%s" in body, got body: \n\n%s`, want, body)
+	for _, tst := range []struct {
+		path string
+		want string
+	}{
+		{
+			path: "/",
+			want: `<head><title>Redis Exporter `,
+		},
+		{
+			path: "/health",
+			want: `ok`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
 	}
 }
 
