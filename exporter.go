@@ -178,10 +178,16 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"process_id":        "process_id",
 
 			// # Clients
-			"connected_clients":          "connected_clients",
+			"connected_clients": "connected_clients",
+			"blocked_clients":   "blocked_clients",
+
+			// redis 2,3,4.x
 			"client_longest_output_list": "client_longest_output_list",
 			"client_biggest_input_buf":   "client_biggest_input_buf",
-			"blocked_clients":            "blocked_clients",
+
+			// the above two metrics were renamed in redis 5.x
+			"client_recent_max_output_buffer": "client_recent_max_output_buffer_bytes",
+			"client_recent_max_input_buffer":  "client_recent_max_input_buffer_bytes",
 
 			// # Memory
 			"allocator_active":    "allocator_active_bytes",
