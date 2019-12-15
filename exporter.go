@@ -59,6 +59,7 @@ type ExporterOptions struct {
 	ClientCertificates  []tls.Certificate
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
+	SetClientName       bool
 	IsTile38            bool
 	ExportClientList    bool
 	ConnectionTimeouts  time.Duration
@@ -1138,8 +1139,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	log.Debugf("connected to: %s", e.redisAddr)
 
-	if _, err := doRedisCmd(c, "CLIENT", "SETNAME", "redis_exporter"); err != nil {
-		log.Errorf("Couldn't set client name, err: %s", err)
+	if e.options.SetClientName {
+		if _, err := doRedisCmd(c, "CLIENT", "SETNAME", "redis_exporter"); err != nil {
+			log.Errorf("Couldn't set client name, err: %s", err)
+		}
 	}
 
 	dbCount := 0
