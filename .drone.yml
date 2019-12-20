@@ -9,8 +9,18 @@ workspace:
 services:
   - name: redis5
     image: redis:5
+    commands:
+      - "/usr/local/bin/redis-server --port 6381"
+    ports:
+      - 6383
+
+  - name: redis6
+    image: oliver006/redis:6.0-rc1
+    commands:
+      - "/usr/local/bin/redis-server --protected-mode no"
     ports:
       - 6379
+
   - name: pwd-redis5
     image: redis:5
     commands:
@@ -45,7 +55,7 @@ steps:
       GO111MODULE: on
       LOG_LEVEL: "info"
       TEST_TILE38_URI: "redis://tile38:9851"
-      TEST_REDIS_URI: "redis://redis5:6379"
+      TEST_REDIS_URI: "redis://redis6:6379"
       TEST_REDIS_2_8_URI: "redis://redis-2-8:6381"
       TEST_PWD_REDIS_URI: "redis://h:redis-password@pwd-redis5:6380"
       TEST_REDIS_CLUSTER_MASTER_URI: "redis://redis-cluster:7000"
@@ -54,7 +64,7 @@ steps:
         from_secret: coveralls-token
     commands:
       - 'go build -mod=vendor'
-      - "sleep 10"   # let the redis test instances all come up first
+      - "sleep 20"   # let the redis test instances all come up first
       - 'go test -mod=vendor -v -covermode=atomic -cover -race -coverprofile=coverage.txt .'
       - 'echo "checking gofmt"'
       - 'echo " ! gofmt -d *.go       2>&1 | read " | bash'

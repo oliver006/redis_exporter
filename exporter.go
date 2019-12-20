@@ -16,7 +16,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	prom_strutil "github.com/prometheus/prometheus/util/strutil"
+	strutil "github.com/prometheus/prometheus/util/strutil"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -65,6 +65,7 @@ type ExporterOptions struct {
 	ConnectionTimeouts  time.Duration
 	MetricsPath         string
 	RedisMetricsOnly    bool
+	PingOnConnect       bool
 	Registry            *prometheus.Registry
 }
 
@@ -181,6 +182,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			// # Clients
 			"connected_clients": "connected_clients",
 			"blocked_clients":   "blocked_clients",
+			"tracking_clients":  "tracking_clients",
 
 			// redis 2,3,4.x
 			"client_longest_output_list": "client_longest_output_list",
@@ -191,16 +193,43 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"client_recent_max_input_buffer":  "client_recent_max_input_buffer_bytes",
 
 			// # Memory
-			"allocator_active":    "allocator_active_bytes",
-			"allocator_allocated": "allocator_allocated_bytes",
-			"allocator_resident":  "allocator_resident_bytes",
-			"used_memory":         "memory_used_bytes",
-			"used_memory_rss":     "memory_used_rss_bytes",
-			"used_memory_peak":    "memory_used_peak_bytes",
-			"used_memory_lua":     "memory_used_lua_bytes",
-			"maxmemory":           "memory_max_bytes",
+			"allocator_active":     "allocator_active_bytes",
+			"allocator_allocated":  "allocator_allocated_bytes",
+			"allocator_resident":   "allocator_resident_bytes",
+			"allocator_frag_ratio": "allocator_frag_ratio",
+			"allocator_frag_bytes": "allocator_frag_bytes",
+			"allocator_rss_ratio":  "allocator_rss_ratio",
+			"allocator_rss_bytes":  "allocator_rss_bytes",
+
+			"used_memory":          "memory_used_bytes",
+			"used_memory_rss":      "memory_used_rss_bytes",
+			"used_memory_peak":     "memory_used_peak_bytes",
+			"used_memory_lua":      "memory_used_lua_bytes",
+			"used_memory_overhead": "memory_used_overhead_bytes",
+			"used_memory_startup":  "memory_used_startup_bytes",
+			"used_memory_dataset":  "memory_used_dataset_bytes",
+			"used_memory_scripts":  "memory_used_scripts_bytes",
+
+			"maxmemory": "memory_max_bytes",
+
+			"mem_fragmentation_ratio": "mem_fragmentation_ratio",
+			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
+
+			"mem_clients_slaves": "mem_clients_slaves",
+			"mem_clients_normal": "mem_clients_normal",
+
+			"lazyfree_pending_objects": "lazyfree_pending_objects",
+			"active_defrag_running":    "active_defrag_running",
+
+			"migrate_cached_sockets": "migrate_cached_sockets_total",
+
+			"active_defrag_hits":       "defrag_hits",
+			"active_defrag_misses":     "defrag_misses",
+			"active_defrag_key_hits":   "defrag_key_hits",
+			"active_defrag_key_misses": "defrag_key_misses",
 
 			// # Persistence
+			"loading":                      "loading_dump_file",
 			"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
 			"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
 			"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
@@ -223,6 +252,8 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"aof_delayed_fsync":            "aof_delayed_fsync",
 			"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
 			"aof_last_write_status":        "aof_last_write_status",
+			"module_fork_in_progress":      "module_fork_in_progress",
+			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
 			// # Stats
 			"pubsub_channels":  "pubsub_channels",
@@ -230,11 +261,16 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"latest_fork_usec": "latest_fork_usec",
 
 			// # Replication
-			"loading":                    "loading_dump_file",
-			"connected_slaves":           "connected_slaves",
-			"repl_backlog_size":          "replication_backlog_bytes",
-			"master_last_io_seconds_ago": "master_last_io_seconds",
-			"master_repl_offset":         "master_repl_offset",
+			"connected_slaves":               "connected_slaves",
+			"repl_backlog_size":              "replication_backlog_bytes",
+			"repl_backlog_active":            "repl_backlog_is_active",
+			"repl_backlog_first_byte_offset": "repl_backlog_first_byte_offset",
+			"repl_backlog_histlen":           "repl_backlog_history_bytes",
+			"master_last_io_seconds_ago":     "master_last_io_seconds",
+			"master_repl_offset":             "master_repl_offset",
+			"sync_full":                      "replica_resyncs_full",
+			"sync_partial_ok":                "replica_partial_resync_accepted",
+			"sync_partial_err":               "replica_partial_resync_denied",
 
 			// # Cluster
 			"cluster_stats_messages_sent":     "cluster_messages_sent_total",
@@ -434,7 +470,7 @@ func (e *Exporter) includeMetric(s string) bool {
 }
 
 func sanitizeMetricName(n string) string {
-	return prom_strutil.SanitizeLabelName(n)
+	return strutil.SanitizeLabelName(n)
 }
 
 func extractVal(s string) (val float64, err error) {
@@ -1130,6 +1166,8 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
+	startTime := time.Now()
+
 	c, err := e.connectToRedis()
 	if err != nil {
 		log.Errorf("Couldn't connect to redis instance")
@@ -1138,7 +1176,21 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 	defer c.Close()
 
+	connectionTookSeconds := time.Now().Sub(startTime).Seconds()
+
 	log.Debugf("connected to: %s", e.redisAddr)
+	log.Debugf("took %f seconds", connectionTookSeconds)
+
+	if e.options.PingOnConnect {
+		startTime := time.Now()
+
+		if _, err := doRedisCmd(c, "PING"); err != nil {
+			log.Errorf("Couldn't PING server, err: %s", err)
+		}
+
+		pingTookSeconds := time.Now().Sub(startTime).Seconds()
+		log.Debugf("PING took %f seconds", pingTookSeconds)
+	}
 
 	if e.options.SetClientName {
 		if _, err := doRedisCmd(c, "CLIENT", "SETNAME", "redis_exporter"); err != nil {
