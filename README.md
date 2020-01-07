@@ -18,10 +18,10 @@ Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull
 ## Build and run locally
 
 ```sh
-    $ go get github.com/oliver006/redis_exporter
-    $ cd $GOPATH/src/github.com/oliver006/redis_exporter
-    $ go build
-    $ ./redis_exporter <flags>
+    $ git clone https://github.com/oliver006/redis_exporter.git
+    $ cd redis_exporter
+    $ go build .
+    $ ./redis_exporter --version
 ```
 
 ## Configuring
