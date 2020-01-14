@@ -37,6 +37,8 @@ type Exporter struct {
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
+	connectDuration           prometheus.Summary
+	pingDuration              prometheus.Summary
 	targetScrapeRequestErrors prometheus.Counter
 
 	metricDescriptions map[string]*prometheus.Desc
@@ -151,6 +153,8 @@ func newMetricDescr(namespace string, metricName string, docString string, label
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) {
+	log.Debugf("NewRedisExporter options: %#v", opts)
+
 	e := &Exporter{
 		redisAddr: redisURI,
 		options:   opts,
@@ -165,7 +169,19 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		scrapeDuration: prometheus.NewSummary(prometheus.SummaryOpts{
 			Namespace: opts.Namespace,
 			Name:      "exporter_scrape_duration_seconds",
-			Help:      "Duration of scrape by the exporter",
+			Help:      "Durations of scrapes by the exporter",
+		}),
+
+		connectDuration: prometheus.NewSummary(prometheus.SummaryOpts{
+			Namespace: opts.Namespace,
+			Name:      "exporter_scrape_connect_time_seconds",
+			Help:      "Durations of connects during scrapes by the exporter",
+		}),
+
+		pingDuration: prometheus.NewSummary(prometheus.SummaryOpts{
+			Namespace: opts.Namespace,
+			Name:      "exporter_scrape_ping_time_seconds",
+			Help:      "Durations of pings during scrapes by the exporter",
 		}),
 
 		targetScrapeRequestErrors: prometheus.NewCounter(prometheus.CounterOpts{
@@ -429,6 +445,10 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 
 	ch <- e.totalScrapes.Desc()
 	ch <- e.scrapeDuration.Desc()
+	ch <- e.connectDuration.Desc()
+	if e.options.PingOnConnect {
+		ch <- e.pingDuration.Desc()
+	}
 	ch <- e.targetScrapeRequestErrors.Desc()
 }
 
@@ -439,7 +459,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.totalScrapes.Inc()
 
 	if e.redisAddr != "" {
-		start := time.Now().UnixNano()
+		startTime := time.Now()
 		var up float64 = 1
 		if err := e.scrapeRedisHost(ch); err != nil {
 			up = 0
@@ -449,11 +469,18 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		e.registerConstMetricGauge(ch, "up", up)
-		e.registerConstMetricGauge(ch, "exporter_last_scrape_duration_seconds", float64(time.Now().UnixNano()-start)/1000000000)
+
+		took := time.Now().Sub(startTime).Seconds()
+		e.scrapeDuration.Observe(took)
+		e.registerConstMetricGauge(ch, "exporter_last_scrape_duration_seconds", took)
 	}
 
 	ch <- e.totalScrapes
 	ch <- e.scrapeDuration
+	ch <- e.connectDuration
+	if e.options.PingOnConnect {
+		ch <- e.pingDuration
+	}
 	ch <- e.targetScrapeRequestErrors
 }
 
@@ -1176,10 +1203,11 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 	defer c.Close()
 
-	connectionTookSeconds := time.Now().Sub(startTime).Seconds()
+	connectTookSeconds := time.Now().Sub(startTime).Seconds()
+	e.connectDuration.Observe(connectTookSeconds)
 
 	log.Debugf("connected to: %s", e.redisAddr)
-	log.Debugf("took %f seconds", connectionTookSeconds)
+	log.Debugf("took %f seconds", connectTookSeconds)
 
 	if e.options.PingOnConnect {
 		startTime := time.Now()
@@ -1189,6 +1217,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 
 		pingTookSeconds := time.Now().Sub(startTime).Seconds()
+		e.pingDuration.Observe(pingTookSeconds)
 		log.Debugf("PING took %f seconds", pingTookSeconds)
 	}
 
