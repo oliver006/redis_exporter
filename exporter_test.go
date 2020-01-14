@@ -871,10 +871,8 @@ func TestLuaScript(t *testing.T) {
 			if strings.Contains(m.Desc().String(), "exporter_last_scrape_error") {
 				g := &dto.Metric{}
 				m.Write(g)
-				if g.GetGauge() != nil {
-					if *g.GetGauge().Value > 0 {
-						scrapeErrorFound = true
-					}
+				if g.GetGauge() != nil && *g.GetGauge().Value > 0 {
+					scrapeErrorFound = true
 				}
 			}
 		}
@@ -1367,6 +1365,31 @@ func TestHTTPHTMLPages(t *testing.T) {
 				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
 			}
 		})
+	}
+}
+
+func TestConnectionDurations(t *testing.T) {
+	metric1 := "exporter_scrape_ping_time_seconds_count"
+	metric2 := "exporter_scrape_connect_time_seconds_count"
+
+	for _, incPing := range []bool{false, true} {
+		r := prometheus.NewRegistry()
+		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), ExporterOptions{Namespace: "test", PingOnConnect: incPing})
+		r.Register(e)
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		if incPing && !strings.Contains(body, metric1) {
+			t.Fatalf("want metrics to include %s, have:\n%s", metric1, body)
+		} else if !incPing && strings.Contains(body, metric1) {
+			t.Fatalf("did NOT want metrics to include %s, have:\n%s", metric1, body)
+		}
+
+		// always expect this one
+		if !strings.Contains(body, metric2) {
+			t.Fatalf("want metrics to include %s, have:\n%s", metric2, body)
+		}
+		ts.Close()
 	}
 }
 
