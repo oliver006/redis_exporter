@@ -754,8 +754,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	handledDBs := map[string]bool{}
 
 	fieldClass := ""
-	lines := strings.Split(info, "\r\n")
+	lines := strings.Split(info, "\n")
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
 			fieldClass = line[2:]
@@ -1214,11 +1215,11 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 		if _, err := doRedisCmd(c, "PING"); err != nil {
 			log.Errorf("Couldn't PING server, err: %s", err)
+		} else {
+			pingTookSeconds := time.Now().Sub(startTime).Seconds()
+			e.pingDuration.Observe(pingTookSeconds)
+			log.Debugf("PING took %f seconds", pingTookSeconds)
 		}
-
-		pingTookSeconds := time.Now().Sub(startTime).Seconds()
-		e.pingDuration.Observe(pingTookSeconds)
-		log.Debugf("PING took %f seconds", pingTookSeconds)
 	}
 
 	if e.options.SetClientName {
@@ -1256,13 +1257,14 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
 		}
-	} else {
+	} else if dbCount == 0 {
 		// in non-cluster mode, if dbCount is zero then "CONFIG" failed to retrieve a valid
 		// number of databases and we use the Redis config default which is 16
-		if dbCount == 0 {
-			dbCount = 16
-		}
+
+		dbCount = 16
 	}
+
+	log.Debugf("dbCount: %d", dbCount)
 
 	e.extractInfoMetrics(ch, infoAll, dbCount)
 
