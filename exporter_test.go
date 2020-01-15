@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math"
+	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -1088,18 +1089,29 @@ func TestSimultaneousRequests(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	goroutines := 20
+	uris := []string{
+		os.Getenv("TEST_REDIS_URI"),
+		os.Getenv("TEST_REDIS_2_8_URI"),
+
+		os.Getenv("TEST_KEYDB01_URI"),
+		os.Getenv("TEST_KEYDB02_URI"),
+
+		os.Getenv("TEST_REDIS5_URI"),
+		os.Getenv("TEST_REDIS6_URI"),
+
+		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
+		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
+	}
+
+	goroutines := 50
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
 	for ; goroutines > 0; goroutines-- {
 		go func() {
-			requests := 100
+			requests := 200
 			for ; requests > 0; requests-- {
 				v := url.Values{}
-				target := os.Getenv("TEST_REDIS_URI")
-				if requests%2 == 1 {
-					target = os.Getenv("TEST_REDIS_2_8_URI")
-				}
+				target := uris[rand.Intn(len(uris))]
 				v.Add("target", target)
 				v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 				up, _ := url.Parse(ts.URL + "/scrape")
@@ -1111,6 +1123,7 @@ func TestSimultaneousRequests(t *testing.T) {
 					`test_connected_clients`,
 					`test_commands_processed_total`,
 					`test_instance_info`,
+					`test_up 1`,
 				}
 				for _, want := range wants {
 					if !strings.Contains(body, want) {
@@ -1118,6 +1131,8 @@ func TestSimultaneousRequests(t *testing.T) {
 						break
 					}
 				}
+
+				time.Sleep(time.Duration(rand.Intn(250)) * time.Millisecond)
 			}
 			wg.Done()
 		}()
@@ -1394,6 +1409,8 @@ func TestConnectionDurations(t *testing.T) {
 }
 
 func init() {
+	rand.Seed(time.Now().UnixNano())
+
 	ll := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	if pl, err := log.ParseLevel(ll); err == nil {
 		log.Printf("Setting log level to: %s", ll)
