@@ -2,8 +2,7 @@
 github.com/beorn7/perks/quantile
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
-# github.com/gomodule/redigo v2.0.0+incompatible
-github.com/gomodule/redigo/internal
+# github.com/gomodule/redigo v2.0.1-0.20191111085604-09d84710e01a+incompatible
 github.com/gomodule/redigo/redis
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
