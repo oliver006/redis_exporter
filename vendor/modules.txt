@@ -3,22 +3,22 @@ github.com/beorn7/perks/quantile
 # github.com/golang/protobuf v1.3.1
 github.com/golang/protobuf/proto
 # github.com/gomodule/redigo v2.0.0+incompatible
-github.com/gomodule/redigo/redis
 github.com/gomodule/redigo/internal
+github.com/gomodule/redigo/redis
 # github.com/konsorten/go-windows-terminal-sequences v1.0.2
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/matttproud/golang_protobuf_extensions v1.0.1
 github.com/matttproud/golang_protobuf_extensions/pbutil
 # github.com/prometheus/client_golang v0.9.2
 github.com/prometheus/client_golang/prometheus
-github.com/prometheus/client_golang/prometheus/promhttp
 github.com/prometheus/client_golang/prometheus/internal
+github.com/prometheus/client_golang/prometheus/promhttp
 # github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
 github.com/prometheus/client_model/go
 # github.com/prometheus/common v0.2.0
 github.com/prometheus/common/expfmt
-github.com/prometheus/common/model
 github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg
+github.com/prometheus/common/model
 # github.com/prometheus/procfs v0.0.0-20190403104016-ea9eea638872
 github.com/prometheus/procfs
 # github.com/prometheus/prometheus v2.5.0+incompatible
