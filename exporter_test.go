@@ -1389,16 +1389,16 @@ func TestConnectionDurations(t *testing.T) {
 	metric1 := "exporter_scrape_ping_time_seconds_count"
 	metric2 := "exporter_scrape_connect_time_seconds_count"
 
-	for _, incPing := range []bool{false, true} {
+	for _, inclPing := range []bool{false, true} {
 		r := prometheus.NewRegistry()
 		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
-		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), ExporterOptions{Namespace: "test", PingOnConnect: incPing})
+		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), ExporterOptions{Namespace: "test", PingOnConnect: inclPing})
 		r.Register(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
-		if incPing && !strings.Contains(body, metric1) {
+		if inclPing && !strings.Contains(body, metric1) {
 			t.Fatalf("want metrics to include %s, have:\n%s", metric1, body)
-		} else if !incPing && strings.Contains(body, metric1) {
+		} else if !inclPing && strings.Contains(body, metric1) {
 			t.Fatalf("did NOT want metrics to include %s, have:\n%s", metric1, body)
 		}
 
