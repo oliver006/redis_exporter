@@ -10,42 +10,42 @@ services:
   - name: redis5
     image: redis:5
     commands:
-      - "/usr/local/bin/redis-server --port 6383"
+      - "/usr/local/bin/redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
       - 6383
 
   - name: redis6
     image: oliver006/redis:6.0-rc1
     commands:
-      - "/usr/local/bin/redis-server --protected-mode no"
+      - "/usr/local/bin/redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
       - 6379
 
   - name: pwd-redis5
     image: redis:5
     commands:
-      - "/usr/local/bin/redis-server --port 6380 --requirepass redis-password"
+      - "/usr/local/bin/redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
     ports:
       - 6380
 
   - name: redis-2-8
     image: redis:2.8
     commands:
-      - "/usr/local/bin/redis-server --port 6381"
+      - "/usr/local/bin/redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
       - 6381
 
   - name: keydb-01
     image: "eqalpha/keydb:x86_64_v5.3.0"
     commands:
-      - "keydb-server --protected-mode no --port 6401"
+      - "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
     ports:
       - 6401
 
   - name: keydb-02
     image: "eqalpha/keydb:x86_64_v5.3.0"
     commands:
-      - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401"
+      - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
     ports:
       - 6402
 
