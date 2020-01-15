@@ -139,6 +139,7 @@ web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS    | Address to liste
 web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH    | Path under which to expose metrics, defaults to `/metrics`.
 redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also export go runtime metrics, defaults to false.
 include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+ping-on-connect        | REDIS_EXPORTER_PING_ON_CONNECT       | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrape Client List specific metrics, defaults to false.
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
