@@ -1101,14 +1101,18 @@ func TestSimultaneousRequests(t *testing.T) {
 
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
 		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
+
+		os.Getenv("TEST_TILE38_URI"),
 	}
 
-	goroutines := 50
+	t.Logf("uris: %#v", uris)
+
+	goroutines := 20
 	var wg sync.WaitGroup
 	wg.Add(goroutines)
 	for ; goroutines > 0; goroutines-- {
 		go func() {
-			requests := 200
+			requests := 100
 			for ; requests > 0; requests-- {
 				v := url.Values{}
 				target := uris[rand.Intn(len(uris))]
@@ -1131,8 +1135,6 @@ func TestSimultaneousRequests(t *testing.T) {
 						break
 					}
 				}
-
-				time.Sleep(time.Duration(rand.Intn(250)) * time.Millisecond)
 			}
 			wg.Done()
 		}()

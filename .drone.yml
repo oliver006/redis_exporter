@@ -10,7 +10,7 @@ services:
   - name: redis5
     image: redis:5
     commands:
-      - "/usr/local/bin/redis-server --port 6381"
+      - "/usr/local/bin/redis-server --port 6383"
     ports:
       - 6383
 
@@ -27,7 +27,7 @@ services:
       - "/usr/local/bin/redis-server --port 6380 --requirepass redis-password"
     ports:
       - 6380
-      -
+
   - name: redis-2-8
     image: redis:2.8
     commands:
@@ -37,25 +37,21 @@ services:
 
   - name: keydb-01
     image: "eqalpha/keydb:x86_64_v5.3.0"
-    command: 'keydb-server  --protected-mode no --port 6401'
+    commands:
+      - "keydb-server --protected-mode no --port 6401"
     ports:
       - 6401
 
   - name: keydb-02
     image: "eqalpha/keydb:x86_64_v5.3.0"
-    command: 'keydb-server  --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401'
+    commands:
+      - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401"
     ports:
       - 6402
 
   - name: redis-cluster
     image: grokzen/redis-cluster
-    ports:
-      - 7000
-      - 7001
-      - 7002
-      - 7003
-      - 7004
-      - 7005
+    ports: [7000, 7001, 7002, 7003, 7004, 7005]
 
   - name: tile38
     image: tile38/tile38:latest
@@ -69,9 +65,8 @@ steps:
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
-      TEST_TILE38_URI: "redis://tile38:9851"
       TEST_REDIS_URI: "redis://redis6:6379"
-      TEST_REDIS5_URI: "redis://redis5:6379"
+      TEST_REDIS5_URI: "redis://redis5:6383"
       TEST_REDIS6_URI: "redis://redis6:6379"
       TEST_REDIS_2_8_URI: "redis://redis-2-8:6381"
       TEST_KEYDB01_URI: "redis://keydb-01:6401"
@@ -79,6 +74,7 @@ steps:
       TEST_PWD_REDIS_URI: "redis://h:redis-password@pwd-redis5:6380"
       TEST_REDIS_CLUSTER_MASTER_URI: "redis://redis-cluster:7000"
       TEST_REDIS_CLUSTER_SLAVE_URI: "redis://redis-cluster:7005"
+      TEST_TILE38_URI: "redis://tile38:9851"
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
