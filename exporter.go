@@ -225,14 +225,16 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"used_memory_startup":  "memory_used_startup_bytes",
 			"used_memory_dataset":  "memory_used_dataset_bytes",
 			"used_memory_scripts":  "memory_used_scripts_bytes",
-
-			"maxmemory": "memory_max_bytes",
+			"maxmemory":            "memory_max_bytes",
 
 			"mem_fragmentation_ratio": "mem_fragmentation_ratio",
 			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
+			"mem_clients_slaves":      "mem_clients_slaves",
+			"mem_clients_normal":      "mem_clients_normal",
 
-			"mem_clients_slaves": "mem_clients_slaves",
-			"mem_clients_normal": "mem_clients_normal",
+			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
+			// ... the sum of AOF and slaves buffer ....
+			"mem_not_counted_for_evict": "mem_not_counted_for_eviction_bytes",
 
 			"lazyfree_pending_objects": "lazyfree_pending_objects",
 			"active_defrag_running":    "active_defrag_running",
@@ -243,6 +245,9 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"active_defrag_misses":     "defrag_misses",
 			"active_defrag_key_hits":   "defrag_key_hits",
 			"active_defrag_key_misses": "defrag_key_misses",
+
+			// https://github.com/antirez/redis/blob/0af467d18f9d12b137af3b709c0af579c29d8414/src/expire.c#L297-L299
+			"expired_time_cap_reached_count": "expired_time_cap_reached_total",
 
 			// # Persistence
 			"loading":                      "loading_dump_file",
@@ -284,9 +289,14 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"repl_backlog_histlen":           "repl_backlog_history_bytes",
 			"master_last_io_seconds_ago":     "master_last_io_seconds",
 			"master_repl_offset":             "master_repl_offset",
+			"second_repl_offset":             "second_repl_offset",
+			"slave_repl_offset":              "slave_repl_offset",
+			"slave_expires_tracked_keys":     "slave_expires_tracked_keys",
+			"slave_priority":                 "slave_priority",
 			"sync_full":                      "replica_resyncs_full",
 			"sync_partial_ok":                "replica_partial_resync_accepted",
 			"sync_partial_err":               "replica_partial_resync_denied",
+			"master_sync_in_progress":        "master_sync_in_progress",
 
 			// # Cluster
 			"cluster_stats_messages_sent":     "cluster_messages_sent_total",
@@ -310,6 +320,11 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"tile38_pointer_size":    "tile38_pointer_size_bytes",
 			"tile38_read_only":       "tile38_read_only",
 			"tile38_threads":         "tile38_threads_total",
+
+			// addtl. KeyDB metrics
+			"server_threads":        "server_threads_total",
+			"long_lock_waits":       "long_lock_waits_total",
+			"current_client_thread": "current_client_thread",
 		},
 
 		metricMapCounters: map[string]string{
@@ -1053,13 +1068,13 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	e.registerConstMetric(ch, metricName, val, t)
 }
 
-func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (reply interface{}, err error) {
+func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (interface{}, error) {
 	log.Debugf("c.Do() - running command: %s %s", cmd, args)
-	defer log.Debugf("c.Do() - done")
 	res, err := c.Do(cmd, args...)
 	if err != nil {
 		log.Debugf("c.Do() - err: %s", err)
 	}
+	log.Debugf("c.Do() - done")
 	return res, err
 }
 
@@ -1194,6 +1209,8 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
+	defer log.Debugf("scrapeRedisHost() done")
+
 	startTime := time.Now()
 
 	c, err := e.connectToRedis()
@@ -1241,6 +1258,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err != nil {
+		log.Debugf("Redis INFO err: %s", err)
 		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
 			log.Errorf("Redis INFO err: %s", err)
@@ -1288,6 +1306,5 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractTile38Metrics(ch, c)
 	}
 
-	log.Debugf("scrapeRedisHost() done")
 	return nil
 }
