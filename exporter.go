@@ -352,13 +352,13 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 	}
 
 	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
-		return nil, fmt.Errorf("Couldn't parse check-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-keys: %#v", err)
 	} else {
 		log.Debugf("keys: %#v", keys)
 	}
 
 	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
-		return nil, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-single-keys: %#v", err)
 	} else {
 		log.Debugf("singleKeys: %#v", singleKeys)
 	}
@@ -485,7 +485,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 		e.registerConstMetricGauge(ch, "up", up)
 
-		took := time.Now().Sub(startTime).Seconds()
+		took := time.Since(startTime).Seconds()
 		e.scrapeDuration.Observe(took)
 		e.registerConstMetricGauge(ch, "exporter_last_scrape_duration_seconds", took)
 	}
@@ -625,8 +625,8 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 		return
 	}
 
-	if lagStr, exists := connectedSlaveInfo["lag"]; exists == false {
-		// Prior to 3.0, "lag" property does not exist
+	if lagStr, exists := connectedSlaveInfo["lag"]; !exists {
+		// Prior to Redis 3.0, "lag" property does not exist
 		lag = -1
 	} else {
 		lag, err = strconv.ParseFloat(lagStr, 64)
@@ -941,7 +941,7 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 		return err
 	}
 
-	if kv == nil || len(kv) == 0 {
+	if len(kv) == 0 {
 		return nil
 	}
 
@@ -1118,7 +1118,7 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 			info.size = float64(size)
 		}
 	default:
-		err = fmt.Errorf("Unknown type: %v for key: %v", info.keyType, key)
+		err = fmt.Errorf("unknown type: %v for key: %v", info.keyType, key)
 	}
 
 	return info, err
@@ -1221,7 +1221,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 	defer c.Close()
 
-	connectTookSeconds := time.Now().Sub(startTime).Seconds()
+	connectTookSeconds := time.Since(startTime).Seconds()
 	e.connectDuration.Observe(connectTookSeconds)
 
 	log.Debugf("connected to: %s", e.redisAddr)
@@ -1233,7 +1233,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		if _, err := doRedisCmd(c, "PING"); err != nil {
 			log.Errorf("Couldn't PING server, err: %s", err)
 		} else {
-			pingTookSeconds := time.Now().Sub(startTime).Seconds()
+			pingTookSeconds := time.Since(startTime).Seconds()
 			e.pingDuration.Observe(pingTookSeconds)
 			log.Debugf("PING took %f seconds", pingTookSeconds)
 		}
