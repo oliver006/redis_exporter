@@ -122,7 +122,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "max(max_over_time(redis_uptime_in_seconds{instance=~\"$instance\"}[$__interval]))",
+          "expr": "max(max_over_time(redis_uptime_in_seconds{job=~\"$job\"}[$__interval]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -212,7 +212,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "redis_connected_clients{instance=~\"$instance\"}",
+          "expr": "redis_connected_clients{job=~\"$job\"}",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -303,7 +303,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"} )",
+          "expr": "100 * (redis_memory_used_bytes{job=~\"$job\"}  / redis_memory_max_bytes{job=~\"$job\"} )",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -369,7 +369,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(redis_commands_processed_total{instance=~\"$instance\"}[1m])",
+          "expr": "rate(redis_commands_processed_total{job=~\"$job\"}[1m])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -465,7 +465,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(redis_keyspace_hits_total{instance=~\"$instance\"}[5m])",
+          "expr": "irate(redis_keyspace_hits_total{job=~\"$job\"}[5m])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -477,7 +477,7 @@
           "target": ""
         },
         {
-          "expr": "irate(redis_keyspace_misses_total{instance=~\"$instance\"}[5m])",
+          "expr": "irate(redis_keyspace_misses_total{job=~\"$job\"}[5m])",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -577,7 +577,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "redis_memory_used_bytes{instance=~\"$instance\"} ",
+          "expr": "redis_memory_used_bytes{job=~\"$job\"} ",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "used",
@@ -587,7 +587,7 @@
           "target": ""
         },
         {
-          "expr": "redis_memory_max_bytes{instance=~\"$instance\"} ",
+          "expr": "redis_memory_max_bytes{job=~\"$job\"} ",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
@@ -680,7 +680,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(redis_net_input_bytes_total{instance=~\"$instance\"}[5m])",
+          "expr": "rate(redis_net_input_bytes_total{job=~\"$job\"}[5m])",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ input }}",
@@ -688,7 +688,7 @@
           "step": 240
         },
         {
-          "expr": "rate(redis_net_output_bytes_total{instance=~\"$instance\"}[5m])",
+          "expr": "rate(redis_net_output_bytes_total{job=~\"$job\"}[5m])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -783,7 +783,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (db)",
+          "expr": "sum (redis_db_keys{job=~\"$job\"}) by (db)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -877,7 +877,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) - sum (redis_db_keys_expiring{instance=~\"$instance\"}) ",
+          "expr": "sum (redis_db_keys{job=~\"$job\"}) - sum (redis_db_keys_expiring{job=~\"$job\"}) ",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -887,7 +887,7 @@
           "target": ""
         },
         {
-          "expr": "sum (redis_db_keys_expiring{instance=~\"$instance\"}) ",
+          "expr": "sum (redis_db_keys_expiring{job=~\"$job\"}) ",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -942,7 +942,7 @@
     {
       "aliasColors": {
         "evicts": "#890F02",
-        "memcached_items_evicted_total{instance=\"172.17.0.1:9150\",job=\"prometheus\"}": "#890F02",
+        "memcached_items_evicted_total{job=~\"$job\"}": "#890F02",
         "reclaims": "#3F6833"
       },
       "bars": false,
@@ -990,7 +990,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(redis_expired_keys_total{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(redis_expired_keys_total{job=~\"$job\"}[5m])) by (instance)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -1002,7 +1002,7 @@
           "target": ""
         },
         {
-          "expr": "sum(rate(redis_evicted_keys_total{instance=~\"$instance\"}[5m])) by (instance)",
+          "expr": "sum(rate(redis_evicted_keys_total{job=~\"$job\"}[5m])) by (instance)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1095,7 +1095,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(5, irate(redis_commands_total{instance=~\"$instance\"} [1m]))",
+          "expr": "topk(5, irate(redis_commands_total{job=~\"$job\"} [1m]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1185,7 +1185,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "redis_connected_clients{instance=\"$instance\"}",
+          "expr": "redis_connected_clients{job=\"$job\"}",
           "format": "time_series",
           "intervalFactor": 1,
           "refId": "A"
@@ -1246,14 +1246,14 @@
         "allValue": null,
         "current": {},
         "datasource": "${DS_PROMETHEUS}",
-        "definition": "label_values(redis_up, instance)",
+        "definition": "label_values(redis_up, job)",
         "hide": 0,
         "includeAll": false,
         "label": null,
         "multi": false,
-        "name": "instance",
+        "name": "job",
         "options": [],
-        "query": "label_values(redis_up, instance)",
+        "query": "label_values(redis_up, job)",
         "refresh": 2,
         "regex": "",
         "skipUrlSync": false,
