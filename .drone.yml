@@ -15,7 +15,7 @@ services:
       - 6383
 
   - name: redis6
-    image: oliver006/redis:6.0-rc1
+    image: redis:6.0-rc1
     commands:
       - "/usr/local/bin/redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
