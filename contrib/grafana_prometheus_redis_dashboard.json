@@ -11,10 +11,10 @@
   ],
   "__requires": [
     {
-      "type": "panel",
-      "id": "singlestat",
-      "name": "Singlestat",
-      "version": ""
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "3.1.1"
     },
     {
       "type": "panel",
@@ -23,16 +23,16 @@
       "version": ""
     },
     {
-      "type": "grafana",
-      "id": "grafana",
-      "name": "Grafana",
-      "version": "3.1.1"
-    },
-    {
       "type": "datasource",
       "id": "prometheus",
       "name": "Prometheus",
       "version": "1.0.0"
+    },
+    {
+      "type": "panel",
+      "id": "singlestat",
+      "name": "Singlestat",
+      "version": ""
     }
   ],
   "annotations": {
@@ -51,9 +51,9 @@
   "description": "Redis Dashboard for Prometheus Redis Exporter 1.x",
   "editable": true,
   "gnetId": 763,
-  "graphTooltip": 0,
-  "id": 5,
-  "iteration": 1557495413494,
+  "graphTooltip": 1,
+  "id": null,
+  "iteration": 1582136594637,
   "links": [],
   "panels": [
     {
@@ -336,6 +336,7 @@
       "editable": true,
       "error": false,
       "fill": 1,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -343,6 +344,7 @@
         "x": 8,
         "y": 0
       },
+      "hiddenSeries": false,
       "id": 2,
       "isNew": true,
       "legend": {
@@ -358,7 +360,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -432,6 +436,7 @@
       "editable": true,
       "error": false,
       "fill": 1,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -439,6 +444,7 @@
         "x": 16,
         "y": 0
       },
+      "hiddenSeries": false,
       "id": 1,
       "isNew": true,
       "legend": {
@@ -454,7 +460,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": true,
       "pointradius": 5,
       "points": false,
@@ -542,6 +550,7 @@
       "editable": true,
       "error": false,
       "fill": 1,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -549,6 +558,7 @@
         "x": 0,
         "y": 7
       },
+      "hiddenSeries": false,
       "id": 7,
       "isNew": true,
       "legend": {
@@ -566,7 +576,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "null as zero",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -647,6 +659,7 @@
       "editable": true,
       "error": false,
       "fill": 1,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -654,6 +667,7 @@
         "x": 12,
         "y": 7
       },
+      "hiddenSeries": false,
       "id": 10,
       "isNew": true,
       "legend": {
@@ -669,7 +683,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -748,6 +764,7 @@
       "editable": true,
       "error": false,
       "fill": 7,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -755,6 +772,7 @@
         "x": 0,
         "y": 14
       },
+      "hiddenSeries": false,
       "id": 5,
       "isNew": true,
       "legend": {
@@ -772,7 +790,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -844,6 +864,7 @@
       "editable": true,
       "error": false,
       "fill": 7,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -851,6 +872,7 @@
         "x": 12,
         "y": 14
       },
+      "hiddenSeries": false,
       "id": 13,
       "isNew": true,
       "legend": {
@@ -866,7 +888,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -952,6 +976,7 @@
       "editable": true,
       "error": false,
       "fill": 1,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -959,6 +984,7 @@
         "x": 0,
         "y": 21
       },
+      "hiddenSeries": false,
       "id": 8,
       "isNew": true,
       "legend": {
@@ -974,7 +1000,9 @@
       "linewidth": 2,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -1062,6 +1090,7 @@
       "editable": true,
       "error": false,
       "fill": 8,
+      "fillGradient": 0,
       "grid": {},
       "gridPos": {
         "h": 7,
@@ -1069,7 +1098,8 @@
         "x": 12,
         "y": 21
       },
-      "id": 14,
+      "hiddenSeries": false,
+      "id": 18,
       "isNew": true,
       "legend": {
         "avg": false,
@@ -1084,7 +1114,9 @@
       "linewidth": 1,
       "links": [],
       "nullPointMode": "connected",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 5,
       "points": false,
@@ -1095,7 +1127,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(5, irate(redis_commands_total{instance=~\"$instance\"} [1m]))",
+          "expr": "irate(redis_commands_total{instance=~\"$instance\"} [1m])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1109,11 +1141,11 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Command Calls / sec",
+      "title": "Total Commands / sec",
       "tooltip": {
         "msResolution": true,
         "shared": true,
-        "sort": 0,
+        "sort": 2,
         "value_type": "individual"
       },
       "type": "graph",
@@ -1153,13 +1185,211 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "${DS_PROMETHEUS}",
-      "fill": 1,
+      "editable": true,
+      "error": false,
+      "fill": 8,
+      "fillGradient": 0,
+      "grid": {},
       "gridPos": {
         "h": 7,
         "w": 12,
         "x": 0,
         "y": 28
       },
+      "hiddenSeries": false,
+      "id": 20,
+      "isNew": true,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "\nsum by (cmd) (rate(redis_commands_duration_seconds_total{\n  instance = \"$instance\",\n}[1m])) / sum by (cmd) (rate(redis_commands_total{\n  instance = \"$instance\",\n}[1m]))\n",
+          "format": "time_series",
+          "interval": "",
+          "intervalFactor": 2,
+          "legendFormat": "{{ cmd }}",
+          "metric": "redis_command_calls_total",
+          "refId": "A",
+          "step": 240
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Average Time Spent by Command / sec",
+      "tooltip": {
+        "msResolution": true,
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_PROMETHEUS}",
+      "editable": true,
+      "error": false,
+      "fill": 8,
+      "fillGradient": 0,
+      "grid": {},
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "hiddenSeries": false,
+      "id": 14,
+      "isNew": true,
+      "legend": {
+        "avg": false,
+        "current": false,
+        "max": false,
+        "min": false,
+        "show": true,
+        "total": false,
+        "values": false
+      },
+      "lines": true,
+      "linewidth": 1,
+      "links": [],
+      "nullPointMode": "connected",
+      "options": {
+        "dataLinks": []
+      },
+      "percentage": false,
+      "pointradius": 5,
+      "points": false,
+      "renderer": "flot",
+      "seriesOverrides": [],
+      "spaceLength": 10,
+      "stack": true,
+      "steppedLine": false,
+      "targets": [
+        {
+          "expr": "sum by (cmd) (rate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m]))",
+          "format": "time_series",
+          "interval": "",
+          "intervalFactor": 2,
+          "legendFormat": "{{ cmd }}",
+          "metric": "redis_command_calls_total",
+          "refId": "A",
+          "step": 240
+        }
+      ],
+      "thresholds": [],
+      "timeFrom": null,
+      "timeRegions": [],
+      "timeShift": null,
+      "title": "Total Time Spent by Command / sec",
+      "tooltip": {
+        "msResolution": true,
+        "shared": true,
+        "sort": 2,
+        "value_type": "individual"
+      },
+      "type": "graph",
+      "xaxis": {
+        "buckets": null,
+        "mode": "time",
+        "name": null,
+        "show": true,
+        "values": []
+      },
+      "yaxes": [
+        {
+          "format": "s",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        },
+        {
+          "format": "short",
+          "label": null,
+          "logBase": 1,
+          "max": null,
+          "min": null,
+          "show": true
+        }
+      ],
+      "yaxis": {
+        "align": false,
+        "alignLevel": null
+      }
+    },
+    {
+      "aliasColors": {},
+      "bars": false,
+      "dashLength": 10,
+      "dashes": false,
+      "datasource": "${DS_PROMETHEUS}",
+      "fill": 1,
+      "fillGradient": 0,
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 35
+      },
+      "hiddenSeries": false,
       "id": 16,
       "legend": {
         "avg": false,
@@ -1174,7 +1404,9 @@
       "linewidth": 1,
       "links": [],
       "nullPointMode": "null",
-      "options": {},
+      "options": {
+        "dataLinks": []
+      },
       "percentage": false,
       "pointradius": 2,
       "points": false,
@@ -1234,7 +1466,7 @@
     }
   ],
   "refresh": "30s",
-  "schemaVersion": 18,
+  "schemaVersion": 22,
   "style": "dark",
   "tags": [
     "prometheus",
@@ -1297,5 +1529,5 @@
   },
   "timezone": "browser",
   "title": "Redis Dashboard for Prometheus Redis Exporter 1.x",
-  "version": 12
+  "version": 13
 }
