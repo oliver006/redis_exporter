@@ -14,7 +14,7 @@
       "type": "grafana",
       "id": "grafana",
       "name": "Grafana",
-      "version": "3.1.1"
+      "version": "6.6.0"
     },
     {
       "type": "panel",
@@ -53,7 +53,7 @@
   "gnetId": 763,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1582136594640,
+  "iteration": 1582136594647,
   "links": [],
   "panels": [
     {
@@ -1127,7 +1127,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10, irate(redis_commands_total{instance=~\"$instance\"} [1m]))",
+          "expr": "sum(topk(10, irate(redis_commands_total{instance=~\"$instance\"} [1m]))) by (cmd)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1225,7 +1225,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10, irate(redis_commands_duration_seconds_total{instance = \"$instance\",}[1m]) / irate(redis_commands_total{instance = \"$instance\",}[1m]))",
+          "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance = \"$instance\",}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance = \"$instance\",}[1m])) by (cmd)\n)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1323,7 +1323,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10, irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m]))",
+          "expr": "topk(10, sum(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m])) by (cmd))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
