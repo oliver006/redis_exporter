@@ -898,15 +898,16 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 }
 
 func (e *Exporter) extractLatencyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
-		var eventName string
-		if tempVal, _ := reply.([]interface{}); len(tempVal) > 0 {
-			latencyResult := tempVal[0].([]interface{})
-			var spikeLast, spikeDuration, max int64
-			if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &spikeDuration, &max); err == nil {
-				spikeDurationSeconds := float64(spikeDuration) / 1e3
-				e.registerConstMetricGauge(ch, "latency_spike_last", float64(spikeLast), eventName)
-				e.registerConstMetricGauge(ch, "latency_spike_duration_seconds", spikeDurationSeconds, eventName)
+	if reply, err := redis.Values(doRedisCmd(c, "LATENCY", "LATEST")); err == nil {
+		for _, l := range reply {
+			if latencyResult, err := redis.Values(l, nil); err == nil {
+				var eventName string
+				var spikeLast, spikeDuration, max int64
+				if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &spikeDuration, &max); err == nil {
+					spikeDurationSeconds := float64(spikeDuration) / 1e3
+					e.registerConstMetricGauge(ch, "latency_spike_last", float64(spikeLast), eventName)
+					e.registerConstMetricGauge(ch, "latency_spike_duration_seconds", spikeDurationSeconds, eventName)
+				}
 			}
 		}
 	}
