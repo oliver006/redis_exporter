@@ -2,7 +2,7 @@
   "__inputs": [
     {
       "name": "DS_PROMETHEUS",
-      "label": "prom",
+      "label": "Prometheus",
       "description": "",
       "type": "datasource",
       "pluginId": "prometheus",
@@ -53,7 +53,7 @@
   "gnetId": 763,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1582136594637,
+  "iteration": 1582136594640,
   "links": [],
   "panels": [
     {
@@ -1127,7 +1127,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(redis_commands_total{instance=~\"$instance\"} [1m])",
+          "expr": "topk(10, irate(redis_commands_total{instance=~\"$instance\"} [1m]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1225,7 +1225,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "\nsum by (cmd) (rate(redis_commands_duration_seconds_total{\n  instance = \"$instance\",\n}[1m])) / sum by (cmd) (rate(redis_commands_total{\n  instance = \"$instance\",\n}[1m]))\n",
+          "expr": "topk(10, irate(redis_commands_duration_seconds_total{instance = \"$instance\",}[1m]) / irate(redis_commands_total{instance = \"$instance\",}[1m]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1323,7 +1323,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum by (cmd) (rate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m]))",
+          "expr": "topk(10, irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
