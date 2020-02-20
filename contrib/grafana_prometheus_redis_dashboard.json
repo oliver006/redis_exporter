@@ -53,7 +53,7 @@
   "gnetId": 763,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1582165708762,
+  "iteration": 1582221373482,
   "links": [],
   "panels": [
     {
@@ -1125,12 +1125,14 @@
           "expr": "redis_connected_clients{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "connected",
           "refId": "A"
         },
         {
           "expr": "redis_blocked_clients{instance=\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 1,
+          "legendFormat": "blocked",
           "refId": "B"
         }
       ],
