@@ -303,7 +303,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"} )",
+          "expr": "100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -910,7 +910,7 @@
           "target": ""
         },
         {
-          "expr": "sum (redis_db_keys_expiring{instance=~\"$instance\"}) ",
+          "expr": "sum (redis_db_keys_expiring{instance=~\"$instance\"})",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1223,7 +1223,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance = \"$instance\",}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance = \"$instance\",}[1m])) by (cmd)\n)",
+          "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance = \"$instance\"}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance = \"$instance\"}[1m])) by (cmd)\n)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
