@@ -38,6 +38,23 @@ scrape_configs:
 
 and adjust the host name accordingly.
 
+### Kubernetes SD configurations
+
+To have instances appear as human readable names rather than IPs, it is suggested to use [instance relabelling](https://www.robustperception.io/controlling-the-instance-label).
+
+For example, if the metrics are being scraped via the pod role, one could add:
+
+```yaml
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: instance
+            regex: (.*redis.*)
+```
+
+as a relabel config to the corresponding scrape config. As per the regex value, only pods with "redis" in their name will be relabelled as such.
+
+Similar approaches can be taken with [other role types](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config) depending on how scrape targets are retrieved.
+
 ### Prometheus Configuration to Scrape Multiple Redis Hosts
 
 Run the exporter with the command line flag `--redis.addr=` so it won't try to access the local instance every time the `/metrics` endpoint is scraped.
