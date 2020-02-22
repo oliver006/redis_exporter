@@ -44,7 +44,7 @@ and adjust the host name accordingly.
 
 ### Kubernetes SD configurations
 
-To have instances appear as human readable names rather than IPs, it is suggested to use [instance relabelling](https://www.robustperception.io/controlling-the-instance-label).
+To have instances in the drop-down as human readable names rather than IPs, it is suggested to use [instance relabelling](https://www.robustperception.io/controlling-the-instance-label).
 
 For example, if the metrics are being scraped via the pod role, one could add:
 
