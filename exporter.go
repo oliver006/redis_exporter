@@ -38,8 +38,6 @@ type Exporter struct {
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
-	connectDuration           prometheus.Summary
-	pingDuration              prometheus.Summary
 	targetScrapeRequestErrors prometheus.Counter
 
 	metricDescriptions map[string]*prometheus.Desc
@@ -171,18 +169,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			Namespace: opts.Namespace,
 			Name:      "exporter_scrape_duration_seconds",
 			Help:      "Durations of scrapes by the exporter",
-		}),
-
-		connectDuration: prometheus.NewSummary(prometheus.SummaryOpts{
-			Namespace: opts.Namespace,
-			Name:      "exporter_scrape_connect_time_seconds",
-			Help:      "Durations of connects during scrapes by the exporter",
-		}),
-
-		pingDuration: prometheus.NewSummary(prometheus.SummaryOpts{
-			Namespace: opts.Namespace,
-			Name:      "exporter_scrape_ping_time_seconds",
-			Help:      "Durations of pings during scrapes by the exporter",
 		}),
 
 		targetScrapeRequestErrors: prometheus.NewCounter(prometheus.CounterOpts{
@@ -461,10 +447,6 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 
 	ch <- e.totalScrapes.Desc()
 	ch <- e.scrapeDuration.Desc()
-	ch <- e.connectDuration.Desc()
-	if e.options.PingOnConnect {
-		ch <- e.pingDuration.Desc()
-	}
 	ch <- e.targetScrapeRequestErrors.Desc()
 }
 
@@ -493,10 +475,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 	ch <- e.totalScrapes
 	ch <- e.scrapeDuration
-	ch <- e.connectDuration
-	if e.options.PingOnConnect {
-		ch <- e.pingDuration
-	}
 	ch <- e.targetScrapeRequestErrors
 }
 
@@ -1213,17 +1191,16 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	defer log.Debugf("scrapeRedisHost() done")
 
 	startTime := time.Now()
-
 	c, err := e.connectToRedis()
+	connectTookSeconds := time.Since(startTime).Seconds()
+	e.registerConstMetricGauge(ch, "exporter_last_scrape_connect_time_seconds", connectTookSeconds)
+
 	if err != nil {
 		log.Errorf("Couldn't connect to redis instance")
 		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
 		return err
 	}
 	defer c.Close()
-
-	connectTookSeconds := time.Since(startTime).Seconds()
-	e.connectDuration.Observe(connectTookSeconds)
 
 	log.Debugf("connected to: %s", e.redisAddr)
 	log.Debugf("took %f seconds", connectTookSeconds)
@@ -1235,7 +1212,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			log.Errorf("Couldn't PING server, err: %s", err)
 		} else {
 			pingTookSeconds := time.Since(startTime).Seconds()
-			e.pingDuration.Observe(pingTookSeconds)
+			e.registerConstMetricGauge(ch, "exporter_last_scrape_ping_time_seconds", pingTookSeconds)
 			log.Debugf("PING took %f seconds", pingTookSeconds)
 		}
 	}
@@ -1271,7 +1248,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
 
-			// in cluster mode Redis only supports one database so no extra padding beyond that needed
+			// in cluster mode Redis only supports one database so no extra DB number padding needed
 			dbCount = 1
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
