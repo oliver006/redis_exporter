@@ -1387,7 +1387,7 @@ func TestHTTPHTMLPages(t *testing.T) {
 
 func TestConnectionDurations(t *testing.T) {
 	metric1 := "exporter_scrape_ping_time_seconds_count"
-	metric2 := "exporter_scrape_connect_time_seconds_count"
+	metric2 := "exporter_last_scrape_connect_time_seconds"
 
 	for _, inclPing := range []bool{false, true} {
 		r := prometheus.NewRegistry()
