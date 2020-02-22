@@ -30,3 +30,28 @@ services:
     image: "tile38/tile38:latest"
     ports:
       - 9851
+
+
+  keydb-01:
+    image: "eqalpha/keydb:x86_64_v5.3.0"
+    command: 'keydb-server  --protected-mode no --port 6401'
+    ports:
+      - '6401:6401'
+
+  keydb-02:
+    image: "eqalpha/keydb:x86_64_v5.3.0"
+    command: 'keydb-server  --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401'
+    ports:
+      - '6402:6402'
+
+  keydb-03:
+    image: "eqalpha/keydb:x86_64_v5.3.0"
+    command: 'keydb-server  --protected-mode no --port 6403 --active-replica yes --replicaof keydb-01 6401'
+    ports:
+      - '6403:6403'
+
+  keydb-04:
+    image: "eqalpha/keydb:x86_64_v5.3.0"
+    command: 'keydb-server  --protected-mode no --port 6404 --active-replica yes --replicaof keydb-01 6401'
+    ports:
+      - '6404:6404'
