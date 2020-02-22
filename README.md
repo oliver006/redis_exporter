@@ -1,20 +1,14 @@
-# Redis Metrics Exporter
+# Prometheus Redis Metrics Exporter
 
 [![Build Status](https://cloud.drone.io/api/badges/oliver006/redis_exporter/status.svg)](https://cloud.drone.io/oliver006/redis_exporter)
  [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)
 
 Prometheus exporter for Redis metrics.\
-Supports Redis 2.x, 3.x, 4.x, and 5.x
+Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
 
-## Upgrading from 0.x to 1.x
+## Building and running the exporter
 
-[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
-
-If you only scrape one Redis instance and use command line flags `--redis.address`
-and `--redis.password` then you're most probably not affected.
-Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and this README for more information.
-
-## Build and run locally
+### Build and run locally
 
 ```sh
 git clone https://github.com/oliver006/redis_exporter.git
@@ -23,7 +17,17 @@ go build .
 ./redis_exporter --version
 ```
 
-## Configuring
+### Pre-build binaries
+
+For pre-built binaries please take a look at [the releases](https://github.com/oliver006/redis_exporter/releases).
+
+### Upgrading from 0.x to 1.x
+
+[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
+
+If you only scrape one Redis instance and use command line flags `--redis.address`
+and `--redis.password` then you're most probably not affected.
+Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and this README for more information.
 
 ### Basic Prometheus Configuration
 
@@ -60,7 +64,6 @@ Similar approaches can be taken with [other role types](https://prometheus.io/do
 Run the exporter with the command line flag `--redis.addr=` so it won't try to access the local instance every time the `/metrics` endpoint is scraped.
 
 ```yaml
-
 scrape_configs:
   ## config for the multiple Redis targets that the exporter will scrape
   - job_name: 'redis_exporter_targets'
@@ -128,9 +131,7 @@ The `targets-redis-instances.json` should look something like this:
 
 Prometheus uses file watches and all changes to the json file are applied immediately.
 
-## Running
-
-### Flags
+### Command line flags
 
 Name                   | Environment Variable Name            | Description
 -----------------------|--------------------------------------|-----------------
@@ -147,6 +148,7 @@ web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS    | Address to liste
 web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH    | Path under which to expose metrics, defaults to `/metrics`.
 redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also export go runtime metrics, defaults to false.
 include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+ping-on-connect        | REDIS_EXPORTER_PING_ON_CONNECT       | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrape Client List specific metrics, defaults to false.
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification

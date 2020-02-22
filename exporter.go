@@ -16,7 +16,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	prom_strutil "github.com/prometheus/prometheus/util/strutil"
+	strutil "github.com/prometheus/prometheus/util/strutil"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -32,6 +32,7 @@ type keyInfo struct {
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	sync.Mutex
+
 	redisAddr string
 	namespace string
 
@@ -41,7 +42,7 @@ type Exporter struct {
 
 	metricDescriptions map[string]*prometheus.Desc
 
-	options ExporterOptions
+	options Options
 
 	metricMapCounters map[string]string
 	metricMapGauges   map[string]string
@@ -49,7 +50,7 @@ type Exporter struct {
 	mux *http.ServeMux
 }
 
-type ExporterOptions struct {
+type Options struct {
 	Password            string
 	Namespace           string
 	ConfigCommandName   string
@@ -65,10 +66,11 @@ type ExporterOptions struct {
 	ConnectionTimeouts  time.Duration
 	MetricsPath         string
 	RedisMetricsOnly    bool
+	PingOnConnect       bool
 	Registry            *prometheus.Registry
 }
 
-func (e *Exporter) ScrapeHandler(w http.ResponseWriter, r *http.Request) {
+func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	target := r.URL.Query().Get("target")
 	if target == "" {
 		http.Error(w, "'target' parameter must be specified", 400)
@@ -149,7 +151,9 @@ func newMetricDescr(namespace string, metricName string, docString string, label
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
-func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) {
+func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
+	log.Debugf("NewRedisExporter options: %#v", opts)
+
 	e := &Exporter{
 		redisAddr: redisURI,
 		options:   opts,
@@ -164,7 +168,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		scrapeDuration: prometheus.NewSummary(prometheus.SummaryOpts{
 			Namespace: opts.Namespace,
 			Name:      "exporter_scrape_duration_seconds",
-			Help:      "Duration of scrape by the exporter",
+			Help:      "Durations of scrapes by the exporter",
 		}),
 
 		targetScrapeRequestErrors: prometheus.NewCounter(prometheus.CounterOpts{
@@ -181,6 +185,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			// # Clients
 			"connected_clients": "connected_clients",
 			"blocked_clients":   "blocked_clients",
+			"tracking_clients":  "tracking_clients",
 
 			// redis 2,3,4.x
 			"client_longest_output_list": "client_longest_output_list",
@@ -191,16 +196,48 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"client_recent_max_input_buffer":  "client_recent_max_input_buffer_bytes",
 
 			// # Memory
-			"allocator_active":    "allocator_active_bytes",
-			"allocator_allocated": "allocator_allocated_bytes",
-			"allocator_resident":  "allocator_resident_bytes",
-			"used_memory":         "memory_used_bytes",
-			"used_memory_rss":     "memory_used_rss_bytes",
-			"used_memory_peak":    "memory_used_peak_bytes",
-			"used_memory_lua":     "memory_used_lua_bytes",
-			"maxmemory":           "memory_max_bytes",
+			"allocator_active":     "allocator_active_bytes",
+			"allocator_allocated":  "allocator_allocated_bytes",
+			"allocator_resident":   "allocator_resident_bytes",
+			"allocator_frag_ratio": "allocator_frag_ratio",
+			"allocator_frag_bytes": "allocator_frag_bytes",
+			"allocator_rss_ratio":  "allocator_rss_ratio",
+			"allocator_rss_bytes":  "allocator_rss_bytes",
+
+			"used_memory":          "memory_used_bytes",
+			"used_memory_rss":      "memory_used_rss_bytes",
+			"used_memory_peak":     "memory_used_peak_bytes",
+			"used_memory_lua":      "memory_used_lua_bytes",
+			"used_memory_overhead": "memory_used_overhead_bytes",
+			"used_memory_startup":  "memory_used_startup_bytes",
+			"used_memory_dataset":  "memory_used_dataset_bytes",
+			"used_memory_scripts":  "memory_used_scripts_bytes",
+			"maxmemory":            "memory_max_bytes",
+
+			"mem_fragmentation_ratio": "mem_fragmentation_ratio",
+			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
+			"mem_clients_slaves":      "mem_clients_slaves",
+			"mem_clients_normal":      "mem_clients_normal",
+
+			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
+			// ... the sum of AOF and slaves buffer ....
+			"mem_not_counted_for_evict": "mem_not_counted_for_eviction_bytes",
+
+			"lazyfree_pending_objects": "lazyfree_pending_objects",
+			"active_defrag_running":    "active_defrag_running",
+
+			"migrate_cached_sockets": "migrate_cached_sockets_total",
+
+			"active_defrag_hits":       "defrag_hits",
+			"active_defrag_misses":     "defrag_misses",
+			"active_defrag_key_hits":   "defrag_key_hits",
+			"active_defrag_key_misses": "defrag_key_misses",
+
+			// https://github.com/antirez/redis/blob/0af467d18f9d12b137af3b709c0af579c29d8414/src/expire.c#L297-L299
+			"expired_time_cap_reached_count": "expired_time_cap_reached_total",
 
 			// # Persistence
+			"loading":                      "loading_dump_file",
 			"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
 			"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
 			"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
@@ -223,6 +260,8 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"aof_delayed_fsync":            "aof_delayed_fsync",
 			"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
 			"aof_last_write_status":        "aof_last_write_status",
+			"module_fork_in_progress":      "module_fork_in_progress",
+			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
 			// # Stats
 			"pubsub_channels":  "pubsub_channels",
@@ -230,11 +269,21 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"latest_fork_usec": "latest_fork_usec",
 
 			// # Replication
-			"loading":                    "loading_dump_file",
-			"connected_slaves":           "connected_slaves",
-			"repl_backlog_size":          "replication_backlog_bytes",
-			"master_last_io_seconds_ago": "master_last_io_seconds",
-			"master_repl_offset":         "master_repl_offset",
+			"connected_slaves":               "connected_slaves",
+			"repl_backlog_size":              "replication_backlog_bytes",
+			"repl_backlog_active":            "repl_backlog_is_active",
+			"repl_backlog_first_byte_offset": "repl_backlog_first_byte_offset",
+			"repl_backlog_histlen":           "repl_backlog_history_bytes",
+			"master_last_io_seconds_ago":     "master_last_io_seconds",
+			"master_repl_offset":             "master_repl_offset",
+			"second_repl_offset":             "second_repl_offset",
+			"slave_repl_offset":              "slave_repl_offset",
+			"slave_expires_tracked_keys":     "slave_expires_tracked_keys",
+			"slave_priority":                 "slave_priority",
+			"sync_full":                      "replica_resyncs_full",
+			"sync_partial_ok":                "replica_partial_resync_accepted",
+			"sync_partial_err":               "replica_partial_resync_denied",
+			"master_sync_in_progress":        "master_sync_in_progress",
 
 			// # Cluster
 			"cluster_stats_messages_sent":     "cluster_messages_sent_total",
@@ -258,6 +307,11 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 			"tile38_pointer_size":    "tile38_pointer_size_bytes",
 			"tile38_read_only":       "tile38_read_only",
 			"tile38_threads":         "tile38_threads_total",
+
+			// addtl. KeyDB metrics
+			"server_threads":        "server_threads_total",
+			"long_lock_waits":       "long_lock_waits_total",
+			"current_client_thread": "current_client_thread",
 		},
 
 		metricMapCounters: map[string]string{
@@ -285,13 +339,13 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 	}
 
 	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
-		return nil, fmt.Errorf("Couldn't parse check-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-keys: %#v", err)
 	} else {
 		log.Debugf("keys: %#v", keys)
 	}
 
 	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
-		return nil, fmt.Errorf("Couldn't parse check-single-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-single-keys: %#v", err)
 	} else {
 		log.Debugf("singleKeys: %#v", singleKeys)
 	}
@@ -355,7 +409,7 @@ func NewRedisExporter(redisURI string, opts ExporterOptions) (*Exporter, error) 
 		}
 	}
 
-	e.mux.HandleFunc("/scrape", e.ScrapeHandler)
+	e.mux.HandleFunc("/scrape", e.scrapeHandler)
 	e.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`ok`))
 	})
@@ -403,7 +457,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	e.totalScrapes.Inc()
 
 	if e.redisAddr != "" {
-		start := time.Now().UnixNano()
+		startTime := time.Now()
 		var up float64 = 1
 		if err := e.scrapeRedisHost(ch); err != nil {
 			up = 0
@@ -413,7 +467,10 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 		}
 
 		e.registerConstMetricGauge(ch, "up", up)
-		e.registerConstMetricGauge(ch, "exporter_last_scrape_duration_seconds", float64(time.Now().UnixNano()-start)/1000000000)
+
+		took := time.Since(startTime).Seconds()
+		e.scrapeDuration.Observe(took)
+		e.registerConstMetricGauge(ch, "exporter_last_scrape_duration_seconds", took)
 	}
 
 	ch <- e.totalScrapes
@@ -434,7 +491,7 @@ func (e *Exporter) includeMetric(s string) bool {
 }
 
 func sanitizeMetricName(n string) string {
-	return prom_strutil.SanitizeLabelName(n)
+	return strutil.SanitizeLabelName(n)
 }
 
 func extractVal(s string) (val float64, err error) {
@@ -547,8 +604,8 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 		return
 	}
 
-	if lagStr, exists := connectedSlaveInfo["lag"]; exists == false {
-		// Prior to 3.0, "lag" property does not exist
+	if lagStr, exists := connectedSlaveInfo["lag"]; !exists {
+		// Prior to Redis 3.0, "lag" property does not exist
 		lag = -1
 	} else {
 		lag, err = strconv.ParseFloat(lagStr, 64)
@@ -691,8 +748,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	handledDBs := map[string]bool{}
 
 	fieldClass := ""
-	lines := strings.Split(info, "\r\n")
+	lines := strings.Split(info, "\n")
 	for _, line := range lines {
+		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
 		if len(line) > 0 && line[0] == '#' {
 			fieldClass = line[2:]
@@ -862,7 +920,7 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 		return err
 	}
 
-	if kv == nil || len(kv) == 0 {
+	if len(kv) == 0 {
 		return nil
 	}
 
@@ -898,15 +956,16 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 }
 
 func (e *Exporter) extractLatencyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if reply, err := doRedisCmd(c, "LATENCY", "LATEST"); err == nil {
-		var eventName string
-		if tempVal, _ := reply.([]interface{}); len(tempVal) > 0 {
-			latencyResult := tempVal[0].([]interface{})
-			var spikeLast, spikeDuration, max int64
-			if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &spikeDuration, &max); err == nil {
-				spikeDurationSeconds := float64(spikeDuration) / 1e3
-				e.registerConstMetricGauge(ch, "latency_spike_last", float64(spikeLast), eventName)
-				e.registerConstMetricGauge(ch, "latency_spike_duration_seconds", spikeDurationSeconds, eventName)
+	if reply, err := redis.Values(doRedisCmd(c, "LATENCY", "LATEST")); err == nil {
+		for _, l := range reply {
+			if latencyResult, err := redis.Values(l, nil); err == nil {
+				var eventName string
+				var spikeLast, spikeDuration, max int64
+				if _, err := redis.Scan(latencyResult, &eventName, &spikeLast, &spikeDuration, &max); err == nil {
+					spikeDurationSeconds := float64(spikeDuration) / 1e3
+					e.registerConstMetricGauge(ch, "latency_spike_last", float64(spikeLast), eventName)
+					e.registerConstMetricGauge(ch, "latency_spike_duration_seconds", spikeDurationSeconds, eventName)
+				}
 			}
 		}
 	}
@@ -988,13 +1047,13 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	e.registerConstMetric(ch, metricName, val, t)
 }
 
-func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (reply interface{}, err error) {
+func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (interface{}, error) {
 	log.Debugf("c.Do() - running command: %s %s", cmd, args)
-	defer log.Debugf("c.Do() - done")
 	res, err := c.Do(cmd, args...)
 	if err != nil {
 		log.Debugf("c.Do() - err: %s", err)
 	}
+	log.Debugf("c.Do() - done")
 	return res, err
 }
 
@@ -1038,7 +1097,7 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 			info.size = float64(size)
 		}
 	default:
-		err = fmt.Errorf("Unknown type: %v for key: %v", info.keyType, key)
+		err = fmt.Errorf("unknown type: %v for key: %v", info.keyType, key)
 	}
 
 	return info, err
@@ -1129,7 +1188,13 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
+	defer log.Debugf("scrapeRedisHost() done")
+
+	startTime := time.Now()
 	c, err := e.connectToRedis()
+	connectTookSeconds := time.Since(startTime).Seconds()
+	e.registerConstMetricGauge(ch, "exporter_last_scrape_connect_time_seconds", connectTookSeconds)
+
 	if err != nil {
 		log.Errorf("Couldn't connect to redis instance")
 		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
@@ -1138,6 +1203,19 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	defer c.Close()
 
 	log.Debugf("connected to: %s", e.redisAddr)
+	log.Debugf("took %f seconds", connectTookSeconds)
+
+	if e.options.PingOnConnect {
+		startTime := time.Now()
+
+		if _, err := doRedisCmd(c, "PING"); err != nil {
+			log.Errorf("Couldn't PING server, err: %s", err)
+		} else {
+			pingTookSeconds := time.Since(startTime).Seconds()
+			e.registerConstMetricGauge(ch, "exporter_last_scrape_ping_time_seconds", pingTookSeconds)
+			log.Debugf("PING took %f seconds", pingTookSeconds)
+		}
+	}
 
 	if e.options.SetClientName {
 		if _, err := doRedisCmd(c, "CLIENT", "SETNAME", "redis_exporter"); err != nil {
@@ -1158,6 +1236,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err != nil {
+		log.Debugf("Redis INFO err: %s", err)
 		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
 			log.Errorf("Redis INFO err: %s", err)
@@ -1169,18 +1248,19 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
 
-			// in cluster mode Redis only supports one database so no extra padding beyond that needed
+			// in cluster mode Redis only supports one database so no extra DB number padding needed
 			dbCount = 1
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
 		}
-	} else {
+	} else if dbCount == 0 {
 		// in non-cluster mode, if dbCount is zero then "CONFIG" failed to retrieve a valid
 		// number of databases and we use the Redis config default which is 16
-		if dbCount == 0 {
-			dbCount = 16
-		}
+
+		dbCount = 16
 	}
+
+	log.Debugf("dbCount: %d", dbCount)
 
 	e.extractInfoMetrics(ch, infoAll, dbCount)
 
@@ -1204,6 +1284,5 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractTile38Metrics(ch, c)
 	}
 
-	log.Debugf("scrapeRedisHost() done")
 	return nil
 }
