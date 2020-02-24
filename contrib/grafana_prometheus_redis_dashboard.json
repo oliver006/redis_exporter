@@ -53,7 +53,7 @@
   "gnetId": 763,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1582221373482,
+  "iteration": 1583760176275,
   "links": [],
   "panels": [
     {
@@ -212,7 +212,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "redis_connected_clients{instance=~\"$instance\"}",
+          "expr": "sum(redis_connected_clients{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -303,7 +303,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"})",
+          "expr": "max(100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"}))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -352,7 +352,7 @@
         "current": false,
         "max": false,
         "min": false,
-        "show": true,
+        "show": false,
         "total": false,
         "values": false
       },
@@ -373,7 +373,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(topk(10, irate(redis_commands_total{instance=~\"$instance\"} [1m]))) by (cmd)",
+          "expr": "topk(10, sum(irate(redis_commands_total{instance=~\"$instance\"} [1m])) by (cmd))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -477,7 +477,7 @@
           "hide": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "hits",
+          "legendFormat": "hits, {{ instance }}",
           "metric": "",
           "refId": "A",
           "step": 240,
@@ -489,7 +489,7 @@
           "hide": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "misses",
+          "legendFormat": "misses, {{ instance }}",
           "metric": "",
           "refId": "B",
           "step": 240,
@@ -588,21 +588,21 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "redis_memory_used_bytes{instance=~\"$instance\"} ",
+          "expr": "redis_memory_used_bytes{instance=~\"$instance\"}",
           "format": "time_series",
           "intervalFactor": 2,
-          "legendFormat": "used",
+          "legendFormat": "used, {{ instance }}",
           "metric": "",
           "refId": "A",
           "step": 240,
           "target": ""
         },
         {
-          "expr": "redis_memory_max_bytes{instance=~\"$instance\"} ",
+          "expr": "redis_memory_max_bytes{instance=~\"$instance\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 2,
-          "legendFormat": "max",
+          "legendFormat": "max, {{ instance }}",
           "refId": "B",
           "step": 240
         }
@@ -695,7 +695,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "rate(redis_net_input_bytes_total{instance=~\"$instance\"}[5m])",
+          "expr": "sum(rate(redis_net_input_bytes_total{instance=~\"$instance\"}[5m]))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "{{ input }}",
@@ -703,7 +703,7 @@
           "step": 240
         },
         {
-          "expr": "rate(redis_net_output_bytes_total{instance=~\"$instance\"}[5m])",
+          "expr": "sum(rate(redis_net_output_bytes_total{instance=~\"$instance\"}[5m]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -802,11 +802,11 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (db)",
+          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (db, instance) != 0",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "{{ db }} ",
+          "legendFormat": "{{ db }}, {{ instance }}",
           "refId": "A",
           "step": 240,
           "target": ""
@@ -900,21 +900,21 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) - sum (redis_db_keys_expiring{instance=~\"$instance\"}) ",
+          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (instance) - sum (redis_db_keys_expiring{instance=~\"$instance\"}) by (instance)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "not expiring",
+          "legendFormat": "not expiring, {{ instance }}",
           "refId": "A",
           "step": 240,
           "target": ""
         },
         {
-          "expr": "sum (redis_db_keys_expiring{instance=~\"$instance\"})",
+          "expr": "sum (redis_db_keys_expiring{instance=~\"$instance\"}) by (instance)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "expiring",
+          "legendFormat": "expiring, {{ instance }}",
           "metric": "",
           "refId": "B",
           "step": 240
@@ -1022,7 +1022,7 @@
           "hide": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "expired",
+          "legendFormat": "expired, {{ instance }}",
           "metric": "",
           "refId": "A",
           "step": 240,
@@ -1033,7 +1033,7 @@
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "evicted",
+          "legendFormat": "evicted, {{ instance }}",
           "refId": "B",
           "step": 240
         }
@@ -1122,14 +1122,14 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "redis_connected_clients{instance=\"$instance\"}",
+          "expr": "sum(redis_connected_clients{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "connected",
           "refId": "A"
         },
         {
-          "expr": "redis_blocked_clients{instance=\"$instance\"}",
+          "expr": "sum(redis_blocked_clients{instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "blocked",
@@ -1223,7 +1223,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance = \"$instance\"}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance = \"$instance\"}[1m])) by (cmd)\n)",
+          "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance =~ \"$instance\"}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance =~ \"$instance\"}[1m])) by (cmd)\n)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1391,7 +1391,7 @@
         "hide": 0,
         "includeAll": false,
         "label": null,
-        "multi": false,
+        "multi": true,
         "name": "instance",
         "options": [],
         "query": "label_values(redis_up, instance)",
@@ -1438,5 +1438,5 @@
   },
   "timezone": "browser",
   "title": "Redis Dashboard for Prometheus Redis Exporter 1.x",
-  "version": 13
+  "version": 14
 }

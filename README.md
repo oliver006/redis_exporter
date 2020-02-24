@@ -209,6 +209,10 @@ Example [Grafana](http://grafana.org/) screenshots:
 
 Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/763) and/or [github.com](contrib/grafana_prometheus_redis_dashboard.json).
 
+### Viewing multiple Redis simultaneously
+
+If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirable to view the metrics of the various cluster members simultaneously. For this reason the dashboard's drop down is of the multi-value type, allowing for the selection of multiple Redis. Please note that there is a  caveat; the single stat panels up top namely `uptime`, `total memory use` and `clients` do not function upon viewing multiple Redis.
+
 ## Communal effort
 
 Open an issue or PR if you have more suggestions, questions or ideas about what to add.
