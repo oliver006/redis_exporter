@@ -53,7 +53,7 @@
   "gnetId": 763,
   "graphTooltip": 1,
   "id": null,
-  "iteration": 1583760176275,
+  "iteration": 1583850456553,
   "links": [],
   "panels": [
     {
@@ -79,7 +79,7 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 2,
+        "w": 3,
         "x": 0,
         "y": 0
       },
@@ -133,7 +133,7 @@
         }
       ],
       "thresholds": "",
-      "title": "Uptime",
+      "title": "Max Uptime",
       "type": "singlestat",
       "valueFontSize": "70%",
       "valueMaps": [
@@ -169,7 +169,7 @@
       "gridPos": {
         "h": 7,
         "w": 2,
-        "x": 2,
+        "x": 3,
         "y": 0
       },
       "hideTimeOverride": true,
@@ -259,8 +259,8 @@
       },
       "gridPos": {
         "h": 7,
-        "w": 4,
-        "x": 4,
+        "w": 3,
+        "x": 5,
         "y": 0
       },
       "hideTimeOverride": true,
@@ -303,7 +303,7 @@
       "tableColumn": "",
       "targets": [
         {
-          "expr": "max(100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"}))",
+          "expr": "sum(100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"}))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -350,6 +350,8 @@
       "legend": {
         "avg": false,
         "current": false,
+        "hideEmpty": false,
+        "hideZero": false,
         "max": false,
         "min": false,
         "show": false,
@@ -373,7 +375,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10, sum(irate(redis_commands_total{instance=~\"$instance\"} [1m])) by (cmd))",
+          "expr": "sum(rate(redis_commands_total{instance=~\"$instance\"} [1m])) by (cmd)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -775,12 +777,14 @@
       "id": 5,
       "isNew": true,
       "legend": {
-        "alignAsTable": true,
+        "alignAsTable": false,
         "avg": false,
         "current": true,
+        "hideEmpty": false,
+        "hideZero": true,
         "max": false,
         "min": false,
-        "rightSide": true,
+        "rightSide": false,
         "show": true,
         "total": false,
         "values": true
@@ -802,7 +806,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (db, instance) != 0",
+          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (db, instance)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1185,7 +1189,7 @@
       "datasource": "${DS_PROMETHEUS}",
       "editable": true,
       "error": false,
-      "fill": 1,
+      "fill": 2,
       "fillGradient": 0,
       "grid": {},
       "gridPos": {
@@ -1200,6 +1204,8 @@
       "legend": {
         "avg": false,
         "current": false,
+        "hideEmpty": false,
+        "hideZero": true,
         "max": false,
         "min": false,
         "show": true,
@@ -1223,7 +1229,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10,\n  sum(irate(redis_commands_duration_seconds_total{instance =~ \"$instance\"}[1m])) by (cmd)\n    /\n  sum(irate(redis_commands_total{instance =~ \"$instance\"}[1m])) by (cmd)\n)",
+          "expr": "sum(irate(redis_commands_duration_seconds_total{instance =~ \"$instance\"}[1m])) by (cmd)\n  /\nsum(irate(redis_commands_total{instance =~ \"$instance\"}[1m])) by (cmd)\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1298,6 +1304,8 @@
       "legend": {
         "avg": false,
         "current": false,
+        "hideEmpty": false,
+        "hideZero": false,
         "max": false,
         "min": false,
         "show": true,
@@ -1321,7 +1329,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(10, sum(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m])) by (cmd))",
+          "expr": "sum(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m])) by (cmd) != 0",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
