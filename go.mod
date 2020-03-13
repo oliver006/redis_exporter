@@ -7,6 +7,5 @@ require (
 	github.com/konsorten/go-windows-terminal-sequences v1.0.2 // indirect
 	github.com/prometheus/client_golang v1.5.0
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/prometheus v2.5.0+incompatible
 	github.com/sirupsen/logrus v1.4.2
 )

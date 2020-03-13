@@ -16,7 +16,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	strutil "github.com/prometheus/prometheus/util/strutil"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -490,8 +489,12 @@ func (e *Exporter) includeMetric(s string) bool {
 	return ok
 }
 
+var (
+	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+)
+
 func sanitizeMetricName(n string) string {
-	return strutil.SanitizeLabelName(n)
+	return invalidLabelCharRE.ReplaceAllString(n, "_")
 }
 
 func extractVal(s string) (val float64, err error) {
