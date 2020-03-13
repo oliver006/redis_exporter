@@ -62,6 +62,7 @@ services:
 steps:
   - name: tests
     image: "golang:1.14"
+    pull: always
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
@@ -188,6 +189,7 @@ steps:
 
   - name: release-github-binaries
     image: "golang:1.14"
+    pull: always
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
