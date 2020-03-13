@@ -3,19 +3,19 @@
 [![Build Status](https://cloud.drone.io/api/badges/oliver006/redis_exporter/status.svg)](https://cloud.drone.io/oliver006/redis_exporter)
  [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)
 
-
 Prometheus exporter for Redis metrics.\
 Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
 
+
 ## Building and running the exporter
 
-
 ### Build and run locally
+
 ```sh
-    $ git clone https://github.com/oliver006/redis_exporter.git
-    $ cd redis_exporter
-    $ go build .
-    $ ./redis_exporter --version
+git clone https://github.com/oliver006/redis_exporter.git
+cd redis_exporter
+go build .
+./redis_exporter --version
 ```
 
 
@@ -24,14 +24,13 @@ Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
 For pre-built binaries please take a look at [the releases](https://github.com/oliver006/redis_exporter/releases).
 
 
-### Upgrading from 0.x to 1.x ?
+### Upgrading from 0.x to 1.x
 
 [PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
 
 If you only scrape one Redis instance and use command line flags `--redis.address`
 and `--redis.password` then you're most probably not affected.
-Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and this README for more information.
-
+Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
 
 ### Basic Prometheus Configuration
 
@@ -47,13 +46,29 @@ scrape_configs:
 and adjust the host name accordingly.
 
 
-### Prometheus Configuration to Scrape Multiple Redis Hosts
+### Kubernetes SD configurations
 
-Run the exporter with the command line flag `--redis.addr=` so it won't try to access 
-the local instance every time the `/metrics` endpoint is scraped.
+To have instances in the drop-down as human readable names rather than IPs, it is suggested to use [instance relabelling](https://www.robustperception.io/controlling-the-instance-label).
+
+For example, if the metrics are being scraped via the pod role, one could add:
 
 ```yaml
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: instance
+            regex: (.*redis.*)
+```
 
+as a relabel config to the corresponding scrape config. As per the regex value, only pods with "redis" in their name will be relabelled as such.
+
+Similar approaches can be taken with [other role types](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#kubernetes_sd_config) depending on how scrape targets are retrieved.
+
+
+### Prometheus Configuration to Scrape Multiple Redis Hosts
+
+Run the exporter with the command line flag `--redis.addr=` so it won't try to access the local instance every time the `/metrics` endpoint is scraped.
+
+```yaml
 scrape_configs:
   ## config for the multiple Redis targets that the exporter will scrape
   - job_name: 'redis_exporter_targets'
@@ -71,7 +86,7 @@ scrape_configs:
         target_label: instance
       - target_label: __address__
         replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
-  
+
   ## config for scraping the exporter itself
   - job_name: 'redis_exporter'
     static_configs:
@@ -81,7 +96,7 @@ scrape_configs:
 
 The Redis instances are listed under `targets`, the Redis exporter hostname is configured via the last relabel_config rule.\
 If authentication is needed for the Redis instances then you can set the password via the `--redis.password` command line option of
-the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several 
+the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several
 exporters if this is a problem). \
 You can also use a json file to supply multiple targets by using `file_sd_configs` like so:
 
@@ -139,6 +154,7 @@ web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS    | Address to liste
 web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH    | Path under which to expose metrics, defaults to `/metrics`.
 redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also export go runtime metrics, defaults to false.
 include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+ping-on-connect        | REDIS_EXPORTER_PING_ON_CONNECT       | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrape Client List specific metrics, defaults to false.
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
@@ -152,6 +168,7 @@ Password-protected instances can be accessed by using the URI format including a
 
 Command line settings take precedence over any configurations provided by the environment variables.
 
+
 ### Run via Docker
 
 The latest release is automatically published to the [Docker registry](https://hub.docker.com/r/oliver006/redis_exporter/).
@@ -159,44 +176,50 @@ The latest release is automatically published to the [Docker registry](https://h
 You can run it like this:
 
 ```sh
-    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
+docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
 ```
 
 The `latest` docker image contains only the exporter binary.
 If, e.g. for debugging purposes, you need the exporter running
 in an image that has a shell, etc then you can run the `alpine` image:
+
 ```sh
-    $ docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
+docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
 ```
 
 If you try to access a Redis instance running on the host node, you'll need to add `--network host` so the
 redis_exporter container can access it:
 
 ```sh
-    $ docker run -d --name redis_exporter --network host oliver006/redis_exporter
+docker run -d --name redis_exporter --network host oliver006/redis_exporter
 ```
 
 ### Run on Kubernetes
 
 [Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar to a Redis instance.
 
-## What's exported?
+## What's exported
 
 Most items from the INFO command are exported,
-see https://redis.io/commands/info for details.\
+see [Redis documentation](https://redis.io/commands/info) for details.\
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.\
 You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
-## What does it look like?
+## What it looks like
 
-Example [Grafana](http://grafana.org/) screenshots:\
-<img width="800" alt="redis_exporter_screen" src="https://cloud.githubusercontent.com/assets/1222339/19412031/897549c6-92da-11e6-84a0-b091f9deb81d.png">\
-<img width="800" alt="redis_exporter_screen_02" src="https://cloud.githubusercontent.com/assets/1222339/19412041/dee6d7bc-92da-11e6-84f8-610c025d6182.png">
+Example [Grafana](http://grafana.org/) screenshots:
+![redis_exporter_screen_01](https://cloud.githubusercontent.com/assets/1222339/19412031/897549c6-92da-11e6-84a0-b091f9deb81d.png)
+
+![redis_exporter_screen_02](https://cloud.githubusercontent.com/assets/1222339/19412041/dee6d7bc-92da-11e6-84f8-610c025d6182.png)
 
 Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/763) and/or [github.com](contrib/grafana_prometheus_redis_dashboard.json).
 
-## What else?
+### Viewing multiple Redis simultaneously
+
+If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirable to view the metrics of the various cluster members simultaneously. For this reason the dashboard's drop down is of the multi-value type, allowing for the selection of multiple Redis. Please note that there is a  caveat; the single stat panels up top namely `uptime`, `total memory use` and `clients` do not function upon viewing multiple Redis.
+
+## Communal effort
 
 Open an issue or PR if you have more suggestions, questions or ideas about what to add.

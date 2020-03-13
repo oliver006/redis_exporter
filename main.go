@@ -15,7 +15,9 @@ import (
 )
 
 var (
-	// BuildVersion, BuildDate, BuildCommitSha are filled in by the build script
+	/*
+		BuildVersion, BuildDate, BuildCommitSha are filled in by the build script
+	*/
 	BuildVersion   = "<<< filled in by build >>>"
 	BuildDate      = "<<< filled in by build >>>"
 	BuildCommitSha = "<<< filled in by build >>>"
@@ -59,6 +61,7 @@ func main() {
 		exportClientList    = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
 		showVersion         = flag.Bool("version", false, "Show version information and exit")
 		redisMetricsOnly    = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to also export go runtime metrics")
+		pingOnConnect       = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclSystemMetrics   = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS", false), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
 		skipTLSVerification = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to to skip TLS verification")
 	)
@@ -118,7 +121,7 @@ func main() {
 
 	exp, err := NewRedisExporter(
 		*redisAddr,
-		ExporterOptions{
+		Options{
 			Password:            *redisPwd,
 			Namespace:           *namespace,
 			ConfigCommandName:   *configCommand,
@@ -134,6 +137,7 @@ func main() {
 			ConnectionTimeouts:  to,
 			MetricsPath:         *metricPath,
 			RedisMetricsOnly:    *redisMetricsOnly,
+			PingOnConnect:       *pingOnConnect,
 			Registry:            registry,
 		},
 	)
