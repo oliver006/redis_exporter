@@ -490,11 +490,11 @@ func (e *Exporter) includeMetric(s string) bool {
 }
 
 var (
-	invalidLabelCharRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+	metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 )
 
 func sanitizeMetricName(n string) string {
-	return invalidLabelCharRE.ReplaceAllString(n, "_")
+	return metricNameRE.ReplaceAllString(n, "_")
 }
 
 func extractVal(s string) (val float64, err error) {
