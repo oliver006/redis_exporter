@@ -78,13 +78,13 @@ steps:
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
-      - 'go build -mod=vendor'
+      - 'go build'
       - "sleep 20"   # let the redis test instances all come up first
-      - 'go test -mod=vendor -v -covermode=atomic -cover -race -coverprofile=coverage.txt .'
+      - 'go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt .'
       - 'echo "checking gofmt"'
       - 'echo " ! gofmt -d *.go       2>&1 | read " | bash'
       - 'echo "checking gofmt - DONE"'
-      - 'go vet -mod=vendor .'
+      - 'go vet .'
       - 'go get github.com/mattn/goveralls'
       - '/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io'
     when:
