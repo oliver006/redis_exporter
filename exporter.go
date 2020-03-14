@@ -650,7 +650,7 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []st
 		}
 
 		if val, err := strconv.ParseFloat(strVal, 64); err == nil {
-			e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", config[pos*2]), val)
+			e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
 		}
 	}
 	return
