@@ -1,11 +1,10 @@
 #
 # build container
 #
-FROM golang:1.13-alpine as builder
+FROM golang:1.14-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD *.go /go/src/github.com/oliver006/redis_exporter/
-ADD vendor /go/src/github.com/oliver006/redis_exporter/vendor
 
 ARG GOARCH="amd64"
 ARG SHA1="[no-sha]"
