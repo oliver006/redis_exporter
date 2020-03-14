@@ -27,7 +27,7 @@ For pre-built binaries please take a look at [the releases](https://github.com/o
 
 If you only scrape one Redis instance and use command line flags `--redis.address`
 and `--redis.password` then you're most probably not affected.
-Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/naseemkullah/redis_exporter/tree/update-readme#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
+Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
 
 ### Basic Prometheus Configuration
 
