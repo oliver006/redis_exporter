@@ -755,8 +755,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
-		if len(line) > 0 && line[0] == '#' {
+		if len(line) > 0 && strings.HasPrefix(line, "# ") {
 			fieldClass = line[2:]
+			log.Debugf("set fieldClass: %s", fieldClass)
 			continue
 		}
 
