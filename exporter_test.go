@@ -727,9 +727,8 @@ func TestGetKeysFromPatterns(t *testing.T) {
 	})
 
 	if !reflect.DeepEqual(expectedKeys, expandedKeys) {
-		t.Errorf("When expanding keys:\nexpected: %v\nactual:   %v", expectedKeys, expandedKeys)
+		t.Errorf("When expanding keys:\nexpected: %#v\nactual:   %#v", expectedKeys, expandedKeys)
 	}
-
 }
 
 func TestGetKeyInfo(t *testing.T) {

@@ -550,36 +550,40 @@ func parseClientListString(clientInfo string) (host string, port string, name st
 /*
 	valid example: db0:keys=1,expires=0,avg_ttl=0
 */
-func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
-	ok = false
-	if !strings.HasPrefix(db, "db") {
+func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
+	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
+
+	if !strings.HasPrefix(inputKey, "db") {
+		log.Debugf("parseDBKeyspaceString inputKey not starting with 'db': [%s]", inputKey)
 		return
 	}
 
-	split := strings.Split(stats, ",")
+	split := strings.Split(inputVal, ",")
 	if len(split) != 3 && len(split) != 2 {
+		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
 		return
 	}
 
 	var err error
-	ok = true
 	if keysTotal, err = extractVal(split[0]); err != nil {
-		ok = false
+		log.Debugf("parseDBKeyspaceString extractVal(split[0]) invalid, err: %s", err)
 		return
 	}
 	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
-		ok = false
+		log.Debugf("parseDBKeyspaceString extractVal(split[1]) invalid, err: %s", err)
 		return
 	}
 
 	avgTTL = -1
 	if len(split) > 2 {
 		if avgTTL, err = extractVal(split[2]); err != nil {
-			ok = false
+			log.Debugf("parseDBKeyspaceString extractVal(split[2]) invalid, err: %s", err)
 			return
 		}
 		avgTTL /= 1000
 	}
+
+	ok = true
 	return
 }
 
@@ -650,7 +654,7 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []st
 		}
 
 		if val, err := strconv.ParseFloat(strVal, 64); err == nil {
-			e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", config[pos*2]), val)
+			e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
 		}
 	}
 	return
@@ -755,8 +759,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
-		if len(line) > 0 && line[0] == '#' {
+		if len(line) > 0 && strings.HasPrefix(line, "# ") {
 			fieldClass = line[2:]
+			log.Debugf("set fieldClass: %s", fieldClass)
 			continue
 		}
 
