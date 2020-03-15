@@ -550,27 +550,34 @@ func parseClientListString(clientInfo string) (host string, port string, name st
 /*
 	valid example: db0:keys=1,expires=0,avg_ttl=0
 */
-func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
-	if !strings.HasPrefix(db, "db") {
+func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
+	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
+
+	if !strings.HasPrefix(inputKey, "db") {
+		log.Debugf("parseDBKeyspaceString inputKey not starting with 'db': [%s]", inputKey)
 		return
 	}
 
-	split := strings.Split(stats, ",")
+	split := strings.Split(inputVal, ",")
 	if len(split) != 3 && len(split) != 2 {
+		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
 		return
 	}
 
 	var err error
 	if keysTotal, err = extractVal(split[0]); err != nil {
+		log.Debugf("parseDBKeyspaceString extractVal(split[0]) invalid, err: %s", err)
 		return
 	}
 	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
+		log.Debugf("parseDBKeyspaceString extractVal(split[1]) invalid, err: %s", err)
 		return
 	}
 
 	avgTTL = -1
 	if len(split) > 2 {
 		if avgTTL, err = extractVal(split[2]); err != nil {
+			log.Debugf("parseDBKeyspaceString extractVal(split[2]) invalid, err: %s", err)
 			return
 		}
 		avgTTL /= 1000
