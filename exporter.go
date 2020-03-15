@@ -551,7 +551,6 @@ func parseClientListString(clientInfo string) (host string, port string, name st
 	valid example: db0:keys=1,expires=0,avg_ttl=0
 */
 func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
-	ok = false
 	if !strings.HasPrefix(db, "db") {
 		return
 	}
@@ -562,24 +561,22 @@ func parseDBKeyspaceString(db string, stats string) (keysTotal float64, keysExpi
 	}
 
 	var err error
-	ok = true
 	if keysTotal, err = extractVal(split[0]); err != nil {
-		ok = false
 		return
 	}
 	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
-		ok = false
 		return
 	}
 
 	avgTTL = -1
 	if len(split) > 2 {
 		if avgTTL, err = extractVal(split[2]); err != nil {
-			ok = false
 			return
 		}
 		avgTTL /= 1000
 	}
+
+	ok = true
 	return
 }
 
