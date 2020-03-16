@@ -88,8 +88,6 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// get rid of username/password info in "target" so users don't send them in plain text via http
-	u.User = nil
 	target = u.String()
 
 	opts := e.options
