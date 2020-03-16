@@ -690,7 +690,7 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 	}
 
 	splitValue := strings.Split(fieldValue, ",")
-	if len(splitValue) != 3 {
+	if len(splitValue) < 3 {
 		return
 	}
 
