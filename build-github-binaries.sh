@@ -48,6 +48,6 @@ ls -la
 cd ..
 
 echo "Upload to Github"
-ghr -u oliver006 -r redis_exporter --replace "${DRONE_TAG}" dist/
+ghr  -parallel 1 -u oliver006 -r redis_exporter --replace "${DRONE_TAG}" dist/
 
 echo "Done"
