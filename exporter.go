@@ -1069,7 +1069,6 @@ var errNotFound = errors.New("key not found")
 
 // getKeyInfo takes a key and returns the type, and the size or length of the value stored at that key.
 func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
-
 	if info.keyType, err = redis.String(doRedisCmd(c, "TYPE", key)); err != nil {
 		return info, err
 	}
@@ -1157,6 +1156,7 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 			expandedKeys = append(expandedKeys, k)
 		}
 	}
+
 	return expandedKeys, err
 }
 
@@ -1211,7 +1211,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	defer c.Close()
 
 	log.Debugf("connected to: %s", e.redisAddr)
-	log.Debugf("took %f seconds", connectTookSeconds)
+	log.Debugf("connecting took %f seconds", connectTookSeconds)
 
 	if e.options.PingOnConnect {
 		startTime := time.Now()
@@ -1233,6 +1233,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	dbCount := 0
 	if config, err := redis.Strings(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+		log.Debugf("Redis CONFIG GET * result: [%#v]", config)
 		dbCount, err = e.extractConfigMetrics(ch, config)
 		if err != nil {
 			log.Errorf("Redis CONFIG err: %s", err)
@@ -1251,6 +1252,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			return err
 		}
 	}
+	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
