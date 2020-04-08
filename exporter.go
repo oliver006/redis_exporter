@@ -763,6 +763,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	lines := strings.Split(info, "\n")
 	masterHost := ""
 	masterPort := ""
+	
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
