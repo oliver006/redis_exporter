@@ -709,7 +709,7 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
 }
 
-func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string,  fieldKey string, fieldValue string) bool {
+func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
 	// only slaves have this field
 	if fieldKey == "master_link_status" {
 		if fieldValue == "up" {
@@ -763,7 +763,6 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	lines := strings.Split(info, "\n")
 	masterHost := ""
 	masterPort := ""
-	
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
@@ -791,7 +790,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			continue
 		}
 
-		if strings.HasPrefix(fieldKey,"master_port") {
+		if strings.HasPrefix(fieldKey, "master_port") {
 			masterPort = fieldValue
 			continue
 		}
