@@ -720,13 +720,13 @@ func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterH
 		return true
 	}
 	switch fieldKey {
-	
-	case "master_last_io_seconds_ago", "slave_repl_offset", "master_sync_in_progress": 
+
+	case "master_last_io_seconds_ago", "slave_repl_offset", "master_sync_in_progress":
 		val, _ := strconv.Atoi(fieldValue)
 		e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
 		return true
 	}
-	
+
 	// not a slave, try extracting master metrics
 	if slaveOffset, slaveIP, slavePort, slaveState, slaveLag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 		e.registerConstMetricGauge(ch,
