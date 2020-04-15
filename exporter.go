@@ -719,12 +719,14 @@ func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterH
 		}
 		return true
 	}
-	if fieldKey == "master_last_io_seconds_ago" || fieldKey == "slave_repl_offset" || fieldKey == "master_sync_in_progress" {
+	switch fieldKey {
+	
+	case "master_last_io_seconds_ago", "slave_repl_offset", "master_sync_in_progress": 
 		val, _ := strconv.Atoi(fieldValue)
 		e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
 		return true
 	}
-
+	
 	// not a slave, try extracting master metrics
 	if slaveOffset, slaveIP, slavePort, slaveState, slaveLag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
 		e.registerConstMetricGauge(ch,
@@ -785,12 +787,12 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
 		)
 
-		if strings.HasPrefix(fieldKey, "master_host") {
+		if fieldKey == "master_host" {
 			masterHost = fieldValue
 			continue
 		}
 
-		if strings.HasPrefix(fieldKey, "master_port") {
+		if fieldKey == "master_port" {
 			masterPort = fieldValue
 			continue
 		}
