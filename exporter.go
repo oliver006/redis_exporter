@@ -273,16 +273,13 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"repl_backlog_active":            "repl_backlog_is_active",
 			"repl_backlog_first_byte_offset": "repl_backlog_first_byte_offset",
 			"repl_backlog_histlen":           "repl_backlog_history_bytes",
-			"master_last_io_seconds_ago":     "master_last_io_seconds",
 			"master_repl_offset":             "master_repl_offset",
 			"second_repl_offset":             "second_repl_offset",
-			"slave_repl_offset":              "slave_repl_offset",
 			"slave_expires_tracked_keys":     "slave_expires_tracked_keys",
 			"slave_priority":                 "slave_priority",
 			"sync_full":                      "replica_resyncs_full",
 			"sync_partial_ok":                "replica_partial_resync_accepted",
 			"sync_partial_err":               "replica_partial_resync_denied",
-			"master_sync_in_progress":        "master_sync_in_progress",
 
 			// # Cluster
 			"cluster_stats_messages_sent":     "cluster_messages_sent_total",
@@ -373,7 +370,10 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"last_slow_execution_duration_seconds": {txt: `The amount of time needed for last slow execution, in seconds`},
 		"latency_spike_last":                   {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
 		"latency_spike_duration_seconds":       {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
-		"master_link_up":                       {txt: "Master link status on Redis slave"},
+		"master_link_up":                       {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
+		"master_sync_in_progress":              {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
+		"master_last_io_seconds_ago":           {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
+		"slave_repl_offset":                    {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"script_values":                        {txt: "Values returned by the collect script", lbls: []string{"key"}},
 		"slave_info":                           {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
 		"slowlog_last_id":                      {txt: `Last id of slowlog`},
@@ -667,7 +667,7 @@ func (e *Exporter) registerConstMetricGauge(ch chan<- prometheus.Metric, metric 
 func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric string, val float64, valType prometheus.ValueType, labelValues ...string) {
 	descr := e.metricDescriptions[metric]
 	if descr == nil {
-		descr = newMetricDescr(e.options.Namespace, metric, metric+" metric", nil)
+		descr = newMetricDescr(e.options.Namespace, metric, metric+" metric", labelValues)
 	}
 
 	if m, err := prometheus.NewConstMetric(descr, valType, val, labelValues...); err == nil {
@@ -709,14 +709,21 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
 }
 
-func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) bool {
+func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
 	// only slaves have this field
 	if fieldKey == "master_link_status" {
 		if fieldValue == "up" {
-			e.registerConstMetricGauge(ch, "master_link_up", 1)
+			e.registerConstMetricGauge(ch, "master_link_up", 1, masterHost, masterPort)
 		} else {
-			e.registerConstMetricGauge(ch, "master_link_up", 0)
+			e.registerConstMetricGauge(ch, "master_link_up", 0, masterHost, masterPort)
 		}
+		return true
+	}
+	switch fieldKey {
+
+	case "master_last_io_seconds_ago", "slave_repl_offset", "master_sync_in_progress":
+		val, _ := strconv.Atoi(fieldValue)
+		e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
 		return true
 	}
 
@@ -756,6 +763,8 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 	fieldClass := ""
 	lines := strings.Split(info, "\n")
+	masterHost := ""
+	masterPort := ""
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
 		log.Debugf("info: %s", line)
@@ -778,6 +787,16 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
 		)
 
+		if fieldKey == "master_host" {
+			masterHost = fieldValue
+			continue
+		}
+
+		if fieldKey == "master_port" {
+			masterPort = fieldValue
+			continue
+		}
+
 		if _, ok := instanceInfoFields[fieldKey]; ok {
 			instanceInfo[fieldKey] = fieldValue
 			continue
@@ -791,7 +810,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		switch fieldClass {
 
 		case "Replication":
-			if ok := e.handleMetricsReplication(ch, fieldKey, fieldValue); ok {
+			if ok := e.handleMetricsReplication(ch, masterHost, masterPort, fieldKey, fieldValue); ok {
 				continue
 			}
 
