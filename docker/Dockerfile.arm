@@ -6,7 +6,7 @@ WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD go.mod go.sum main.go exporter.go /go/src/github.com/oliver006/redis_exporter/
 
-ARG GOARCH="amd64"
+ARG GOARCH="arm"
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 
