@@ -207,6 +207,14 @@ You can also export values of keys if they're in numeric format by using the `-c
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
+
+### The redis_memory_max_bytes metric
+
+The metric `redis_memory_max_bytes`  will show the maximum number of bytes Redis can use.\
+It is zero if no memory limit is set for the Redis instance you're scraping (this is the default setting for Redis).\
+You can confirm that's the case by checking if the metric `redis_config_maxmemory` is zero or by connecting to the Redis instance via redis-cli and running the command `CONFIG GET MAXMEMORY`.
+
+
 ## What it looks like
 
 Example [Grafana](http://grafana.org/) screenshots:
