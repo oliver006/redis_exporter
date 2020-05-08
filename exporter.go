@@ -789,12 +789,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 		if fieldKey == "master_host" {
 			masterHost = fieldValue
-			continue
 		}
 
 		if fieldKey == "master_port" {
 			masterPort = fieldValue
-			continue
 		}
 
 		if _, ok := instanceInfoFields[fieldKey]; ok {
