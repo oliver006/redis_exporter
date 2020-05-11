@@ -793,7 +793,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		metricKey := metricString[0]
 		metricValue := metricString[1]
 
-		e.handleMetricsReplication(ch, masterHost, masterPort, metricKey, metricValue)
+		if metricKey == "role" {
+			e.handleMetricsReplication(ch, masterHost, masterPort, metricKey, metricValue)
+		}
 
 		split := strings.SplitN(line, ":", 2)
 		fieldKey := split[0]
