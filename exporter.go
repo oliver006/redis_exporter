@@ -380,6 +380,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"slowlog_length":                       {txt: `Total slowlog`},
 		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"up":                                   {txt: "Information about the Redis instance"},
+		"role":                                 {txt: "Role about the Redis instance"},
 		"connected_clients_details":            {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "db", "cmd"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
@@ -710,6 +711,16 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 }
 
 func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
+	if fieldKey == "role" {
+		if fieldValue == "master" {
+			e.registerConstMetricGauge(ch, "role", 0)
+		} else if fieldValue == "slave" {
+			e.registerConstMetricGauge(ch, "role", 1)
+		} else {
+			e.registerConstMetricGauge(ch, "role", 2)
+		}
+		return true
+	}
 	// only slaves have this field
 	if fieldKey == "master_link_status" {
 		if fieldValue == "up" {
@@ -777,6 +788,12 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		if (len(line) < 2) || (!strings.Contains(line, ":")) {
 			continue
 		}
+
+		metricString := strings.Split(line, ":")
+		metricKey := metricString[0]
+		metricValue := metricString[1]
+
+		e.handleMetricsReplication(ch, masterHost, masterPort, metricKey, metricValue)
 
 		split := strings.SplitN(line, ":", 2)
 		fieldKey := split[0]
