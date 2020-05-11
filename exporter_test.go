@@ -1325,6 +1325,14 @@ func TestClusterSlave(t *testing.T) {
 			t.Errorf("Did not find key [%s] \nbody: %s", want, body)
 		}
 	}
+	for _, unwanted := range []string{
+		`master_host=""`,
+		`master_port=""`,
+	} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("Find unwanted key [%s] \nbody: %s", unwanted, body)
+		}
+	}
 }
 
 func TestCheckKeys(t *testing.T) {
