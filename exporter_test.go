@@ -1330,7 +1330,7 @@ func TestClusterSlave(t *testing.T) {
 		`master_port="7000"`:          5,
 	} {
 		if res := strings.Count(body, wantedKey); res != wantedVal {
-			t.Errorf("Result: %s -> %d, Wanted: %d", wantedKey, res, wantedVal)
+			t.Errorf("Result: %s -> %d, Wanted: %d \nbody: %s", wantedKey, res, wantedVal, body)
 		}
 	}
 }
