@@ -1325,12 +1325,12 @@ func TestClusterSlave(t *testing.T) {
 			t.Errorf("Did not find key [%s] \nbody: %s", want, body)
 		}
 	}
-	for _, unwanted := range []string{
-		`master_host=""`,
-		`master_port=""`,
+	for wantedKey, wantedVal := range map[string]int{
+		`master_host="redis-cluster"`: 5,
+		`master_port="7000"`:          5,
 	} {
-		if strings.Contains(body, unwanted) {
-			t.Errorf("Find unwanted key [%s] \nbody: %s", unwanted, body)
+		if res := strings.Count(body, wantedKey); res != wantedVal {
+			t.Errorf("Result: %s -> %d, Wanted: %d", wantedKey, res, wantedVal)
 		}
 	}
 }
