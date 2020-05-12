@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -1325,9 +1326,13 @@ func TestClusterSlave(t *testing.T) {
 			t.Errorf("Did not find key [%s] \nbody: %s", want, body)
 		}
 	}
+	hostReg, _ := regexp.Compile(`master_host="([0,1]?\d{1,2}|2([0-4][0-9]|5[0-5]))(\.([0,1]?\d{1,2}|2([0-4][0-9]|5[0-5]))){3}"`)
+	masterHost := hostReg.FindString(string(body))
+	portReg, _ := regexp.Compile(`master_port="(\d+)"`)
+	masterPort := portReg.FindString(string(body))
 	for wantedKey, wantedVal := range map[string]int{
-		`master_host="192.168.`: 5,
-		`master_port="700`:      5,
+		masterHost: 5,
+		masterPort: 5,
 	} {
 		if res := strings.Count(body, wantedKey); res != wantedVal {
 			t.Errorf("Result: %s -> %d, Wanted: %d \nbody: %s", wantedKey, res, wantedVal, body)
