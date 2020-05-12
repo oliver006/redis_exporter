@@ -1326,8 +1326,8 @@ func TestClusterSlave(t *testing.T) {
 		}
 	}
 	for wantedKey, wantedVal := range map[string]int{
-		`master_host="192.168.48.8"`: 5,
-		`master_port="7002"`:         5,
+		`master_host="192.168.`: 5,
+		`master_port="700`:      5,
 	} {
 		if res := strings.Count(body, wantedKey); res != wantedVal {
 			t.Errorf("Result: %s -> %d, Wanted: %d \nbody: %s", wantedKey, res, wantedVal, body)
