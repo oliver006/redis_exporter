@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"net/http"
@@ -57,6 +58,7 @@ type Options struct {
 	CheckKeys           string
 	LuaScript           []byte
 	ClientCertificates  []tls.Certificate
+	CaCertificates      *x509.CertPool
 	InclSystemMetrics   bool
 	SkipTLSVerification bool
 	SetClientName       bool
@@ -1186,6 +1188,7 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		redis.DialTLSConfig(&tls.Config{
 			InsecureSkipVerify: e.options.SkipTLSVerification,
 			Certificates:       e.options.ClientCertificates,
+			RootCAs:            e.options.CaCertificates,
 		}),
 	}
 
