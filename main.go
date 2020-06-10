@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"flag"
 	"io/ioutil"
 	"net/http"
@@ -56,6 +57,7 @@ func main() {
 		connectionTimeout   = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
 		tlsClientKeyFile    = flag.String("tls-client-key-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_KEY_FILE", ""), "Name of the client key file (including full path) if the server requires TLS client authentication")
 		tlsClientCertFile   = flag.String("tls-client-cert-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_CERT_FILE", ""), "Name of the client certificate file (including full path) if the server requires TLS client authentication")
+		tlsCaCertFile       = flag.String("tls-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the server requires TLS client authentication")
 		isDebug             = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information")
 		setClientName       = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
 		isTile38            = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
@@ -108,6 +110,16 @@ func main() {
 		tlsClientCertificates = append(tlsClientCertificates, cert)
 	}
 
+	var tlsCaCertificates *x509.CertPool
+	if *tlsCaCertFile != "" {
+		caCert, err := ioutil.ReadFile(*tlsCaCertFile)
+		if err != nil {
+			log.Fatalf("Couldn't load TLS Ca certificate, err: %s", err)
+		}
+		tlsCaCertificates := x509.NewCertPool()
+		tlsCaCertificates.AppendCertsFromPEM(caCert)
+	}
+
 	var ls []byte
 	if *scriptPath != "" {
 		if ls, err = ioutil.ReadFile(*scriptPath); err != nil {
@@ -136,6 +148,7 @@ func main() {
 			ExportClientList:    *exportClientList,
 			SkipTLSVerification: *skipTLSVerification,
 			ClientCertificates:  tlsClientCertificates,
+			CaCertificates:      tlsCaCertificates,
 			ConnectionTimeouts:  to,
 			MetricsPath:         *metricPath,
 			RedisMetricsOnly:    *redisMetricsOnly,
