@@ -50,6 +50,7 @@ type Exporter struct {
 }
 
 type Options struct {
+	User                string
 	Password            string
 	Namespace           string
 	ConfigCommandName   string
@@ -1189,6 +1190,10 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		}),
 	}
 
+	if e.options.User != "" {
+		options = append(options, redis.DialUsername(e.options.User))
+	}
+
 	if e.options.Password != "" {
 		options = append(options, redis.DialPassword(e.options.Password))
 	}
@@ -1197,6 +1202,7 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
 	}
+
 	log.Debugf("Trying DialURL(): %s", uri)
 	c, err := redis.DialURL(uri, options...)
 	if err != nil {
