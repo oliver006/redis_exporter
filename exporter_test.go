@@ -1251,26 +1251,33 @@ func TestClusterMaster(t *testing.T) {
 }
 
 func TestPasswordProtectedInstance(t *testing.T) {
-	if os.Getenv("TEST_PWD_REDIS_URI") == "" {
-		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
+	uriEnvs := []string{
+		"TEST_PWD_REDIS_URI",
+		"TEST_USER_PWD_REDIS_URI",
 	}
-	uri := os.Getenv("TEST_PWD_REDIS_URI")
-	setupDBKeys(t, uri)
 
-	e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
-	ts := httptest.NewServer(e)
-	defer ts.Close()
+	for _, uriEnvName := range uriEnvs {
+		if os.Getenv(uriEnvName) == "" {
+			t.Logf("%s not set - skipping", uriEnvName)
+			continue
+		}
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+		uri := os.Getenv(uriEnvName)
 
-	body := downloadURL(t, ts.URL+"/metrics")
+		e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+		ts := httptest.NewServer(e)
+		defer ts.Close()
 
-	if !strings.Contains(body, "test_up") {
-		t.Errorf("error, missing test_up")
+		chM := make(chan prometheus.Metric, 10000)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		if !strings.Contains(body, "test_up") {
+			t.Errorf("%s - response to /metric doesn't contain test_up", uriEnvName)
+		}
 	}
 }
 

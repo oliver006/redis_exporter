@@ -28,6 +28,13 @@ services:
     ports:
       - 6380
 
+  - name: pwd-redis6
+    image: redis:6
+    commands:
+      - "/usr/local/bin/redis-server --port 6390 --requirepass dummy --user exporter on +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
+    ports:
+      - 6380
+
   - name: redis-2-8
     image: redis:2.8
     commands:
@@ -72,7 +79,8 @@ steps:
       TEST_REDIS_2_8_URI: "redis://redis-2-8:6381"
       TEST_KEYDB01_URI: "redis://keydb-01:6401"
       TEST_KEYDB02_URI: "redis://keydb-02:6402"
-      TEST_PWD_REDIS_URI: "redis://h:redis-password@pwd-redis5:6380"
+      TEST_PWD_REDIS_URI: "redis://:redis-password@pwd-redis5:6380"
+      TEST_USER_PWD_REDIS_URI: "redis://exporter:exporter-password@pwd-redis6:6390"
       TEST_REDIS_CLUSTER_MASTER_URI: "redis://redis-cluster:7000"
       TEST_REDIS_CLUSTER_SLAVE_URI: "redis://redis-cluster:7005"
       TEST_TILE38_URI: "redis://tile38:9851"
