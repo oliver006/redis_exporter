@@ -357,13 +357,13 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		txt  string
 		lbls []string
 	}{
-		"commands_duration_seconds_total":      {txt: `Total amount of time in seconds spent per command`, lbls: []string{"cmd"}},
-		"commands_total":                       {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"commands_duration_seconds_total":      {txt: `Total amount of time in seconds spent per command`, lbls: []string{"cmd", "role"}},
+		"commands_total":                       {txt: `Total number of calls per command`, lbls: []string{"cmd", "role"}},
 		"connected_slave_lag_seconds":          {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"connected_slave_offset_bytes":         {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"db_avg_ttl_seconds":                   {txt: "Avg TTL in seconds", lbls: []string{"db"}},
-		"db_keys":                              {txt: "Total number of keys by DB", lbls: []string{"db"}},
-		"db_keys_expiring":                     {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
+		"db_keys":                              {txt: "Total number of keys by DB", lbls: []string{"db", "role"}},
+		"db_keys_expiring":                     {txt: "Total number of expiring keys by DB", lbls: []string{"db", "role"}},
 		"exporter_last_scrape_error":           {txt: "The last scrape error status.", lbls: []string{"err"}},
 		"instance_info":                        {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os"}},
 		"key_size":                             {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
@@ -459,6 +459,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	if e.redisAddr != "" {
 		startTime := time.Now()
 		var up float64 = 1
+
 		if err := e.scrapeRedisHost(ch); err != nil {
 			up = 0
 			e.registerConstMetricGauge(ch, "exporter_last_scrape_error", 1.0, fmt.Sprintf("%s", err))
@@ -678,7 +679,7 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 	}
 }
 
-func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
+func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string, instanceRole string) {
 	/*
 		Format:
 		cmdstat_get:calls=21,usec=175,usec_per_call=8.33
@@ -706,8 +707,8 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 	}
 
 	cmd := splitKey[1]
-	e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
-	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
+	e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd, instanceRole)
+	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd, instanceRole)
 }
 
 func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
@@ -817,15 +818,18 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			e.handleMetricsServer(ch, fieldKey, fieldValue)
 
 		case "Commandstats":
-			e.handleMetricsCommandStats(ch, fieldKey, fieldValue)
+			e.handleMetricsCommandStats(ch, fieldKey, fieldValue, instanceInfo["role"])
 			continue
 
 		case "Keyspace":
 			if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
 				dbName := fieldKey
 
-				e.registerConstMetricGauge(ch, "db_keys", keysTotal, dbName)
-				e.registerConstMetricGauge(ch, "db_keys_expiring", keysEx, dbName)
+				// Standard Redis will have the replication section ahead of the keyspace section
+				// which makes this a safe operation.
+				instanceRole := instanceInfo["role"]
+				e.registerConstMetricGauge(ch, "db_keys", keysTotal, dbName, instanceRole)
+				e.registerConstMetricGauge(ch, "db_keys_expiring", keysEx, dbName, instanceRole)
 
 				if avgTTL > -1 {
 					e.registerConstMetricGauge(ch, "db_avg_ttl_seconds", avgTTL, dbName)
@@ -845,8 +849,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
 		dbName := "db" + strconv.Itoa(dbIndex)
 		if _, exists := handledDBs[dbName]; !exists {
-			e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
-			e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+			instanceRole := instanceInfo["role"]
+			e.registerConstMetricGauge(ch, "db_keys", 0, dbName, instanceRole)
+			e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName, instanceRole)
 		}
 	}
 

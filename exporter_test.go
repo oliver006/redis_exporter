@@ -1065,8 +1065,8 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				`test_key_size{db="db11",key="` + keys[0] + `"} 7`,
 				`test_key_value{db="db11",key="` + keys[0] + `"} 1234.56`,
 
-				`test_db_keys{db="db11"} `,
-				`test_db_keys_expiring{db="db11"} `,
+				`test_db_keys{db="db11",role="master"} `,
+				`test_db_keys_expiring{db="db11",role="master"} `,
 			}
 
 			body := downloadURL(t, u)
