@@ -116,7 +116,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("Couldn't load TLS Ca certificate, err: %s", err)
 		}
-		tlsCaCertificates := x509.NewCertPool()
+		tlsCaCertificates = x509.NewCertPool()
 		tlsCaCertificates.AppendCertsFromPEM(caCert)
 	}
 
