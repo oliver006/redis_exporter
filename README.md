@@ -161,6 +161,8 @@ export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrap
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
 tls-client-key-file    | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE   | Name of the client key file (including full path) if the server requires TLS client authentication
 tls-client-cert-file   | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE  | Name the client cert file (including full path) if the server requires TLS client authentication
+tls-server-key-file    | REDIS_EXPORTER_TLS_SERVER_KEY_FILE   | Name of the server key file (including full path) if the web interface and telemetry should use TLS
+tls-server-cert-file   | REDIS_EXPORTER_TLS_SERVER_CERT_FILE  | Name of the server certificate file (including full path) if the web interface and telemetry should use TLS
 tls-ca-cert-file       | REDIS_EXPORTER_TLS_CA_CERT_FILE      | Name of the CA certificate file (including full path) if the server requires TLS client authentication
 set-client-name        | REDIS_EXPORTER_SET_CLIENT_NAME       | Whether to set client name to redis_exporter, defaults to true.
 
