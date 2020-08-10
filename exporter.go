@@ -216,6 +216,12 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"used_memory_scripts":  "memory_used_scripts_bytes",
 			"maxmemory":            "memory_max_bytes",
 
+			"maxmemory_reservation":         "memory_max_reservation_bytes",
+			"maxmemory_desired_reservation": "memory_max_reservation_desired_bytes",
+
+			"maxfragmentationmemory_reservation":         "memory_max_fragmentation_reservation_bytes",
+			"maxfragmentationmemory_desired_reservation": "memory_max_fragmentation_reservation_desired_bytes",
+
 			"mem_fragmentation_ratio": "mem_fragmentation_ratio",
 			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
 			"mem_clients_slaves":      "mem_clients_slaves",
