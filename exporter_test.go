@@ -1059,6 +1059,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				`redis_mode`,
 				`standalone`,
 				`cmd="config`,
+				"maxmemory_policy",
 
 				`test_script_value`, // lua script
 

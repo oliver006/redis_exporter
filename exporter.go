@@ -216,6 +216,12 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"used_memory_scripts":  "memory_used_scripts_bytes",
 			"maxmemory":            "memory_max_bytes",
 
+			"maxmemory_reservation":         "memory_max_reservation_bytes",
+			"maxmemory_desired_reservation": "memory_max_reservation_desired_bytes",
+
+			"maxfragmentationmemory_reservation":         "memory_max_fragmentation_reservation_bytes",
+			"maxfragmentationmemory_desired_reservation": "memory_max_fragmentation_reservation_desired_bytes",
+
 			"mem_fragmentation_ratio": "mem_fragmentation_ratio",
 			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
 			"mem_clients_slaves":      "mem_clients_slaves",
@@ -367,7 +373,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"db_keys":                              {txt: "Total number of keys by DB", lbls: []string{"db"}},
 		"db_keys_expiring":                     {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
 		"exporter_last_scrape_error":           {txt: "The last scrape error status.", lbls: []string{"err"}},
-		"instance_info":                        {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os"}},
+		"instance_info":                        {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy"}},
 		"key_size":                             {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
 		"key_value":                            {txt: `The value of "key"`, lbls: []string{"db", "key"}},
 		"last_slow_execution_duration_seconds": {txt: `The amount of time needed for last slow execution, in seconds`},
@@ -786,7 +792,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		fieldValue := split[1]
 
 		var (
-			instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true}
+			instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true, "maxmemory_policy": true}
 			slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
 		)
 
@@ -857,7 +863,8 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		instanceInfo["redis_version"],
 		instanceInfo["redis_build_id"],
 		instanceInfo["redis_mode"],
-		instanceInfo["os"])
+		instanceInfo["os"],
+		instanceInfo["maxmemory_policy"])
 
 	if instanceInfo["role"] == "slave" {
 		e.registerConstMetricGauge(ch, "slave_info", 1,
