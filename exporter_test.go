@@ -1500,20 +1500,6 @@ func TestGetStreamInfo(t *testing.T) {
 				RadixTreeKeys:  1,
 				RadixTreeNodes: 2,
 				Groups:         1,
-				StreamGroupsInfo: []streamGroupsInfo{
-					{
-						Name:      "test_group",
-						Consumers: 1,
-						Pending:   1,
-						StreamGroupConsumersInfo: []streamGroupConsumersInfo{
-							{
-								Name:    "test_consumer_1",
-								Pending: 1,
-								Idle:    0,
-							},
-						},
-					},
-				},
 			},
 		},
 		{
@@ -1534,9 +1520,17 @@ func TestGetStreamInfo(t *testing.T) {
 			if err != nil && tst.pass == true {
 				t.Errorf("Error getting stream info for %#v: %s", tst.stream, err)
 			}
-
-			if !reflect.DeepEqual(info, tst.streamInfo) {
-				t.Errorf("Wrong stream response.\nExpected: %#v;\nActual: %#v\n", tst.streamInfo, info)
+			if info.Length != tst.streamInfo.Length {
+				t.Errorf("Stream length mismatch.\nExpected: %#v;\nActual: %#v\n", info.Length, tst.streamInfo.Length)
+			}
+			if info.RadixTreeKeys != tst.streamInfo.RadixTreeKeys {
+				t.Errorf("Stream RadixTreeKeys mismatch.\nExpected: %#v;\nActual: %#v\n", info.RadixTreeKeys, tst.streamInfo.RadixTreeKeys)
+			}
+			if info.RadixTreeNodes != tst.streamInfo.RadixTreeNodes {
+				t.Errorf("Stream RadixTreeNodes mismatch.\nExpected: %#v;\nActual: %#v\n", info.RadixTreeNodes, tst.streamInfo.RadixTreeNodes)
+			}
+			if info.Groups != tst.streamInfo.Groups {
+				t.Errorf("Stream Groups mismatch.\nExpected: %#v;\nActual: %#v\n", info.Groups, tst.streamInfo.Groups)
 			}
 		})
 	}
@@ -1588,7 +1582,6 @@ func TestScanStreamGroups(t *testing.T) {
 						{
 							Name:    "test_consumer_1",
 							Pending: 1,
-							Idle:    0,
 						},
 					},
 				},
@@ -1601,18 +1594,6 @@ func TestScanStreamGroups(t *testing.T) {
 					Name:      "test_group_1",
 					Consumers: 2,
 					Pending:   1,
-					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
-						{
-							Name:    "test_consumer_1",
-							Pending: 1,
-							Idle:    0,
-						},
-						{
-							Name:    "test_consumer_2",
-							Pending: 0,
-							Idle:    0,
-						},
-					},
 				},
 				{
 					Name:      "test_group_2",
@@ -1621,7 +1602,6 @@ func TestScanStreamGroups(t *testing.T) {
 				},
 			}},
 	}
-
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
 			scannedGroup, _ := scanStreamGroups(c, tst.stream)
@@ -1629,8 +1609,21 @@ func TestScanStreamGroups(t *testing.T) {
 				t.Errorf("Err: %s", err)
 			}
 
-			if !reflect.DeepEqual(tst.groups, scannedGroup) {
-				t.Errorf("Wrong stream response.\nExpected: %#v;\nActual: %#v\n", tst.groups, scannedGroup)
+			if len(scannedGroup) == len(tst.groups) {
+				for i := range scannedGroup {
+					if scannedGroup[i].Name != tst.groups[i].Name {
+						t.Errorf("Group name mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Name, scannedGroup[i].Name)
+					}
+					if scannedGroup[i].Consumers != tst.groups[i].Consumers {
+						t.Errorf("Consumers count mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Consumers, scannedGroup[i].Consumers)
+					}
+					if scannedGroup[i].Pending != tst.groups[i].Pending {
+						t.Errorf("Pending items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Pending, scannedGroup[i].Pending)
+					}
+
+				}
+			} else {
+				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d\n", len(tst.consumers), len(scannedGroup))
 			}
 		})
 	}
@@ -1677,7 +1670,6 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 				{
 					Name:    "test_consumer_1",
 					Pending: 1,
-					Idle:    0,
 				},
 			},
 		},
@@ -1689,12 +1681,10 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 				{
 					Name:    "test_consumer_1",
 					Pending: 1,
-					Idle:    0,
 				},
 				{
 					Name:    "test_consumer_2",
 					Pending: 0,
-					Idle:    0,
 				},
 			},
 		},
@@ -1705,14 +1695,22 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 
 			// For each group
 			for _, g := range tst.groups {
-
 				g.StreamGroupConsumersInfo, err = scanStreamGroupConsumers(c, tst.stream, g.Name)
 				if err != nil {
 					t.Errorf("Err: %s", err)
 				}
+				if len(g.StreamGroupConsumersInfo) == len(tst.consumers) {
+					for i := range g.StreamGroupConsumersInfo {
+						if g.StreamGroupConsumersInfo[i].Name != tst.consumers[i].Name {
+							t.Errorf("Consumer name mismatch.\nExpected: %#v;\nActual: %#v\n", tst.consumers[i].Name, g.StreamGroupConsumersInfo[i].Name)
+						}
+						if g.StreamGroupConsumersInfo[i].Pending != tst.consumers[i].Pending {
+							t.Errorf("Pending items mismatch for %s.\nExpected: %#v;\nActual: %#v\n", g.StreamGroupConsumersInfo[i].Name, tst.consumers[i].Pending, g.StreamGroupConsumersInfo[i].Pending)
+						}
 
-				if !reflect.DeepEqual(g.StreamGroupConsumersInfo, tst.consumers) {
-					t.Errorf("Wrong stream consumers response.\nExpected: %#v;\nActual: %#v\n", tst.consumers, g.StreamGroupConsumersInfo)
+					}
+				} else {
+					t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d\n", len(tst.consumers), len(g.StreamGroupConsumersInfo))
 				}
 			}
 
