@@ -1453,3 +1453,269 @@ func init() {
 		keysExpiring = append(keysExpiring, key)
 	}
 }
+
+type scanStremFixture struct {
+	name       string
+	stream     string
+	pass       bool
+	streamInfo streamInfo
+	groups     []streamGroupsInfo
+	consumers  []streamGroupConsumersInfo
+}
+
+func TestGetStreamInfo(t *testing.T) {
+	addr := os.Getenv("TEST_REDIS_URI")
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		{"SET", "not_stream", []interface{}{"Woohoo!"}},
+		{"XADD", "test_stream", []interface{}{"*", "field_1", "str_1"}},
+	}
+	_, err = c.Do("XGROUP", "CREATE", "test_stream", "test_group", "$", "MKSTREAM")
+
+	createKeyFixtures(t, c, fixtures)
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream", ">")
+
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	tsts := []scanStremFixture{
+		{
+			name:   "Stream test",
+			stream: "test_stream",
+			pass:   true,
+			streamInfo: streamInfo{
+				Length:         1,
+				RadixTreeKeys:  1,
+				RadixTreeNodes: 2,
+				Groups:         1,
+				StreamGroupsInfo: []streamGroupsInfo{
+					{
+						Name:      "test_group",
+						Consumers: 1,
+						Pending:   1,
+						StreamGroupConsumersInfo: []streamGroupConsumersInfo{
+							{
+								Name:    "test_consumer_1",
+								Pending: 1,
+								Idle:    0,
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:   "Not stream test",
+			stream: "not_stream",
+			pass:   false,
+		},
+		{
+			name:   "Not found test",
+			stream: "not_found",
+			pass:   false,
+		},
+	}
+
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+			info, err := getStreamInfo(c, tst.stream)
+			if err != nil && tst.pass == true {
+				t.Errorf("Error getting stream info for %#v: %s", tst.stream, err)
+			}
+
+			if !reflect.DeepEqual(info, tst.streamInfo) {
+				t.Errorf("Wrong stream response.\nExpected: %#v;\nActual: %#v\n", tst.streamInfo, info)
+			}
+		})
+	}
+}
+
+func TestScanStreamGroups(t *testing.T) {
+
+	addr := os.Getenv("TEST_REDIS_URI")
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		{"XADD", "test_stream_1", []interface{}{"*", "field_1", "str_1"}},
+		{"XADD", "test_stream_2", []interface{}{"*", "field_pattern_1", "str_pattern_1"}},
+	}
+	// Create test streams
+	_, err = c.Do("XGROUP", "CREATE", "test_stream_1", "test_group_1", "$", "MKSTREAM")
+	_, err = c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_1", "$", "MKSTREAM")
+	_, err = c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_2", "$")
+	// Add simple values
+	createKeyFixtures(t, c, fixtures)
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+	// Process messages to assign Consumers to their groups
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_1", ">")
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_2", ">")
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "test_stream_2", "0")
+
+	tsts := []scanStremFixture{
+		{
+			name:   "Single group test",
+			stream: "test_stream_1",
+			groups: []streamGroupsInfo{
+				{
+					Name:      "test_group_1",
+					Consumers: 1,
+					Pending:   1,
+					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
+						{
+							Name:    "test_consumer_1",
+							Pending: 1,
+							Idle:    0,
+						},
+					},
+				},
+			}},
+		{
+			name:   "Multiple groups test",
+			stream: "test_stream_2",
+			groups: []streamGroupsInfo{
+				{
+					Name:      "test_group_1",
+					Consumers: 2,
+					Pending:   1,
+					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
+						{
+							Name:    "test_consumer_1",
+							Pending: 1,
+							Idle:    0,
+						},
+						{
+							Name:    "test_consumer_2",
+							Pending: 0,
+							Idle:    0,
+						},
+					},
+				},
+				{
+					Name:      "test_group_2",
+					Consumers: 0,
+					Pending:   0,
+				},
+			}},
+	}
+
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+			scannedGroup, _ := scanStreamGroups(c, tst.stream)
+			if err != nil {
+				t.Errorf("Err: %s", err)
+			}
+
+			if !reflect.DeepEqual(tst.groups, scannedGroup) {
+				t.Errorf("Wrong stream response.\nExpected: %#v;\nActual: %#v\n", tst.groups, scannedGroup)
+			}
+		})
+	}
+}
+
+func TestScanStreamGroupsConsumers(t *testing.T) {
+
+	addr := os.Getenv("TEST_REDIS_URI")
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		{"XADD", "single_consumer_stream", []interface{}{"*", "field_1", "str_1"}},
+		{"XADD", "multiple_consumer_stream", []interface{}{"*", "field_pattern_1", "str_pattern_1"}},
+	}
+	// Create test streams
+	_, err = c.Do("XGROUP", "CREATE", "single_consumer_stream", "test_group_1", "$", "MKSTREAM")
+	_, err = c.Do("XGROUP", "CREATE", "multiple_consumer_stream", "test_group_1", "$", "MKSTREAM")
+	// Add simple test items to streams
+	createKeyFixtures(t, c, fixtures)
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+	// Process messages to assign Consumers to their groups
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "single_consumer_stream", ">")
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "multiple_consumer_stream", ">")
+	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "multiple_consumer_stream", "0")
+
+	tsts := []scanStremFixture{
+		{
+			name:   "Single group test",
+			stream: "single_consumer_stream",
+			groups: []streamGroupsInfo{{Name: "test_group_1"}},
+			consumers: []streamGroupConsumersInfo{
+				{
+					Name:    "test_consumer_1",
+					Pending: 1,
+					Idle:    0,
+				},
+			},
+		},
+		{
+			name:   "Multiple consumers test",
+			stream: "multiple_consumer_stream",
+			groups: []streamGroupsInfo{{Name: "test_group_1"}},
+			consumers: []streamGroupConsumersInfo{
+				{
+					Name:    "test_consumer_1",
+					Pending: 1,
+					Idle:    0,
+				},
+				{
+					Name:    "test_consumer_2",
+					Pending: 0,
+					Idle:    0,
+				},
+			},
+		},
+	}
+
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+
+			// For each group
+			for _, g := range tst.groups {
+
+				g.StreamGroupConsumersInfo, err = scanStreamGroupConsumers(c, tst.stream, g.Name)
+				if err != nil {
+					t.Errorf("Err: %s", err)
+				}
+
+				if !reflect.DeepEqual(g.StreamGroupConsumersInfo, tst.consumers) {
+					t.Errorf("Wrong stream consumers response.\nExpected: %#v;\nActual: %#v\n", tst.consumers, g.StreamGroupConsumersInfo)
+				}
+			}
+
+		})
+	}
+}
