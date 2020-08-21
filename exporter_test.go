@@ -1454,7 +1454,7 @@ func init() {
 	}
 }
 
-type scanStremFixture struct {
+type scanStreamFixture struct {
 	name       string
 	stream     string
 	pass       bool
@@ -1490,7 +1490,7 @@ func TestGetStreamInfo(t *testing.T) {
 		c.Close()
 	}()
 
-	tsts := []scanStremFixture{
+	tsts := []scanStreamFixture{
 		{
 			name:   "Stream test",
 			stream: "test_stream",
@@ -1569,7 +1569,7 @@ func TestScanStreamGroups(t *testing.T) {
 	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_2", ">")
 	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "test_stream_2", "0")
 
-	tsts := []scanStremFixture{
+	tsts := []scanStreamFixture{
 		{
 			name:   "Single group test",
 			stream: "test_stream_1",
@@ -1661,7 +1661,7 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "multiple_consumer_stream", ">")
 	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "multiple_consumer_stream", "0")
 
-	tsts := []scanStremFixture{
+	tsts := []scanStreamFixture{
 		{
 			name:   "Single group test",
 			stream: "single_consumer_stream",
