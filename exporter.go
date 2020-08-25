@@ -29,8 +29,8 @@ type keyInfo struct {
 	keyType string
 }
 
-// All fileds of the streamInfo struct must be exported
-// because of redis.ScanStruct (reflect) limitaions
+// All fields of the streamInfo struct must be exported
+// because of redis.ScanStruct (reflect) limitations
 type streamInfo struct {
 	Length           int64 `redis:"length"`
 	RadixTreeKeys    int64 `redis:"radix-tree-keys"`
@@ -132,6 +132,10 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	if cs := r.URL.Query().Get("check-streams"); cs != "" {
 		opts.CheckStreams = cs
+	}
+
+	if css := r.URL.Query().Get("check-single-streams"); css != "" {
+		opts.CheckSingleStreams = css
 	}
 
 	registry := prometheus.NewRegistry()
@@ -373,20 +377,27 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	}
 
 	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
-		return nil, fmt.Errorf("couldn't parse check-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-keys: %s", err)
 	} else {
 		log.Debugf("keys: %#v", keys)
 	}
 
 	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
-		return nil, fmt.Errorf("couldn't parse check-single-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-single-keys: %s", err)
 	} else {
 		log.Debugf("singleKeys: %#v", singleKeys)
 	}
+
 	if streams, err := parseKeyArg(opts.CheckStreams); err != nil {
-		return nil, fmt.Errorf("couldn't parse streams: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-streams: %s", err)
 	} else {
 		log.Debugf("streams: %#v", streams)
+	}
+
+	if singleStreams, err := parseKeyArg(opts.CheckSingleStreams); err != nil {
+		return nil, fmt.Errorf("couldn't parse check-single-streams: %s", err)
+	} else {
+		log.Debugf("singleStreams: %#v", singleStreams)
 	}
 
 	if opts.InclSystemMetrics {
@@ -992,40 +1003,33 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	streams, err := parseKeyArg(e.options.CheckStreams)
 	if err != nil {
-		log.Errorf("Couldn't parse given stream keys: %#v", err)
+		log.Errorf("Couldn't parse given stream keys: %s", err)
 		return
 	}
 
 	singleStreams, err := parseKeyArg(e.options.CheckSingleStreams)
 	if err != nil {
-		log.Errorf("Couldn't parse check-single-keys: %#v", err)
+		log.Errorf("Couldn't parse check-single-streams: %s", err)
 		return
 	}
-	allKeys := append([]dbKeyPair{}, singleStreams...)
+	allStreams := append([]dbKeyPair{}, singleStreams...)
 
-	scannedKeys, err := getKeysFromPatterns(c, streams)
+	scannedStreams, err := getKeysFromPatterns(c, streams)
 	if err != nil {
-		log.Errorf("Error expanding key patterns: %#v", err)
+		log.Errorf("Error expanding key patterns: %s", err)
 	} else {
-		allKeys = append(allKeys, scannedKeys...)
+		allStreams = append(allStreams, scannedStreams...)
 	}
 
-	log.Debugf("allKeys: %#v", allKeys)
-	for _, k := range allKeys {
+	log.Debugf("allStreams: %#v", allStreams)
+	for _, k := range allStreams {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Debugf("Couldn't select database %#v when getting stream info.", k.db)
+			log.Debugf("Couldn't select database '%s' when getting stream info", k.db)
 			continue
 		}
 		info, err := getStreamInfo(c, k.key)
 		if err != nil {
-			switch err {
-			case errNotFound:
-				log.Debugf("Key '%s' not found when trying to get type and size.", k.key)
-			case errNotStream:
-				log.Debugf("Not stream type for key: %v", k.key)
-			default:
-				log.Error(err)
-			}
+			log.Errorf("couldn't get info for stream '%s', err: %s", k.key, err)
 			continue
 		}
 		dbLabel := "db" + k.db
@@ -1191,7 +1195,6 @@ func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (interface{}, err
 }
 
 var errNotFound = errors.New("key not found")
-var errNotStream = errors.New("Not a stream")
 
 // getKeyInfo takes a key and returns the type, and the size or length of the value stored at that key.
 func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
@@ -1236,49 +1239,27 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	return info, err
 }
 
-func getStreamInfo(c redis.Conn, key string) (streamInfo, error) {
-	var info streamInfo
-	keyType, err := redis.String(doRedisCmd(c, "TYPE", key))
-	if err != nil {
-		return info, err
-	}
-
-	switch keyType {
-	case "none":
-		return info, errNotFound
-	case "stream":
-		info, err = scanStream(c, key)
-		if err != nil {
-			return info, err
-		}
-	default:
-		return info, errNotStream
-	}
-	return info, err
-}
-
-func scanStream(c redis.Conn, key string) (streamInfo, error) {
-	var stream streamInfo
+func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 	v, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", key))
 	if err != nil {
-		return stream, err
+		return nil, err
 	}
 	// Scan slice to struct
+	var stream streamInfo
 	if err := redis.ScanStruct(v, &stream); err != nil {
-		return stream, err
+		return nil, err
 	}
 
 	stream.StreamGroupsInfo, err = scanStreamGroups(c, key)
 	if err != nil {
-		return stream, err
+		return nil, err
 	}
 
 	log.Debugf("stream: %#v", &stream)
-	return stream, nil
+	return &stream, nil
 }
 
 func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
-
 	groups, err := redis.Values(doRedisCmd(c, "XINFO", "GROUPS", stream))
 	if err != nil {
 		return nil, err
@@ -1286,13 +1267,12 @@ func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
 
 	var result []streamGroupsInfo
 	for _, g := range groups {
-
 		v, err := redis.Values(g, nil)
 		if err != nil {
 			log.Errorf("Couldn't convert group values for stream '%s': %s", stream, err)
 			continue
 		}
-		log.Debugf("v: %#v", v)
+		log.Debugf("streamGroupsInfo value: %#v", v)
 
 		var group streamGroupsInfo
 		if err := redis.ScanStruct(v, &group); err != nil {
@@ -1326,7 +1306,7 @@ func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]stre
 			log.Errorf("Couldn't convert consumer values for group '%s' in stream '%s': %s", group, stream, err)
 			continue
 		}
-		log.Debugf("v: %#v", v)
+		log.Debugf("streamGroupConsumersInfo value: %#v", v)
 
 		var consumer streamGroupConsumersInfo
 		if err := redis.ScanStruct(v, &consumer); err != nil {
