@@ -234,6 +234,17 @@ Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/7
 
 If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirable to view the metrics of the various cluster members simultaneously. For this reason the dashboard's drop down is of the multi-value type, allowing for the selection of multiple Redis. Please note that there is a  caveat; the single stat panels up top namely `uptime`, `total memory use` and `clients` do not function upon viewing multiple Redis.
 
+## Development
+
+The tests require a variety of real Redis instances to not only verify correctness of the exporter but also
+compatibility with older versions of Redis and with Redis-like systems like KeyDB or Tile38.\
+The [contrib/docker-compose-for-tests.yml](./contrib/docker-compose-for-tests.yml) file has service definitions for
+everything that's needed.\
+You can bring up the Redis test instances first by running `make docker-env-up` and then, every time you want to run the tests, you can run `make docker-test`. This will mount the current directory (with the .go source files) into a docker container and kick off the tests.\
+Once you're done testing you can bring down the stack by running `make docker-env-down`.\
+Or you can bring up the stack, run the tests, and then tear down the stack, all in one shot, by running `make docker-all`.
+
+
 ## Communal effort
 
 Open an issue or PR if you have more suggestions, questions or ideas about what to add.
