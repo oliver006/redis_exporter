@@ -29,6 +29,29 @@ type keyInfo struct {
 	keyType string
 }
 
+// All fields of the streamInfo struct must be exported
+// because of redis.ScanStruct (reflect) limitations
+type streamInfo struct {
+	Length           int64 `redis:"length"`
+	RadixTreeKeys    int64 `redis:"radix-tree-keys"`
+	RadixTreeNodes   int64 `redis:"radix-tree-nodes"`
+	Groups           int64 `redis:"groups"`
+	StreamGroupsInfo []streamGroupsInfo
+}
+
+type streamGroupsInfo struct {
+	Name                     string `redis:"name"`
+	Consumers                int64  `redis:"consumers"`
+	Pending                  int64  `redis:"pending"`
+	StreamGroupConsumersInfo []streamGroupConsumersInfo
+}
+
+type streamGroupConsumersInfo struct {
+	Name    string `redis:"name"`
+	Pending int64  `redis:"pending"`
+	Idle    int64  `redis:"idle"`
+}
+
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	sync.Mutex
@@ -56,6 +79,8 @@ type Options struct {
 	Namespace           string
 	ConfigCommandName   string
 	CheckSingleKeys     string
+	CheckStreams        string
+	CheckSingleStreams  string
 	CheckKeys           string
 	LuaScript           []byte
 	ClientCertificates  []tls.Certificate
@@ -103,6 +128,14 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	if csk := r.URL.Query().Get("check-single-keys"); csk != "" {
 		opts.CheckSingleKeys = csk
+	}
+
+	if cs := r.URL.Query().Get("check-streams"); cs != "" {
+		opts.CheckStreams = cs
+	}
+
+	if css := r.URL.Query().Get("check-single-streams"); css != "" {
+		opts.CheckSingleStreams = css
 	}
 
 	registry := prometheus.NewRegistry()
@@ -344,15 +377,27 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	}
 
 	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
-		return nil, fmt.Errorf("couldn't parse check-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-keys: %s", err)
 	} else {
 		log.Debugf("keys: %#v", keys)
 	}
 
 	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
-		return nil, fmt.Errorf("couldn't parse check-single-keys: %#v", err)
+		return nil, fmt.Errorf("couldn't parse check-single-keys: %s", err)
 	} else {
 		log.Debugf("singleKeys: %#v", singleKeys)
+	}
+
+	if streams, err := parseKeyArg(opts.CheckStreams); err != nil {
+		return nil, fmt.Errorf("couldn't parse check-streams: %s", err)
+	} else {
+		log.Debugf("streams: %#v", streams)
+	}
+
+	if singleStreams, err := parseKeyArg(opts.CheckSingleStreams); err != nil {
+		return nil, fmt.Errorf("couldn't parse check-single-streams: %s", err)
+	} else {
+		log.Debugf("singleStreams: %#v", singleStreams)
 	}
 
 	if opts.InclSystemMetrics {
@@ -365,31 +410,39 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		txt  string
 		lbls []string
 	}{
-		"commands_duration_seconds_total":      {txt: `Total amount of time in seconds spent per command`, lbls: []string{"cmd"}},
-		"commands_total":                       {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
-		"connected_slave_lag_seconds":          {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
-		"connected_slave_offset_bytes":         {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
-		"db_avg_ttl_seconds":                   {txt: "Avg TTL in seconds", lbls: []string{"db"}},
-		"db_keys":                              {txt: "Total number of keys by DB", lbls: []string{"db"}},
-		"db_keys_expiring":                     {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
-		"exporter_last_scrape_error":           {txt: "The last scrape error status.", lbls: []string{"err"}},
-		"instance_info":                        {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy"}},
-		"key_size":                             {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
-		"key_value":                            {txt: `The value of "key"`, lbls: []string{"db", "key"}},
-		"last_slow_execution_duration_seconds": {txt: `The amount of time needed for last slow execution, in seconds`},
-		"latency_spike_last":                   {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
-		"latency_spike_duration_seconds":       {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
-		"master_link_up":                       {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
-		"master_sync_in_progress":              {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
-		"master_last_io_seconds_ago":           {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
-		"slave_repl_offset":                    {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
-		"script_values":                        {txt: "Values returned by the collect script", lbls: []string{"key"}},
-		"slave_info":                           {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
-		"slowlog_last_id":                      {txt: `Last id of slowlog`},
-		"slowlog_length":                       {txt: `Total slowlog`},
-		"start_time_seconds":                   {txt: "Start time of the Redis instance since unix epoch in seconds."},
-		"up":                                   {txt: "Information about the Redis instance"},
-		"connected_clients_details":            {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "db", "cmd"}},
+		"commands_duration_seconds_total":        {txt: `Total amount of time in seconds spent per command`, lbls: []string{"cmd"}},
+		"commands_total":                         {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"connected_slave_lag_seconds":            {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
+		"connected_slave_offset_bytes":           {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
+		"db_avg_ttl_seconds":                     {txt: "Avg TTL in seconds", lbls: []string{"db"}},
+		"db_keys":                                {txt: "Total number of keys by DB", lbls: []string{"db"}},
+		"db_keys_expiring":                       {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
+		"exporter_last_scrape_error":             {txt: "The last scrape error status.", lbls: []string{"err"}},
+		"instance_info":                          {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy"}},
+		"key_size":                               {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
+		"key_value":                              {txt: `The value of "key"`, lbls: []string{"db", "key"}},
+		"last_slow_execution_duration_seconds":   {txt: `The amount of time needed for last slow execution, in seconds`},
+		"latency_spike_last":                     {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
+		"latency_spike_duration_seconds":         {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
+		"master_link_up":                         {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
+		"master_sync_in_progress":                {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
+		"master_last_io_seconds_ago":             {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
+		"slave_repl_offset":                      {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
+		"script_values":                          {txt: "Values returned by the collect script", lbls: []string{"key"}},
+		"slave_info":                             {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
+		"slowlog_last_id":                        {txt: `Last id of slowlog`},
+		"slowlog_length":                         {txt: `Total slowlog`},
+		"start_time_seconds":                     {txt: "Start time of the Redis instance since unix epoch in seconds."},
+		"stream_length":                          {txt: `The number of elements of the stream`, lbls: []string{"db", "stream"}},
+		"stream_radix_tree_keys":                 {txt: `Radix tree keys count"`, lbls: []string{"db", "stream"}},
+		"stream_radix_tree_nodes":                {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
+		"stream_groups":                          {txt: `Groups count of stream`, lbls: []string{"db", "stream"}},
+		"stream_group_consumers":                 {txt: `Consumers count of stream group`, lbls: []string{"db", "stream", "group"}},
+		"stream_group_messages_pending":          {txt: `Pending number of messages in that stream group`, lbls: []string{"db", "stream", "group"}},
+		"stream_group_consumer_messages_pending": {txt: `Pending number of messages for this specific consumer`, lbls: []string{"db", "stream", "group", "consumer"}},
+		"stream_group_consumer_idle_seconds":     {txt: `Consumer idle time in seconds`, lbls: []string{"db", "stream", "group", "consumer"}},
+		"up":                                     {txt: "Information about the Redis instance"},
+		"connected_clients_details":              {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "db", "cmd"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -947,6 +1000,55 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	}
 }
 
+func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+	streams, err := parseKeyArg(e.options.CheckStreams)
+	if err != nil {
+		log.Errorf("Couldn't parse given stream keys: %s", err)
+		return
+	}
+
+	singleStreams, err := parseKeyArg(e.options.CheckSingleStreams)
+	if err != nil {
+		log.Errorf("Couldn't parse check-single-streams: %s", err)
+		return
+	}
+	allStreams := append([]dbKeyPair{}, singleStreams...)
+
+	scannedStreams, err := getKeysFromPatterns(c, streams)
+	if err != nil {
+		log.Errorf("Error expanding key patterns: %s", err)
+	} else {
+		allStreams = append(allStreams, scannedStreams...)
+	}
+
+	log.Debugf("allStreams: %#v", allStreams)
+	for _, k := range allStreams {
+		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+			log.Debugf("Couldn't select database '%s' when getting stream info", k.db)
+			continue
+		}
+		info, err := getStreamInfo(c, k.key)
+		if err != nil {
+			log.Errorf("couldn't get info for stream '%s', err: %s", k.key, err)
+			continue
+		}
+		dbLabel := "db" + k.db
+		e.registerConstMetricGauge(ch, "stream_length", float64(info.Length), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_radix_tree_keys", float64(info.RadixTreeKeys), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_radix_tree_nodes", float64(info.RadixTreeNodes), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_groups", float64(info.Groups), dbLabel, k.key)
+		for _, g := range info.StreamGroupsInfo {
+			e.registerConstMetricGauge(ch, "stream_group_consumers", float64(g.Consumers), dbLabel, k.key, g.Name)
+			e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(g.Pending), dbLabel, k.key, g.Name)
+			for _, c := range g.StreamGroupConsumersInfo {
+				e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(c.Pending), dbLabel, k.key, g.Name, c.Name)
+				e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)
+			}
+		}
+
+	}
+}
+
 func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) error {
 	log.Debug("Evaluating e.options.LuaScript")
 	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.options.LuaScript, 0, 0))
@@ -1137,6 +1239,88 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	return info, err
 }
 
+func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
+	v, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", key))
+	if err != nil {
+		return nil, err
+	}
+	// Scan slice to struct
+	var stream streamInfo
+	if err := redis.ScanStruct(v, &stream); err != nil {
+		return nil, err
+	}
+
+	stream.StreamGroupsInfo, err = scanStreamGroups(c, key)
+	if err != nil {
+		return nil, err
+	}
+
+	log.Debugf("stream: %#v", &stream)
+	return &stream, nil
+}
+
+func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
+	groups, err := redis.Values(doRedisCmd(c, "XINFO", "GROUPS", stream))
+	if err != nil {
+		return nil, err
+	}
+
+	var result []streamGroupsInfo
+	for _, g := range groups {
+		v, err := redis.Values(g, nil)
+		if err != nil {
+			log.Errorf("Couldn't convert group values for stream '%s': %s", stream, err)
+			continue
+		}
+		log.Debugf("streamGroupsInfo value: %#v", v)
+
+		var group streamGroupsInfo
+		if err := redis.ScanStruct(v, &group); err != nil {
+			log.Errorf("Couldn't scan group in stream '%s': %s", stream, err)
+			continue
+		}
+
+		group.StreamGroupConsumersInfo, err = scanStreamGroupConsumers(c, stream, group.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, group)
+	}
+
+	log.Debugf("groups: %v", result)
+	return result, nil
+}
+
+func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]streamGroupConsumersInfo, error) {
+	consumers, err := redis.Values(doRedisCmd(c, "XINFO", "CONSUMERS", stream, group))
+	if err != nil {
+		return nil, err
+	}
+
+	var result []streamGroupConsumersInfo
+	for _, c := range consumers {
+
+		v, err := redis.Values(c, nil)
+		if err != nil {
+			log.Errorf("Couldn't convert consumer values for group '%s' in stream '%s': %s", group, stream, err)
+			continue
+		}
+		log.Debugf("streamGroupConsumersInfo value: %#v", v)
+
+		var consumer streamGroupConsumersInfo
+		if err := redis.ScanStruct(v, &consumer); err != nil {
+			log.Errorf("Couldn't scan consumers for  group '%s' in stream '%s': %s", group, stream, err)
+			continue
+		}
+
+		result = append(result, consumer)
+	}
+
+	log.Debugf("consumers: %v", result)
+	return result, nil
+}
+
 // scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
 // This function was adapted from: https://github.com/reisinger/examples-redigo
 func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
@@ -1312,6 +1496,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractCheckKeyMetrics(ch, c)
 
 	e.extractSlowLogMetrics(ch, c)
+
+	e.extractStreamMetrics(ch, c)
 
 	if e.options.LuaScript != nil && len(e.options.LuaScript) > 0 {
 		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
