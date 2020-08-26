@@ -10,35 +10,35 @@ services:
   - name: redis5
     image: redis:5
     commands:
-      - "/usr/local/bin/redis-server --port 6383  --dbfilename dump5.rdb"
+      - "redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
       - 6383
 
   - name: redis6
-    image: redis:6.0.1
+    image: redis:6
     commands:
-      - "/usr/local/bin/redis-server --protected-mode no --dbfilename dump6.rdb"
+      - "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
       - 6379
 
   - name: pwd-redis5
     image: redis:5
     commands:
-      - "/usr/local/bin/redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
+      - "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
     ports:
       - 6380
 
   - name: pwd-redis6
     image: redis:6
     commands:
-      - "/usr/local/bin/redis-server --port 6390 --requirepass dummy --user exporter on +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
+      - "redis-server --port 6390 --requirepass dummy --user exporter on +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
     ports:
       - 6380
 
   - name: redis-2-8
     image: redis:2.8
     commands:
-      - "/usr/local/bin/redis-server --port 6381 --dbfilename dump2-8.rdb"
+      - "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
       - 6381
 
@@ -67,35 +67,33 @@ services:
 
 
 steps:
-  - name: tests
-    image: "golang:1.14"
+  - name: build-binaries
+    image: "golang:1.15"
     pull: always
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
-      TEST_REDIS_URI: "redis://redis6:6379"
-      TEST_REDIS5_URI: "redis://redis5:6383"
-      TEST_REDIS6_URI: "redis://redis6:6379"
-      TEST_REDIS_2_8_URI: "redis://redis-2-8:6381"
-      TEST_KEYDB01_URI: "redis://keydb-01:6401"
-      TEST_KEYDB02_URI: "redis://keydb-02:6402"
-      TEST_PWD_REDIS_URI: "redis://:redis-password@pwd-redis5:6380"
-      TEST_USER_PWD_REDIS_URI: "redis://exporter:exporter-password@pwd-redis6:6390"
-      TEST_REDIS_CLUSTER_MASTER_URI: "redis://redis-cluster:7000"
-      TEST_REDIS_CLUSTER_SLAVE_URI: "redis://redis-cluster:7005"
-      TEST_TILE38_URI: "redis://tile38:9851"
+    commands:
+      - make build-binaries
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+
+
+  - name: tests
+    image: "golang:1.15"
+    pull: always
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
-      - 'go build'
-      - "sleep 20"   # let the redis test instances all come up first
-      - 'go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt .'
-      - 'echo "checking gofmt"'
-      - 'echo " ! gofmt -d *.go       2>&1 | read " | bash'
-      - 'echo "checking gofmt - DONE"'
-      - 'go vet .'
-      - 'go get github.com/mattn/goveralls'
-      - '/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io'
+      - make checks
+      - make test
+      - make upload-coverage
     when:
       event:
         - pull_request
@@ -196,7 +194,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.14"
+    image: "golang:1.15"
     pull: always
     environment:
       GITHUB_TOKEN:
@@ -204,7 +202,7 @@ steps:
       GO111MODULE: on
     commands:
       - "apt-get update && apt-get install -y zip"
-      - "./build-github-binaries.sh"
+      - "./release-github-binaries.sh"
     when:
       event:
         - tag
