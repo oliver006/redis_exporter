@@ -47,6 +47,13 @@ services:
     image: grokzen/redis-cluster
     ports: [7000, 7001, 7002, 7003, 7004, 7005]
 
+  redis-sentinel:
+    image: docker.io/bitnami/redis-sentinel:6.0-debian-10
+    environment:
+      -  REDIS_MASTER_HOST=redis6
+    ports:
+      - 26379
+
   tile38:
     image: tile38/tile38:latest
     ports:
