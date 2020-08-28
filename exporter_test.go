@@ -1783,3 +1783,91 @@ func TestExtractStreamMetrics(t *testing.T) {
 
 	}
 }
+
+func TestExtractInfoMetricsSentinel(t *testing.T) {
+	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
+		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	e, _ := NewRedisExporter(
+		addr,
+		Options{Namespace: "test"},
+	)
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+
+	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
+	if err != nil {
+		t.Logf("Redis INFO ALL err: %s", err)
+		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
+		if err != nil {
+			t.Fatalf("Redis INFO err: %s", err)
+		}
+	}
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.extractInfoMetrics(chM, infoAll, 0)
+		close(chM)
+	}()
+	want := map[string]bool{
+		"sentinel_tilt":                   false,
+		"sentinel_running_scripts":        false,
+		"sentinel_scripts_queue_length":   false,
+		"sentinel_simulate_failure_flags": false,
+		"sentinel_masters":                false,
+		"sentinel_master_status":          false,
+		"sentinel_master_slaves":          false,
+		"sentinel_master_sentinels":       false,
+	}
+
+	for m := range chM {
+		for k := range want {
+			if strings.Contains(m.Desc().String(), k) {
+				want[k] = true
+			}
+		}
+	}
+	for k, found := range want {
+		if !found {
+			t.Errorf("didn't find %s", k)
+		}
+
+	}
+}
+
+type sentinelData struct {
+	k, v                  string
+	name, status, address string
+	slaves, sentinels     float64
+	ok                    bool
+}
+
+func TestParseSentinelMasterString(t *testing.T) {
+	tsts := []sentinelData{
+		{k: "master0", v: "name=user03,status=sdown,address=192.169.2.52:6381,slaves=1,sentinels=5", name: "user03", status: "sdown", address: "192.169.2.52:6381", slaves: 1, sentinels: 5, ok: true},
+		{k: "master1", v: "name=master,status=ok,address=127.0.0.1:6379,slaves=999,sentinels=500", name: "master", status: "ok", address: "127.0.0.1:6379", slaves: 999, sentinels: 500, ok: true},
+
+		{k: "master", v: "name=user03", ok: false},
+		{k: "masterA", v: "status=ko", ok: false},
+		{k: "master0", v: "slaves=abc,sentinels=0", ok: false},
+		{k: "master0", v: "slaves=0,sentinels=abc", ok: false},
+	}
+
+	for _, tst := range tsts {
+		name := fmt.Sprintf("%s---%s", tst.k, tst.v)
+		t.Run(name, func(t *testing.T) {
+			if masterName, masterStatus, masterAddress, masterSlaves, masterSentinels, ok := parseSentinelMasterString(tst.k, tst.v); true {
+				if ok != tst.ok {
+					t.Errorf("failed for: master:%s data:%s", tst.k, tst.v)
+					return
+				}
+				if masterName != tst.name || masterStatus != tst.status || masterAddress != tst.address || masterSlaves != tst.slaves || masterSentinels != tst.sentinels {
+					t.Errorf("values not matching:\nstring:%s\ngot:%s %s %s %f %f", tst.v, masterName, masterStatus, masterAddress, masterSlaves, masterSentinels)
+				}
+			}
+		})
+	}
+}

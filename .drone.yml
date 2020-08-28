@@ -65,6 +65,13 @@ services:
     ports:
       - 9851
 
+  - name: redis-sentinel
+    image: docker.io/bitnami/redis-sentinel:6.0-debian-10
+    environment:
+      REDIS_MASTER_HOST: redis6
+    ports:
+      - 26379
+
 
 steps:
   - name: build-binaries

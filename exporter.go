@@ -427,8 +427,16 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"master_link_up":                         {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
 		"master_sync_in_progress":                {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
 		"master_last_io_seconds_ago":             {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
-		"slave_repl_offset":                      {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"script_values":                          {txt: "Values returned by the collect script", lbls: []string{"key"}},
+		"sentinel_tilt":                          {txt: "Sentinel is in TILT mode"},
+		"sentinel_masters":                       {txt: "The number of masters this sentinel is watching"},
+		"sentinel_running_scripts":               {txt: "Number of scripts in execution right now"},
+		"sentinel_scripts_queue_length":          {txt: "Queue of user scripts to execute"},
+		"sentinel_simulate_failure_flags":        {txt: "Failures simulations"},
+		"sentinel_master_status":                 {txt: "Master status on Sentinel", lbls: []string{"master_name", "master_address", "master_status"}},
+		"sentinel_master_slaves":                 {txt: "The number of slaves of the master", lbls: []string{"master_name", "master_address"}},
+		"sentinel_master_sentinels":              {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
+		"slave_repl_offset":                      {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"slave_info":                             {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
 		"slowlog_last_id":                        {txt: `Last id of slowlog`},
 		"slowlog_length":                         {txt: `Total slowlog`},
@@ -692,6 +700,44 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 	return
 }
 
+/*
+	valid examples:
+		master0:name=user03,status=sdown,address=192.169.2.52:6381,slaves=1,sentinels=5
+		master1:name=user02,status=ok,address=192.169.2.54:6380,slaves=1,sentinels=5
+*/
+func parseSentinelMasterString(master string, masterInfo string) (masterName string, masterStatus string, masterAddr string, masterSlaves float64, masterSentinels float64, ok bool) {
+	ok = false
+	if matched, _ := regexp.MatchString(`^master\d+`, master); !matched {
+		return
+	}
+	matchedMasterInfo := make(map[string]string)
+	for _, kvPart := range strings.Split(masterInfo, ",") {
+		x := strings.Split(kvPart, "=")
+		if len(x) != 2 {
+			log.Errorf("Invalid format for sentinel's master string, got: %s", kvPart)
+			continue
+		}
+		matchedMasterInfo[x[0]] = x[1]
+	}
+
+	masterName = matchedMasterInfo["name"]
+	masterStatus = matchedMasterInfo["status"]
+	masterAddr = matchedMasterInfo["address"]
+	masterSlaves, err := strconv.ParseFloat(matchedMasterInfo["slaves"], 64)
+	if err != nil {
+		log.Debugf("parseSentinelMasterString(): couldn't parse slaves value, got: %s, err: %s", matchedMasterInfo["slaves"], err)
+		return
+	}
+	masterSentinels, err = strconv.ParseFloat(matchedMasterInfo["sentinels"], 64)
+	if err != nil {
+		log.Debugf("parseSentinelMasterString(): couldn't parse sentinels value, got: %s, err: %s", matchedMasterInfo["sentinels"], err)
+		return
+	}
+	ok = true
+
+	return
+}
+
 func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []string) (dbCount int, err error) {
 	if len(config)%2 != 0 {
 		return 0, fmt.Errorf("invalid config: %#v", config)
@@ -810,6 +856,31 @@ func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterH
 	return false
 }
 
+func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) bool {
+
+	switch fieldKey {
+
+	case "sentinel_masters", "sentinel_tilt", "sentinel_running_scripts", "sentinel_scripts_queue_length", "sentinel_simulate_failure_flags":
+		val, _ := strconv.Atoi(fieldValue)
+		e.registerConstMetricGauge(ch, fieldKey, float64(val))
+		return true
+	}
+
+	if masterName, masterStatus, masterAddress, masterSlaves, masterSentinels, ok := parseSentinelMasterString(fieldKey, fieldValue); ok {
+		if masterStatus == "ok" {
+			e.registerConstMetricGauge(ch, "sentinel_master_status", 1, masterName, masterAddress, masterStatus)
+		} else {
+			e.registerConstMetricGauge(ch, "sentinel_master_status", 0, masterName, masterAddress, masterStatus)
+		}
+
+		e.registerConstMetricGauge(ch, "sentinel_master_slaves", masterSlaves, masterName, masterAddress)
+		e.registerConstMetricGauge(ch, "sentinel_master_sentinels", masterSentinels, masterName, masterAddress)
+		return true
+	}
+
+	return false
+}
+
 func (e *Exporter) handleMetricsServer(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
 	if fieldKey == "uptime_in_seconds" {
 		if uptime, err := strconv.ParseFloat(fieldValue, 64); err == nil {
@@ -894,6 +965,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 				handledDBs[dbName] = true
 				continue
 			}
+
+		case "Sentinel":
+			e.handleMetricsSentinel(ch, fieldKey, fieldValue)
 		}
 
 		if !e.includeMetric(fieldKey) {
@@ -1462,7 +1536,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err != nil {
-		log.Debugf("Redis INFO err: %s", err)
+		log.Debugf("Redis INFO ALL err: %s", err)
 		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
 			log.Errorf("Redis INFO err: %s", err)
