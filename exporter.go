@@ -450,7 +450,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"stream_group_consumer_messages_pending": {txt: `Pending number of messages for this specific consumer`, lbls: []string{"db", "stream", "group", "consumer"}},
 		"stream_group_consumer_idle_seconds":     {txt: `Consumer idle time in seconds`, lbls: []string{"db", "stream", "group", "consumer"}},
 		"up":                                     {txt: "Information about the Redis instance"},
-		"connected_clients_details":              {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "db", "cmd"}},
+		"connected_clients_details":              {txt: "Details about connected clients", lbls: []string{"host", "port", "name", "age", "idle", "flags", "db", "omem", "cmd"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -584,7 +584,7 @@ func extractVal(s string) (val float64, err error) {
 	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex
 	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client
 */
-func parseClientListString(clientInfo string) (host string, port string, name string, age string, idle string, flags string, db string, cmd string, ok bool) {
+func parseClientListString(clientInfo string) (host string, port string, name string, age string, idle string, flags string, db string, omem string, cmd string, ok bool) {
 	ok = false
 	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
 		return
@@ -611,6 +611,7 @@ func parseClientListString(clientInfo string) (host string, port string, name st
 	idle = connectedClient["idle"]
 	flags = connectedClient["flags"]
 	db = connectedClient["db"]
+	omem = connectedClient["omem"]
 	cmd = connectedClient["cmd"]
 
 	ok = true
@@ -1207,8 +1208,8 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 		clients := strings.Split(reply, "\n")
 
 		for _, c := range clients {
-			if host, port, name, age, idle, flags, db, cmd, ok := parseClientListString(c); ok {
-				e.registerConstMetricGauge(ch, "connected_clients_details", 1.0, host, port, name, age, idle, flags, db, cmd)
+			if host, port, name, age, idle, flags, db, omem, cmd, ok := parseClientListString(c); ok {
+				e.registerConstMetricGauge(ch, "connected_clients_details", 1.0, host, port, name, age, idle, flags, db, omem, cmd)
 			}
 		}
 	}
