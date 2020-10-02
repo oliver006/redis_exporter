@@ -16,7 +16,7 @@ docker-env-down:
 .PHONY: docker-test
 docker-test:
 	docker-compose -f contrib/docker-compose-for-tests.yml up -d
-	docker-compose -f contrib/docker-compose-for-tests.yml run --rm tests bash -c 'cd /go/src/github.com/oliver006/redis_exporter && make test'
+	docker-compose -f contrib/docker-compose-for-tests.yml run --rm tests bash -c 'make test'
 
 
 
