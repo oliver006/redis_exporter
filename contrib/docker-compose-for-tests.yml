@@ -23,7 +23,7 @@ services:
     image: redis:6
     command: "redis-server --port 6390 --requirepass dummy --user exporter on +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
     ports:
-      - 6380
+      - 6390
 
   redis-2-8:
     image: redis:2.8
