@@ -235,6 +235,9 @@ Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/7
 
 If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirable to view the metrics of the various cluster members simultaneously. For this reason the dashboard's drop down is of the multi-value type, allowing for the selection of multiple Redis. Please note that there is a  caveat; the single stat panels up top namely `uptime`, `total memory use` and `clients` do not function upon viewing multiple Redis.
 
+## Using the mixin
+There is a set of sample rules, alerts and dashboards available in [redis-mixin](redis-mixin/)
+
 ## Development
 
 The tests require a variety of real Redis instances to not only verify correctness of the exporter but also

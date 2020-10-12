@@ -22,5 +22,7 @@ for Grafana:
 $ make build
 ```
 
+The mixin currently treats each redis instance independently - it has no notion of replication or clustering. We aim to support these concepts in future versions. The mixin dashboard is a fork of the one in the [contrib](contrib/) directory.
+
 For more advanced uses of mixins, see
 https://github.com/monitoring-mixins/docs.
