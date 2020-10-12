@@ -24,4 +24,4 @@ groups:
           severity: warning
         annotations:
           summary: "Redis too many connections (instance {{ $labels.instance }})"
-          description: "Redis instance has too many connections\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}" 
+          description: "Redis instance has too many connections\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}"
