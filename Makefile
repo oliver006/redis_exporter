@@ -45,7 +45,11 @@ checks:
 	echo " ! gofmt -d *.go       2>&1 | read " | bash
 	echo "checking gofmt - DONE"
 
-
+.PHONY: mixin
+mixin:
+	cd redis-mixin && \
+	$(MAKE) all && \
+	cd ../
 
 .PHONY: upload-coverage
 upload-coverage:
