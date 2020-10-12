@@ -110,10 +110,10 @@ steps:
   - name: mixins
     image: golang:1.15
     commands:
-      - pushd redis-mixin
+      - cd redis-mixin
       - go install github.com/monitoring-mixins/mixtool/cmd/mixtool
       - go install github.com/google/go-jsonnet/cmd/jsonnetfmt
-      - popd
+      - cd ../
       - make mixin
     when:
       event:
