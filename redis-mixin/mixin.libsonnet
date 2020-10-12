@@ -9,7 +9,7 @@
     groups+: std.native('parseYaml')(rules)[0].groups,
   },
 
-  prometheusRules+: importRules(importstr 'rules/rules.yaml'),
+  prometheusRules+: importRules(importstr 'rules/redis.yaml'),
 
   prometheusAlerts+: importRules(importstr 'alerts/redis.yaml'),
 }
