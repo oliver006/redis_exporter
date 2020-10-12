@@ -107,6 +107,18 @@ steps:
         - push
 
 
+  - name: mixins
+    image: golang:1.15
+    commands:
+      - cd redis-mixin; go install github.com/monitoring-mixins/mixtool/cmd/mixtool
+      - cd redis-mixin; go install github.com/google/go-jsonnet/cmd/jsonnetfmt
+      - make mixin
+    when:
+      event:
+        - pull_request
+        - push
+
+
   - name: coverage-codecov
     image: plugins/codecov
     settings:
