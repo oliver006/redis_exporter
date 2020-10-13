@@ -987,6 +987,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0]) // check-single-keys
 	css := dbNumStrFull + "=" + TestStreamName           // check-single-streams
+	cntk := dbNumStrFull + "=" + keys[0] + "*"           // count-keys
 
 	testRedisIPAddress := ""
 	testRedisHostname := ""
@@ -1010,17 +1011,18 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 		csk    string
 		cs     string
 		css    string
+		cntk   string
 		pwd    string
 		target string
 	}{
-		{addr: testRedisIPAddress, csk: csk, css: css},
-		{addr: testRedisHostname, csk: csk, css: css},
-		{addr: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css},
-		{addr: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css},
-		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css},
-		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css},
-		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), ck: csk, cs: css},
-		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), csk: csk, cs: css},
+		{addr: testRedisIPAddress, csk: csk, css: css, cntk: cntk},
+		{addr: testRedisHostname, csk: csk, css: css, cntk: cntk},
+		{addr: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
+		{addr: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css, cntk: cntk},
+		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
+		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css, cntk: cntk},
+		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
+		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), csk: csk, cs: css, cntk: cntk},
 	} {
 		name := fmt.Sprintf("addr:[%s]___target:[%s]___pwd:[%s]", tst.addr, tst.target, tst.pwd)
 		t.Run(name, func(t *testing.T) {
@@ -1036,6 +1038,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				options.CheckKeys = tst.ck
 				options.CheckSingleStreams = tst.css
 				options.CheckStreams = tst.cs
+				options.CountKeys = tst.cntk
 			}
 
 			e, _ := NewRedisExporter(tst.addr, options)
@@ -1050,6 +1053,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				v.Add("check-keys", tst.ck)
 				v.Add("check-streams", tst.cs)
 				v.Add("check-single-streams", tst.css)
+				v.Add("count-keys", tst.cntk)
 
 				up, _ := url.Parse(u)
 				up.RawQuery = v.Encode()
@@ -1085,6 +1089,8 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 				`test_key_size{db="db11",key="` + keys[0] + `"} 7`,
 				`test_key_value{db="db11",key="` + keys[0] + `"} 1234.56`,
+
+				`test_keys_count{db="db11",key="` + keys[0] + `*"} 1`,
 
 				`test_db_keys{db="db11"} `,
 				`test_db_keys_expiring{db="db11"} `,
