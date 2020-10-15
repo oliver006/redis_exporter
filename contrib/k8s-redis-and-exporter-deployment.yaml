@@ -4,13 +4,16 @@ kind: Namespace
 metadata:
   name: redis
 ---
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   namespace: redis
   name: redis
 spec:
   replicas: 1
+  selector:
+    matchLabels:
+      app: redis
   template:
     metadata:
       annotations:
