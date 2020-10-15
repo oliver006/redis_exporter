@@ -47,9 +47,9 @@ checks:
 
 .PHONY: mixin
 mixin:
-	cd redis-mixin && \
+	cd contrib/redis-mixin && \
 	$(MAKE) all && \
-	cd ../
+	cd ../../
 
 .PHONY: upload-coverage
 upload-coverage:
