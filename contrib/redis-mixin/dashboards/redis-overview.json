@@ -16,8 +16,8 @@
   "editable": true,
   "gnetId": 763,
   "graphTooltip": 1,
-  "id": 22,
-  "iteration": 1602691111348,
+  "id": 24,
+  "iteration": 1602758020790,
   "links": [],
   "panels": [
     {
@@ -40,6 +40,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "Average taken across instances",
       "editable": true,
       "error": false,
       "fieldConfig": {
@@ -102,7 +103,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Average commands per second",
+      "title": "Commands per second",
       "tooltip": {
         "msResolution": true,
         "shared": true,
@@ -146,6 +147,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "Average taken across instances",
       "editable": true,
       "error": false,
       "fieldConfig": {
@@ -208,7 +210,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Average command latency per second",
+      "title": "Command latency per second",
       "tooltip": {
         "msResolution": true,
         "shared": true,
@@ -393,6 +395,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "Total taken across instances",
       "editable": true,
       "error": false,
       "fieldConfig": {
@@ -583,21 +586,15 @@
           "expr": "redis_memory_fragmentation_ratio{instance=~\"$instance\"}",
           "hide": false,
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{instance}}",
           "refId": "C"
-        },
-        {
-          "expr": "1.5",
-          "interval": "",
-          "legendFormat": "Recommend redis restart",
-          "refId": "A"
         }
       ],
       "thresholds": [],
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Memory fragmentation ratio",
+      "title": "Memory fragmentation ratio per instance",
       "tooltip": {
         "msResolution": true,
         "shared": true,
@@ -703,7 +700,7 @@
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "Evictions",
+          "legendFormat": "{{instance}}",
           "refId": "B",
           "step": 240
         }
@@ -712,7 +709,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Key evictions per second",
+      "title": "Key evictions per second per instance",
       "tooltip": {
         "msResolution": false,
         "shared": true,
@@ -770,6 +767,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "Sum taken across instances",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -812,7 +810,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "redis_connected_clients{instance=~\"$instance\"}",
+          "expr": "sum(redis_connected_clients{instance=~\"$instance\"})",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
@@ -820,11 +818,11 @@
           "refId": "A"
         },
         {
-          "expr": "redis_blocked_clients{instance=~\"$instance\"}",
+          "expr": "sum(redis_blocked_clients{instance=~\"$instance\"})",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 1,
-          "legendFormat": "Clocked",
+          "legendFormat": "Blocked",
           "refId": "B"
         }
       ],
@@ -877,6 +875,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "Sum taken across instances",
       "editable": true,
       "error": false,
       "fieldConfig": {
@@ -985,6 +984,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "Sum taken across instances",
       "editable": true,
       "error": false,
       "fieldConfig": {
@@ -1031,22 +1031,22 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) by (instance) - sum (redis_db_keys_expiring{instance=~\"$instance\"}) by (instance)",
+          "expr": "sum (redis_db_keys{instance=~\"$instance\"}) - sum (redis_db_keys_expiring{instance=~\"$instance\"})",
           "format": "time_series",
           "hide": false,
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "not expiring, {{ instance }}",
+          "legendFormat": "Not expiring",
           "refId": "A",
           "step": 240,
           "target": ""
         },
         {
-          "expr": "sum(redis_db_keys_expiring{instance=~\"$instance\"}) by (instance)",
+          "expr": "sum(redis_db_keys_expiring{instance=~\"$instance\"})",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
-          "legendFormat": "expiring, {{ instance }}",
+          "legendFormat": "Expiring",
           "metric": "",
           "refId": "B",
           "step": 240
@@ -1100,6 +1100,7 @@
       "dashLength": 10,
       "dashes": false,
       "datasource": "$datasource",
+      "description": "This metric will only be non-zero if the instance is a master",
       "fieldConfig": {
         "defaults": {
           "custom": {}
@@ -1141,9 +1142,9 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "redis_connected_slaves{instance=~\"$instance\"}",
+          "expr": "sum(redis_connected_slaves{instance=~\"$instance\"}) by (instance)",
           "interval": "",
-          "legendFormat": "Connected slaves",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
@@ -1151,7 +1152,7 @@
       "timeFrom": null,
       "timeRegions": [],
       "timeShift": null,
-      "title": "Connected slaves",
+      "title": "Connected slaves by instance",
       "tooltip": {
         "shared": true,
         "sort": 0,
@@ -1238,7 +1239,7 @@
         {
           "expr": "redis_master_last_io_seconds_ago{instance=~\"$instance\"}",
           "interval": "",
-          "legendFormat": "",
+          "legendFormat": "{{instance}}",
           "refId": "A"
         }
       ],
@@ -1296,9 +1297,13 @@
       {
         "allValue": null,
         "current": {
-          "selected": false,
-          "text": "redisdb-7d6b98cd98-kjt5x",
-          "value": "redisdb-7d6b98cd98-kjt5x"
+          "selected": true,
+          "tags": [],
+          "text": "redisdb-7d6b98cd98-kjt5x + redisdb-7d6b98cd98-pbkg6",
+          "value": [
+            "redisdb-7d6b98cd98-kjt5x",
+            "redisdb-7d6b98cd98-pbkg6"
+          ]
         },
         "datasource": "prometheus",
         "definition": "label_values(redis_up, instance)",
@@ -1369,7 +1374,7 @@
     ]
   },
   "timezone": "browser",
-  "title": "Redis Dashboard for Prometheus Redis Exporter 1.1",
-  "uid": "bRd48yKMkdfssaf",
-  "version": 1
+  "title": "Redis Dashboard for Prometheus Redis Exporter 1.x",
+  "uid": "bRd48yKMdd",
+  "version": 5
 }
