@@ -1441,6 +1441,26 @@ func TestHTTPHTMLPages(t *testing.T) {
 	}
 }
 
+func TestRedisMetricsOnly(t *testing.T) {
+	for _, inc := range []bool{false, true} {
+		r := prometheus.NewRegistry()
+		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+		_, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: r, RedisMetricsOnly: inc}, Build)
+		if err != nil {
+			t.Fatalf(`error when creating exporter with registry: %s`, err)
+		}
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		if inc && strings.Contains(body, "exporter_build_info") {
+			t.Errorf("want metrics to include exporter_build_info, have:\n%s", body)
+		} else if !inc && !strings.Contains(body, "exporter_build_info") {
+			t.Errorf("did NOT want metrics to include exporter_build_info, have:\n%s", body)
+		}
+
+		ts.Close()
+	}
+}
+
 func TestConnectionDurations(t *testing.T) {
 	metric1 := "exporter_last_scrape_ping_time_seconds"
 	metric2 := "exporter_last_scrape_connect_time_seconds"
