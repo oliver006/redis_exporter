@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"crypto/tls"
@@ -19,6 +19,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
+
+type BuildInfo struct {
+	Version   string
+	CommitSha string
+	Date      string
+}
 
 type dbKeyPair struct {
 	db, key string
@@ -71,6 +77,8 @@ type Exporter struct {
 	metricMapGauges   map[string]string
 
 	mux *http.ServeMux
+
+	buildInfo BuildInfo
 }
 
 type Options struct {
@@ -82,7 +90,6 @@ type Options struct {
 	CheckStreams        string
 	CheckSingleStreams  string
 	CheckKeys           string
-	CountKeys           string
 	LuaScript           []byte
 	ClientCertificates  []tls.Certificate
 	CaCertificates      *x509.CertPool
@@ -139,14 +146,10 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 		opts.CheckSingleStreams = css
 	}
 
-	if cntk := r.URL.Query().Get("count-keys"); cntk != "" {
-		opts.CountKeys = cntk
-	}
-
 	registry := prometheus.NewRegistry()
 	opts.Registry = registry
 
-	_, err = NewRedisExporter(target, opts)
+	_, err = NewRedisExporter(target, opts, e.buildInfo)
 	if err != nil {
 		http.Error(w, "NewRedisExporter() err: err", 400)
 		e.targetScrapeRequestErrors.Inc()
@@ -191,13 +194,15 @@ func newMetricDescr(namespace string, metricName string, docString string, label
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
-func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
+func NewRedisExporter(redisURI string, opts Options, bi BuildInfo) (*Exporter, error) {
 	log.Debugf("NewRedisExporter options: %#v", opts)
 
 	e := &Exporter{
 		redisAddr: redisURI,
 		options:   opts,
 		namespace: opts.Namespace,
+
+		buildInfo: bi,
 
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: opts.Namespace,
@@ -405,12 +410,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		log.Debugf("singleStreams: %#v", singleStreams)
 	}
 
-	if countKeys, err := parseKeyArg(opts.CountKeys); err != nil {
-		return nil, fmt.Errorf("couldn't parse count-keys: %s", err)
-	} else {
-		log.Debugf("countKeys: %#v", countKeys)
-	}
-
 	if opts.InclSystemMetrics {
 		e.metricMapGauges["total_system_memory"] = "total_system_memory_bytes"
 	}
@@ -432,7 +431,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"instance_info":                          {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy"}},
 		"key_size":                               {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
 		"key_value":                              {txt: `The value of "key"`, lbls: []string{"db", "key"}},
-		"keys_count":                             {txt: `Count of keys`, lbls: []string{"db", "key"}},
 		"last_slow_execution_duration_seconds":   {txt: `The amount of time needed for last slow execution, in seconds`},
 		"latency_spike_last":                     {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
 		"latency_spike_duration_seconds":         {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
@@ -480,13 +478,13 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		))
 
 		if !e.options.RedisMetricsOnly {
-			buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			buildInfoCollector := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: opts.Namespace,
 				Name:      "exporter_build_info",
 				Help:      "redis exporter build_info",
 			}, []string{"version", "commit_sha", "build_date", "golang_version"})
-			buildInfo.WithLabelValues(BuildVersion, BuildCommitSha, BuildDate, runtime.Version()).Set(1)
-			e.options.Registry.MustRegister(buildInfo)
+			buildInfoCollector.WithLabelValues(e.buildInfo.Version, e.buildInfo.CommitSha, e.buildInfo.Date, runtime.Version()).Set(1)
+			e.options.Registry.MustRegister(buildInfoCollector)
 		}
 	}
 
@@ -496,9 +494,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	})
 	e.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-<head><title>Redis Exporter ` + BuildVersion + `</title></head>
+<head><title>Redis Exporter ` + e.buildInfo.Version + `</title></head>
 <body>
-<h1>Redis Exporter ` + BuildVersion + `</h1>
+<h1>Redis Exporter ` + e.buildInfo.Version + `</h1>
 <p><a href='` + opts.MetricsPath + `'>Metrics</a></p>
 </body>
 </html>
@@ -1136,28 +1134,6 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 	}
 }
 
-func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	cntKeys, err := parseKeyArg(e.options.CountKeys)
-	if err != nil {
-		log.Errorf("Couldn't parse given count keys: %s", err)
-		return
-	}
-
-	for _, k := range cntKeys {
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Debugf("Couldn't select database '%s' when getting stream info", k.db)
-			continue
-		}
-		cnt, err := scanForKeyCount(c, k.key)
-		if err != nil {
-			log.Errorf("couldn't get key count for '%s', err: %s", k.key, err)
-			continue
-		}
-		dbLabel := "db" + k.db
-		e.registerConstMetricGauge(ch, "keys_count", float64(cnt), dbLabel, k.key)
-	}
-}
-
 func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) error {
 	log.Debug("Evaluating e.options.LuaScript")
 	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.options.LuaScript, 0, 0))
@@ -1456,30 +1432,6 @@ func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
 	return keys, nil
 }
 
-func scanForKeyCount(c redis.Conn, pattern string) (int, error) {
-	iter := 0
-	keys := 0
-
-	for {
-		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern))
-		if err != nil {
-			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
-		}
-		if len(arr) != 2 {
-			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
-		}
-
-		k, _ := redis.Values(arr[1], nil)
-		keys += len(k)
-
-		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
-			break
-		}
-	}
-
-	return keys, nil
-}
-
 // getKeysFromPatterns does a SCAN for a key if the key contains pattern characters
 func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPair, err error) {
 	expandedKeys = []dbKeyPair{}
@@ -1631,8 +1583,6 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractSlowLogMetrics(ch, c)
 
 	e.extractStreamMetrics(ch, c)
-
-	e.extractCountKeysMetrics(ch, c)
 
 	if e.options.LuaScript != nil && len(e.options.LuaScript) > 0 {
 		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
