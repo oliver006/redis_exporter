@@ -447,6 +447,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"sentinel_simulate_failure_flags":        {txt: "Failures simulations"},
 		"sentinel_master_status":                 {txt: "Master status on Sentinel", lbls: []string{"master_name", "master_address", "master_status"}},
 		"sentinel_master_slaves":                 {txt: "The number of slaves of the master", lbls: []string{"master_name", "master_address"}},
+		"sentinel_master_ok_slaves":              {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_sentinels":              {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_ok_sentinels":           {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"slave_repl_offset":                      {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
@@ -1659,7 +1660,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	masterDetails, err := redis.Values(doRedisCmd(c, "SENTINEL", "MASTERS"))
 	if err != nil {
-		log.Debug("Error getting sentinel master details %s:", err)
+		log.Debugf("Error getting sentinel master details %s:", err)
 		return
 	}
 
@@ -1670,7 +1671,7 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 
 		masterDetailMap, err := redis.StringMap(masterDetail, nil)
 		if err != nil {
-			log.Debug("Error generating map from %s: %s", masterDetail, err)
+			log.Debugf("Error generating map from %s: %s", masterDetail, err)
 			continue
 		}
 
@@ -1691,36 +1692,77 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		}
 		masterAddr := masterIp + ":" + masterPort
 
-		sentinel_details, err := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
+		e.processSentinelSentinels(ch, c, masterName, masterAddr)
+
+		e.processSentinelSlaves(ch, c, masterName, masterAddr)
+
+	}
+}
+
+func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, c redis.Conn, masterName string, labels ...string) {
+	sentinel_details, err := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
+	if err != nil {
+		log.Debugf("Sentinel details not found for master %s", masterName)
+		return
+	}
+	log.Debugf("Sentinel details for master %s: %s", masterName, sentinel_details)
+
+	masterMetrics := make(map[string]int)
+	masterMetrics["sentinel_master_ok_sentinels"] = 1
+
+	for _, sentinel_detail := range sentinel_details {
+		sentinel_detail_map, err := redis.StringMap(sentinel_detail, nil)
 		if err != nil {
-			log.Debugf("Sentinel details not found for master %s", masterName)
+			log.Debugf("Error getting sentinel detail map for master %s: %s", masterName, err)
+		}
+
+		sentinel_flags, ok := sentinel_detail_map["flags"]
+		if !ok {
 			continue
 		}
-		log.Debugf("Sentinel details for master %s: %s", masterName, sentinel_details)
+		if strings.Contains(sentinel_flags, "s_down") {
+			continue
+		}
+		if strings.Contains(sentinel_flags, "o_down") {
+			continue
+		}
+		masterMetrics["sentinel_master_ok_sentinels"] = masterMetrics["sentinel_master_ok_sentinels"] + 1
+	}
+	for metricName, metricValue := range masterMetrics {
+		e.registerConstMetricGauge(ch, metricName, float64(metricValue), masterName, strings.Join(labels[:], ","))
+	}
+}
 
-		masterMetrics := make(map[string]int)
-		masterMetrics["sentinel_master_ok_sentinels"] = 1
+func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, c redis.Conn, masterName string, labels ...string) {
+	slave_details, err := redis.Values(doRedisCmd(c, "SENTINEL", "SLAVES", masterName))
+	if err != nil {
+		log.Debugf("Slave details not found for master %s", masterName)
+		return
+	}
+	log.Debugf("Slavesdetails for master %s: %s", masterName, slave_details)
 
-		for _, sentinel_detail := range sentinel_details {
-			sentinel_detail_map, err := redis.StringMap(sentinel_detail, nil)
-			if err != nil {
-				log.Debugf("Error getting sentinel detail map for master %s: %s", masterName, err)
-			}
-			sentinel_flags, ok := sentinel_detail_map["flags"]
-			if !ok {
-				continue
-			}
-			if strings.Contains(sentinel_flags, "s_down") {
-				continue
-			}
-			if strings.Contains(sentinel_flags, "o_down") {
-				continue
-			}
-			masterMetrics["sentinel_master_ok_sentinels"] = masterMetrics["sentinel_master_ok_sentinels"] + 1
+	masterMetrics := make(map[string]int)
+	masterMetrics["sentinel_master_ok_slaves"] = 0
+
+	for _, slave_detail := range slave_details {
+		slave_detail_map, err := redis.StringMap(slave_detail, nil)
+		if err != nil {
+			log.Debugf("Error getting slave detail map for master %s: %s", masterName, err)
 		}
 
-		for metricName, metricValue := range masterMetrics {
-			e.registerConstMetricGauge(ch, metricName, float64(metricValue), masterName, masterAddr)
+		slave_flags, ok := slave_detail_map["flags"]
+		if !ok {
+			continue
 		}
+		if strings.Contains(slave_flags, "s_down") {
+			continue
+		}
+		if strings.Contains(slave_flags, "o_down") {
+			continue
+		}
+		masterMetrics["sentinel_master_ok_slaves"] = masterMetrics["sentinel_master_ok_slaves"] + 1
+	}
+	for metricName, metricValue := range masterMetrics {
+		e.registerConstMetricGauge(ch, metricName, float64(metricValue), masterName, strings.Join(labels[:], ","))
 	}
 }
