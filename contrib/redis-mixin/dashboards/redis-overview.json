@@ -1305,7 +1305,7 @@
             "redisdb-7d6b98cd98-pbkg6"
           ]
         },
-        "datasource": "prometheus",
+        "datasource": "${datasource}",
         "definition": "label_values(redis_up, instance)",
         "hide": 0,
         "includeAll": false,
