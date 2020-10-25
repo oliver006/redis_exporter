@@ -1231,6 +1231,19 @@ func TestSanitizeMetricName(t *testing.T) {
 	}
 }
 
+func TestParseClientListString(t *testing.T) {
+	tsts := map[string][]string{
+		"id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex":    []string{"127.0.0.1", "63508", "", "6321", "6320", "N", "0", "0", "setex"},
+		"id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client": []string{"127.0.0.1", "64958", "foo", "5", "0", "N", "1", "0", "client"},
+	}
+
+	for k, v := range tsts {
+		if host, port, name, age, idle, flags, db, omem, cmd, ok := parseClientListString(k); host != v[0] || port != v[1] || name != v[2] || age != v[3] || idle != v[4] || flags != v[5] || db != v[6] || omem != v[7] || cmd != v[8] || !ok {
+			t.Errorf("TestParseClientListString( %s ) error. Given: %s Wanted: %s", k, []string{host, port, name, age, idle, flags, db, omem, cmd}, v)
+		}
+	}
+}
+
 func TestKeysReset(t *testing.T) {
 	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + keys[0], Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
