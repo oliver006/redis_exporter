@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"crypto/tls"
@@ -19,6 +19,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
+
+type BuildInfo struct {
+	Version   string
+	CommitSha string
+	Date      string
+}
 
 type dbKeyPair struct {
 	db, key string
@@ -71,6 +77,8 @@ type Exporter struct {
 	metricMapGauges   map[string]string
 
 	mux *http.ServeMux
+
+	buildInfo BuildInfo
 }
 
 type Options struct {
@@ -96,6 +104,7 @@ type Options struct {
 	RedisMetricsOnly    bool
 	PingOnConnect       bool
 	Registry            *prometheus.Registry
+	BuildInfo           BuildInfo
 }
 
 func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
@@ -198,6 +207,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		redisAddr: redisURI,
 		options:   opts,
 		namespace: opts.Namespace,
+
+		buildInfo: opts.BuildInfo,
 
 		totalScrapes: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: opts.Namespace,
@@ -480,13 +491,13 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		))
 
 		if !e.options.RedisMetricsOnly {
-			buildInfo := prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			buildInfoCollector := prometheus.NewGaugeVec(prometheus.GaugeOpts{
 				Namespace: opts.Namespace,
 				Name:      "exporter_build_info",
 				Help:      "redis exporter build_info",
 			}, []string{"version", "commit_sha", "build_date", "golang_version"})
-			buildInfo.WithLabelValues(BuildVersion, BuildCommitSha, BuildDate, runtime.Version()).Set(1)
-			e.options.Registry.MustRegister(buildInfo)
+			buildInfoCollector.WithLabelValues(e.buildInfo.Version, e.buildInfo.CommitSha, e.buildInfo.Date, runtime.Version()).Set(1)
+			e.options.Registry.MustRegister(buildInfoCollector)
 		}
 	}
 
@@ -496,9 +507,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	})
 	e.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<html>
-<head><title>Redis Exporter ` + BuildVersion + `</title></head>
+<head><title>Redis Exporter ` + e.buildInfo.Version + `</title></head>
 <body>
-<h1>Redis Exporter ` + BuildVersion + `</h1>
+<h1>Redis Exporter ` + e.buildInfo.Version + `</h1>
 <p><a href='` + opts.MetricsPath + `'>Metrics</a></p>
 </body>
 </html>

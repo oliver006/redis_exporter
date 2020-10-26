@@ -13,6 +13,8 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
+
+	"github.com/oliver006/redis_exporter/exporter"
 )
 
 var (
@@ -137,9 +139,9 @@ func main() {
 		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 	}
 
-	exp, err := NewRedisExporter(
+	exp, err := exporter.NewRedisExporter(
 		*redisAddr,
-		Options{
+		exporter.Options{
 			User:                *redisUser,
 			Password:            *redisPwd,
 			Namespace:           *namespace,
@@ -162,6 +164,11 @@ func main() {
 			RedisMetricsOnly:    *redisMetricsOnly,
 			PingOnConnect:       *pingOnConnect,
 			Registry:            registry,
+			BuildInfo: exporter.BuildInfo{
+				Version:   BuildVersion,
+				CommitSha: BuildCommitSha,
+				Date:      BuildDate,
+			},
 		},
 	)
 	if err != nil {
