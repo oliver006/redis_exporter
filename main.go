@@ -14,7 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/oliver006/redis_exporter/lib/exporter"
+	"github.com/oliver006/redis_exporter/exporter"
 )
 
 var (
@@ -164,11 +164,11 @@ func main() {
 			RedisMetricsOnly:    *redisMetricsOnly,
 			PingOnConnect:       *pingOnConnect,
 			Registry:            registry,
-		},
-		exporter.BuildInfo{
-			Version:   BuildVersion,
-			CommitSha: BuildCommitSha,
-			Date:      BuildDate,
+			BuildInfo: exporter.BuildInfo{
+				Version:   BuildVersion,
+				CommitSha: BuildCommitSha,
+				Date:      BuildDate,
+			},
 		},
 	)
 	if err != nil {

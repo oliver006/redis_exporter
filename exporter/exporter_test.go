@@ -47,12 +47,6 @@ var (
 	dbNumStr     = "11"
 	altDBNumStr  = "12"
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
-
-	Build = BuildInfo{
-		Version:   "0.0.1",
-		CommitSha: "g27nm2n43n34n43n64",
-		Date:      "1970-01-01",
-	}
 )
 
 const (
@@ -61,7 +55,7 @@ const (
 )
 
 func getTestExporter() *Exporter {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	return e
 }
 
@@ -227,7 +221,7 @@ func TestTile38(t *testing.T) {
 	}
 
 	for _, isTile38 := range []bool{true, false} {
-		e, _ := NewRedisExporter(os.Getenv("TEST_TILE38_URI"), Options{Namespace: "test", IsTile38: isTile38}, Build)
+		e, _ := NewRedisExporter(os.Getenv("TEST_TILE38_URI"), Options{Namespace: "test", IsTile38: isTile38})
 
 		chM := make(chan prometheus.Metric)
 		go func() {
@@ -451,7 +445,7 @@ func TestHostVariations(t *testing.T) {
 	host := strings.ReplaceAll(os.Getenv("TEST_REDIS_URI"), "redis://", "")
 
 	for _, prefix := range []string{"", "redis://", "tcp://", ""} {
-		e, _ := NewRedisExporter(prefix+host, Options{SkipTLSVerification: true}, Build)
+		e, _ := NewRedisExporter(prefix+host, Options{SkipTLSVerification: true})
 		c, err := e.connectToRedis()
 		if err != nil {
 			t.Errorf("connectToRedis() err: %s", err)
@@ -543,7 +537,6 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	e, _ := NewRedisExporter(
 		os.Getenv("TEST_REDIS_URI"),
 		Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0])},
-		Build,
 	)
 
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
@@ -820,7 +813,7 @@ func TestGetKeyInfo(t *testing.T) {
 
 func TestKeySizeList(t *testing.T) {
 	s := dbNumStrFull + "=" + listKeys[0]
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: s}, Build)
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: s})
 
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
@@ -909,7 +902,7 @@ func TestLuaScript(t *testing.T) {
 }
 
 func TestKeyValueInvalidDB(t *testing.T) {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: "999=" + url.QueryEscape(keys[0])}, Build)
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: "999=" + url.QueryEscape(keys[0])})
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -972,7 +965,7 @@ func TestIncludeSystemMemoryMetric(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		r := prometheus.NewRegistry()
 		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
-		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", InclSystemMetrics: inc}, Build)
+		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", InclSystemMetrics: inc})
 		r.Register(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
@@ -1048,7 +1041,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				options.CountKeys = tst.cntk
 			}
 
-			e, _ := NewRedisExporter(tst.addr, options, Build)
+			e, _ := NewRedisExporter(tst.addr, options)
 			ts := httptest.NewServer(e)
 
 			u := ts.URL
@@ -1128,7 +1121,7 @@ func TestSimultaneousRequests(t *testing.T) {
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
-	e, _ := NewRedisExporter("", Options{Namespace: "test", InclSystemMetrics: false, Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter("", Options{Namespace: "test", InclSystemMetrics: false, Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -1186,7 +1179,7 @@ func TestSimultaneousRequests(t *testing.T) {
 }
 
 func TestNonExistingHost(t *testing.T) {
-	e, _ := NewRedisExporter("unix:///tmp/doesnt.exist", Options{Namespace: "test"}, Build)
+	e, _ := NewRedisExporter("unix:///tmp/doesnt.exist", Options{Namespace: "test"})
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -1252,7 +1245,7 @@ func TestParseClientListString(t *testing.T) {
 }
 
 func TestKeysReset(t *testing.T) {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + keys[0], Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + keys[0], Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -1284,7 +1277,7 @@ func TestClusterMaster(t *testing.T) {
 	}
 
 	addr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
-	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -1320,7 +1313,7 @@ func TestPasswordProtectedInstance(t *testing.T) {
 
 		uri := os.Getenv(uriEnvName)
 
-		e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()}, Build)
+		e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 		ts := httptest.NewServer(e)
 		defer ts.Close()
 
@@ -1345,7 +1338,7 @@ func TestPasswordInvalid(t *testing.T) {
 	testPwd := "redis-password"
 	uri := strings.Replace(os.Getenv("TEST_PWD_REDIS_URI"), testPwd, "wrong-pwd", -1)
 
-	e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -1368,7 +1361,7 @@ func TestClusterSlave(t *testing.T) {
 	}
 
 	addr := os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
-	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -1416,7 +1409,7 @@ func TestCheckKeys(t *testing.T) {
 		{"wrong=wrong=1", "", false},
 		{"", "wrong=wrong=2", false},
 	} {
-		_, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: tst.SingleCheckKey, CheckKeys: tst.CheckKeys}, Build)
+		_, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: tst.SingleCheckKey, CheckKeys: tst.CheckKeys})
 		if tst.ExpectSuccess && err != nil {
 			t.Errorf("Expected success for test: %#v, got err: %s", tst, err)
 			return
@@ -1434,7 +1427,7 @@ func TestHTTPHTMLPages(t *testing.T) {
 		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
 	}
 
-	e, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()}, Build)
+	e, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -1464,7 +1457,7 @@ func TestRedisMetricsOnly(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		r := prometheus.NewRegistry()
 		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
-		_, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: r, RedisMetricsOnly: inc}, Build)
+		_, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: r, RedisMetricsOnly: inc})
 		if err != nil {
 			t.Fatalf(`error when creating exporter with registry: %s`, err)
 		}
@@ -1487,7 +1480,7 @@ func TestConnectionDurations(t *testing.T) {
 	for _, inclPing := range []bool{false, true} {
 		r := prometheus.NewRegistry()
 		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
-		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", PingOnConnect: inclPing}, Build)
+		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", PingOnConnect: inclPing})
 		r.Register(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
@@ -1788,7 +1781,6 @@ func TestExtractStreamMetrics(t *testing.T) {
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestStreamName},
-		Build,
 	)
 	c, err := redis.DialURL(addr)
 	if err != nil {
@@ -1839,7 +1831,6 @@ func TestExtractInfoMetricsSentinel(t *testing.T) {
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test"},
-		Build,
 	)
 	c, err := redis.DialURL(addr)
 	if err != nil {
