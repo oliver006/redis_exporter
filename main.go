@@ -132,9 +132,15 @@ func main() {
 		}
 	}
 
-	var azureRedisCreds []AzureRedisCredentials
+	azureRedises := NewAzureRedises(&AzureCredentials{
+		environment:    os.Getenv("AZURE_ENVIRONMENT"),
+		subscriptionID: os.Getenv("AZURE_SUBSCRIPTION_ID"),
+		tenantID:       os.Getenv("AZURE_TENANT_ID"),
+		clientID:       os.Getenv("AZURE_CLIENT_ID"),
+		clientSecret:   os.Getenv("AZURE_CLIENT_SECRET"),
+	})
 	if *withAzureDiscoveryCreds {
-		UpdateAzureRedisServices(&azureRedisCreds)
+		azureRedises.StartUpdateRoutine()
 	}
 
 	registry := prometheus.NewRegistry()
@@ -166,7 +172,7 @@ func main() {
 			RedisMetricsOnly:    *redisMetricsOnly,
 			PingOnConnect:       *pingOnConnect,
 			Registry:            registry,
-			azureRedisCreds:     &azureRedisCreds,
+			AzureRedises:        azureRedises,
 		},
 	)
 	if err != nil {

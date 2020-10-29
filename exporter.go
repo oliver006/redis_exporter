@@ -96,7 +96,7 @@ type Options struct {
 	RedisMetricsOnly    bool
 	PingOnConnect       bool
 	Registry            *prometheus.Registry
-	azureRedisCreds     *[]AzureRedisCredentials
+	AzureRedises        *AzureRedises
 }
 
 func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
@@ -107,7 +107,7 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !strings.Contains(target, "://") && !e.azureDiscoveryEnabled() {
+	if !strings.Contains(target, "://") && !e.options.AzureRedises.RedisesExists() {
 		target = "redis://" + target
 	}
 
@@ -1505,10 +1505,6 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPa
 	return expandedKeys, err
 }
 
-func (e *Exporter) azureDiscoveryEnabled() bool {
-	return len(*e.options.azureRedisCreds) > 0
-}
-
 func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(e.options.ConnectionTimeouts),
@@ -1528,14 +1524,12 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 
 	if e.options.Password != "" {
 		options = append(options, redis.DialPassword(e.options.Password))
-	} else if e.azureDiscoveryEnabled() {
-		for _, v := range *e.options.azureRedisCreds {
-			if v.alias == e.redisAddr {
-				options = append(options, redis.DialPassword(v.key))
-				e.redisAddr = v.url
-				break
-			}
-		}
+	}
+
+	r, success := e.options.AzureRedises.GetRedisCredentialsByAlias(e.redisAddr)
+	if success {
+		options = append(options, redis.DialPassword(r.key))
+		e.redisAddr = r.url
 	}
 
 	uri := e.redisAddr
