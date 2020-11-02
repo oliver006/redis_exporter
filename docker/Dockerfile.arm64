@@ -4,7 +4,7 @@
 FROM golang:1.15-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
-ADD go.mod go.sum main.go exporter.go /go/src/github.com/oliver006/redis_exporter/
+ADD .  /go/src/github.com/oliver006/redis_exporter/
 
 ARG GOARCH="arm64"
 ARG SHA1="[no-sha]"
