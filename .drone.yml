@@ -74,6 +74,18 @@ services:
 
 
 steps:
+  - name: start
+    image: "golang:1.15"
+    commands:
+      - sleep 10
+      - 'echo "start"'
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+
+
   - name: build-binaries
     image: "golang:1.15"
     pull: always
@@ -87,7 +99,8 @@ steps:
         - pull_request
         - push
         - tag
-
+    depends_on:
+      - start
 
   - name: test-docker-build
     image: plugins/docker
@@ -106,6 +119,8 @@ steps:
         - pull_request
         - push
         - tag
+    depends_on:
+      - start
 
 
   - name: tests
@@ -124,6 +139,8 @@ steps:
       event:
         - pull_request
         - push
+    depends_on:
+      - start
 
 
   - name: mixins
@@ -138,6 +155,8 @@ steps:
       event:
         - pull_request
         - push
+    depends_on:
+      - start
 
 
   - name: coverage-codecov
@@ -151,6 +170,8 @@ steps:
       event:
         - pull_request
         - push
+    depends_on:
+      - tests
 
 
   - name: release-docker-image-scratch
@@ -171,6 +192,8 @@ steps:
     when:
       event:
         - tag
+    depends_on:
+      - tests
 
 
   - name: release-docker-image-alpine-arm64
@@ -191,6 +214,8 @@ steps:
     when:
       event:
         - tag
+    depends_on:
+      - tests
 
 
   - name: release-docker-image-alpine-arm
@@ -211,6 +236,8 @@ steps:
     when:
       event:
         - tag
+    depends_on:
+      - tests
 
 
   - name: release-docker-image-alpine-amd64
@@ -231,6 +258,8 @@ steps:
     when:
       event:
         - tag
+    depends_on:
+      - tests
 
 
   - name: release-github-binaries
@@ -246,3 +275,6 @@ steps:
     when:
       event:
         - tag
+    depends_on:
+      - tests
+      - build-binaries
