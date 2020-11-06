@@ -89,6 +89,25 @@ steps:
         - tag
 
 
+  - name: test-docker-build
+    image: plugins/docker
+    settings:
+      tags: "test"
+      dockerfile: ./docker/Dockerfile.amd64
+      repo: oliver006/redis_exporter
+      target: scratch
+      dry_run: true
+      build_args:
+        - 'TAG=test'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
+        - 'GOARCH=amd64'
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+
+
   - name: tests
     image: "golang:1.15"
     pull: always
