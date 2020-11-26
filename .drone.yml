@@ -114,6 +114,10 @@ steps:
         - 'TAG=test'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
+      username:
+        from_secret: docker_test_user
+      password:
+        from_secret: docker_test_pass
     when:
       event:
         - pull_request
