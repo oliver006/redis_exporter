@@ -161,6 +161,7 @@ include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to inclu
 ping-on-connect        | REDIS_EXPORTER_PING_ON_CONNECT       | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrape Client List specific metrics, defaults to false.
+export-client-port     | REDIS_EXPORTER_EXPORT_CLIENT_PORT    | Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
 tls-client-key-file    | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE   | Name of the client key file (including full path) if the server requires TLS client authentication
 tls-client-cert-file   | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE  | Name the client cert file (including full path) if the server requires TLS client authentication

@@ -69,6 +69,7 @@ func main() {
 		setClientName       = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
 		isTile38            = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
 		exportClientList    = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
+		exportClientPort    = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
 		showVersion         = flag.Bool("version", false, "Show version information and exit")
 		redisMetricsOnly    = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to also export go runtime metrics")
 		pingOnConnect       = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
@@ -142,28 +143,29 @@ func main() {
 	exp, err := exporter.NewRedisExporter(
 		*redisAddr,
 		exporter.Options{
-			User:                *redisUser,
-			Password:            *redisPwd,
-			Namespace:           *namespace,
-			ConfigCommandName:   *configCommand,
-			CheckKeys:           *checkKeys,
-			CheckSingleKeys:     *checkSingleKeys,
-			CheckStreams:        *checkStreams,
-			CheckSingleStreams:  *checkSingleStreams,
-			CountKeys:           *countKeys,
-			LuaScript:           ls,
-			InclSystemMetrics:   *inclSystemMetrics,
-			SetClientName:       *setClientName,
-			IsTile38:            *isTile38,
-			ExportClientList:    *exportClientList,
-			SkipTLSVerification: *skipTLSVerification,
-			ClientCertificates:  tlsClientCertificates,
-			CaCertificates:      tlsCaCertificates,
-			ConnectionTimeouts:  to,
-			MetricsPath:         *metricPath,
-			RedisMetricsOnly:    *redisMetricsOnly,
-			PingOnConnect:       *pingOnConnect,
-			Registry:            registry,
+			User:                  *redisUser,
+			Password:              *redisPwd,
+			Namespace:             *namespace,
+			ConfigCommandName:     *configCommand,
+			CheckKeys:             *checkKeys,
+			CheckSingleKeys:       *checkSingleKeys,
+			CheckStreams:          *checkStreams,
+			CheckSingleStreams:    *checkSingleStreams,
+			CountKeys:             *countKeys,
+			LuaScript:             ls,
+			InclSystemMetrics:     *inclSystemMetrics,
+			SetClientName:         *setClientName,
+			IsTile38:              *isTile38,
+			ExportClientList:      *exportClientList,
+			ExportClientsInclPort: *exportClientPort,
+			SkipTLSVerification:   *skipTLSVerification,
+			ClientCertificates:    tlsClientCertificates,
+			CaCertificates:        tlsCaCertificates,
+			ConnectionTimeouts:    to,
+			MetricsPath:           *metricPath,
+			RedisMetricsOnly:      *redisMetricsOnly,
+			PingOnConnect:         *pingOnConnect,
+			Registry:              registry,
 			BuildInfo: exporter.BuildInfo{
 				Version:   BuildVersion,
 				CommitSha: BuildCommitSha,

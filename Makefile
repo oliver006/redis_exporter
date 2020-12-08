@@ -34,7 +34,7 @@ test:
 	TEST_REDIS_CLUSTER_SLAVE_URI="redis://redis-cluster:7005" \
 	TEST_TILE38_URI="redis://tile38:9851" \
 	TEST_REDIS_SENTINEL_URI="redis://redis-sentinel:26379" \
-	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt ./...
+	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
 
 
 
