@@ -24,14 +24,6 @@ go build .
 For pre-built binaries please take a look at [the releases](https://github.com/oliver006/redis_exporter/releases).
 
 
-### Upgrading from 0.x to 1.x
-
-[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
-
-If you only scrape one Redis instance and use command line flags `--redis.address`
-and `--redis.password` then you're most probably not affected.
-Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
-
 ### Basic Prometheus Configuration
 
 Add a block to the `scrape_configs` of your prometheus.yml config file:
@@ -236,8 +228,19 @@ Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/7
 
 If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirable to view the metrics of the various cluster members simultaneously. For this reason the dashboard's drop down is of the multi-value type, allowing for the selection of multiple Redis. Please note that there is a  caveat; the single stat panels up top namely `uptime`, `total memory use` and `clients` do not function upon viewing multiple Redis.
 
+
 ## Using the mixin
 There is a set of sample rules, alerts and dashboards available in [redis-mixin](contrib/redis-mixin/)
+
+
+## Upgrading from 0.x to 1.x
+
+[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
+
+If you only scrape one Redis instance and use command line flags `--redis.address`
+and `--redis.password` then you're most probably not affected.
+Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
+
 
 ## Development
 
