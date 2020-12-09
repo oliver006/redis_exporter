@@ -169,6 +169,17 @@ Password-protected instances can be accessed by using the URI format including a
 Command line settings take precedence over any configurations provided by the environment variables.
 
 
+### Authenticating with Redis
+
+If your Redis instance requires authentication then there are several ways how you can supply 
+a username (new in Redis 6.x with ACLs) and a password.
+
+You can provide the username and password as part of the address, see [here](https://www.iana.org/assignments/uri-schemes/prov/redis) for the official documentation of the `redis://` scheme.
+This does NOT work when using the `/scrape` endpoint. It is to prevent users from sending Redis passwords in cleartext over the wire.
+
+Alternatively, you can provide the username and/or password using the `--redis.user` and `--redis.password` directly to the redis_exporter.
+
+
 ### Run via Docker
 
 The latest release is automatically published to the [Docker registry](https://hub.docker.com/r/oliver006/redis_exporter/).
