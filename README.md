@@ -24,14 +24,6 @@ go build .
 For pre-built binaries please take a look at [the releases](https://github.com/oliver006/redis_exporter/releases).
 
 
-### Upgrading from 0.x to 1.x
-
-[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
-
-If you only scrape one Redis instance and use command line flags `--redis.address`
-and `--redis.password` then you're most probably not affected.
-Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
-
 ### Basic Prometheus Configuration
 
 Add a block to the `scrape_configs` of your prometheus.yml config file:
@@ -161,6 +153,7 @@ include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to inclu
 ping-on-connect        | REDIS_EXPORTER_PING_ON_CONNECT       | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
 export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrape Client List specific metrics, defaults to false.
+export-client-port     | REDIS_EXPORTER_EXPORT_CLIENT_PORT    | Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory
 skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
 tls-client-key-file    | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE   | Name of the client key file (including full path) if the server requires TLS client authentication
 tls-client-cert-file   | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE  | Name the client cert file (including full path) if the server requires TLS client authentication
@@ -174,6 +167,17 @@ SSL is supported by using the `rediss://` schema, for example: `rediss://azure-s
 Password-protected instances can be accessed by using the URI format including a password: `redis://h:<<PASSWORD>>@<<HOSTNAME>>:<<PORT>>`
 
 Command line settings take precedence over any configurations provided by the environment variables.
+
+
+### Authenticating with Redis
+
+If your Redis instance requires authentication then there are several ways how you can supply 
+a username (new in Redis 6.x with ACLs) and a password.
+
+You can provide the username and password as part of the address, see [here](https://www.iana.org/assignments/uri-schemes/prov/redis) for the official documentation of the `redis://` scheme.
+This does NOT work when using the `/scrape` endpoint. It is to prevent users from sending Redis passwords in cleartext over the wire.
+
+Alternatively, you can provide the username and/or password using the `--redis.user` and `--redis.password` directly to the redis_exporter.
 
 
 ### Run via Docker
@@ -235,8 +239,19 @@ Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/7
 
 If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirable to view the metrics of the various cluster members simultaneously. For this reason the dashboard's drop down is of the multi-value type, allowing for the selection of multiple Redis. Please note that there is a  caveat; the single stat panels up top namely `uptime`, `total memory use` and `clients` do not function upon viewing multiple Redis.
 
+
 ## Using the mixin
 There is a set of sample rules, alerts and dashboards available in [redis-mixin](contrib/redis-mixin/)
+
+
+## Upgrading from 0.x to 1.x
+
+[PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
+
+If you only scrape one Redis instance and use command line flags `--redis.address`
+and `--redis.password` then you're most probably not affected.
+Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
+
 
 ## Development
 

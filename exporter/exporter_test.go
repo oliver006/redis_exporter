@@ -55,7 +55,15 @@ const (
 )
 
 func getTestExporter() *Exporter {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	return getTestExporterWithOptions(Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+}
+
+func getTestExporterWithOptions(opt Options) *Exporter {
+	addr := os.Getenv("TEST_REDIS_URI")
+	if addr == "" {
+		panic("missing env var TEST_REDIS_URI")
+	}
+	e, _ := NewRedisExporter(addr, opt)
 	return e
 }
 
@@ -154,9 +162,15 @@ func resetSlowLog(t *testing.T, addr string) error {
 	return nil
 }
 
-func downloadURL(t *testing.T, url string) string {
-	log.Debugf("downloadURL() %s", url)
-	resp, err := http.Get(url)
+func downloadURL(t *testing.T, u string) string {
+	_, res := downloadURLWithStatusCode(t, u)
+	return res
+}
+
+func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
+	log.Debugf("downloadURL() %s", u)
+
+	resp, err := http.Get(u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +179,8 @@ func downloadURL(t *testing.T, url string) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return string(body)
+
+	return resp.StatusCode, string(body)
 }
 
 func TestLatencySpike(t *testing.T) {
@@ -247,8 +262,10 @@ func TestTile38(t *testing.T) {
 
 func TestExportClientList(t *testing.T) {
 	for _, isExportClientList := range []bool{true, false} {
-		e := getTestExporter()
-		e.options.ExportClientList = isExportClientList
+		e := getTestExporterWithOptions(Options{
+			Namespace: "test", Registry: prometheus.NewRegistry(),
+			ExportClientList: isExportClientList,
+		})
 
 		chM := make(chan prometheus.Metric)
 		go func() {
@@ -267,6 +284,38 @@ func TestExportClientList(t *testing.T) {
 			t.Errorf("connected_clients_details was *not* found in isExportClientList metrics but expected")
 		} else if !isExportClientList && found {
 			t.Errorf("connected_clients_details was *found* in isExportClientList metrics but *not* expected")
+		}
+	}
+}
+
+func TestExportClientListInclPort(t *testing.T) {
+	for _, inclPort := range []bool{true, false} {
+		e := getTestExporterWithOptions(Options{
+			Namespace: "test", Registry: prometheus.NewRegistry(),
+			ExportClientList:      true,
+			ExportClientsInclPort: inclPort,
+		})
+
+		chM := make(chan prometheus.Metric)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
+
+		found := false
+		for m := range chM {
+			desc := m.Desc().String()
+			if strings.Contains(desc, "connected_clients_details") {
+				if strings.Contains(desc, "port") {
+					found = true
+				}
+			}
+		}
+
+		if inclPort && !found {
+			t.Errorf(`connected_clients_details did *not* include "port" in isExportClientList metrics but was expected`)
+		} else if !inclPort && found {
+			t.Errorf(`connected_clients_details did *include* "port" in isExportClientList metrics but was *not* expected`)
 		}
 	}
 }
@@ -1006,26 +1055,37 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 	}
 
 	for _, tst := range []struct {
-		addr   string
-		ck     string
-		csk    string
-		cs     string
-		css    string
-		cntk   string
-		pwd    string
-		target string
+		name           string
+		addr           string
+		ck             string
+		csk            string
+		cs             string
+		css            string
+		cntk           string
+		pwd            string
+		scrape         bool
+		target         string
+		wantStatusCode int
 	}{
-		{addr: testRedisIPAddress, csk: csk, css: css, cntk: cntk},
-		{addr: testRedisHostname, csk: csk, css: css, cntk: cntk},
-		{addr: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
-		{addr: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css, cntk: cntk},
-		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
-		{pwd: "", target: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css, cntk: cntk},
-		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
-		{pwd: "redis-password", target: os.Getenv("TEST_PWD_REDIS_URI"), csk: csk, cs: css, cntk: cntk},
+		{name: "ip-addr", addr: testRedisIPAddress, csk: csk, css: css, cntk: cntk},
+		{name: "hostname", addr: testRedisHostname, csk: csk, css: css, cntk: cntk},
+
+		{name: "check-keys", addr: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
+		{name: "check-single-keys", addr: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css, cntk: cntk},
+
+		{name: "addr-no-prefix", addr: strings.TrimPrefix(os.Getenv("TEST_REDIS_URI"), "redis://"), csk: csk, css: css, cntk: cntk},
+
+		{name: "scrape-target-no-prefix", pwd: "", scrape: true, target: strings.TrimPrefix(os.Getenv("TEST_REDIS_URI"), "redis://"), ck: csk, cs: css, cntk: cntk},
+
+		{name: "scrape-ck", pwd: "", scrape: true, target: os.Getenv("TEST_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
+		{name: "scrape-csk", pwd: "", scrape: true, target: os.Getenv("TEST_REDIS_URI"), csk: csk, css: css, cntk: cntk},
+
+		{name: "scrape-pwd-ck", pwd: "redis-password", scrape: true, target: os.Getenv("TEST_PWD_REDIS_URI"), ck: csk, cs: css, cntk: cntk},
+		{name: "scrape-pwd-csk", pwd: "redis-password", scrape: true, target: os.Getenv("TEST_PWD_REDIS_URI"), csk: csk, cs: css, cntk: cntk},
+
+		{name: "error-scrape-no-target", wantStatusCode: http.StatusBadRequest, scrape: true, target: ""},
 	} {
-		name := fmt.Sprintf("addr:[%s]___target:[%s]___pwd:[%s]", tst.addr, tst.target, tst.pwd)
-		t.Run(name, func(t *testing.T) {
+		t.Run(tst.name, func(t *testing.T) {
 			options := Options{
 				Namespace: "test",
 				Password:  tst.pwd,
@@ -1033,19 +1093,17 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				Registry:  prometheus.NewRegistry(),
 			}
 
-			if tst.target == "" {
-				options.CheckSingleKeys = tst.csk
-				options.CheckKeys = tst.ck
-				options.CheckSingleStreams = tst.css
-				options.CheckStreams = tst.cs
-				options.CountKeys = tst.cntk
-			}
+			options.CheckSingleKeys = tst.csk
+			options.CheckKeys = tst.ck
+			options.CheckSingleStreams = tst.css
+			options.CheckStreams = tst.cs
+			options.CountKeys = tst.cntk
 
 			e, _ := NewRedisExporter(tst.addr, options)
 			ts := httptest.NewServer(e)
 
 			u := ts.URL
-			if tst.target != "" {
+			if tst.scrape {
 				u += "/scrape"
 				v := url.Values{}
 				v.Add("target", tst.target)
@@ -1060,6 +1118,23 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				u = up.String()
 			} else {
 				u += "/metrics"
+			}
+
+			wantStatusCode := http.StatusOK
+			if tst.wantStatusCode != 0 {
+				wantStatusCode = tst.wantStatusCode
+			}
+
+			gotStatusCode, body := downloadURLWithStatusCode(t, u)
+
+			if gotStatusCode != wantStatusCode {
+				t.Fatalf("got status code: %d   wanted: %d", gotStatusCode, wantStatusCode)
+				return
+			}
+
+			// we can stop here if we expected a non-200 response
+			if wantStatusCode != http.StatusOK {
+				return
 			}
 
 			wants := []string{
@@ -1103,9 +1178,9 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				`stream_group_messages_pending`,
 				`stream_group_consumer_messages_pending`,
 				`stream_group_consumer_idle_seconds`,
+				`test_up 1`,
 			}
 
-			body := downloadURL(t, u)
 			for _, want := range wants {
 				if !strings.Contains(body, want) {
 					t.Errorf("url: %s    want metrics to include %q, have:\n%s", u, want, body)
@@ -1233,13 +1308,21 @@ func TestSanitizeMetricName(t *testing.T) {
 
 func TestParseClientListString(t *testing.T) {
 	tsts := map[string][]string{
-		"id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex":    []string{"127.0.0.1", "63508", "", "6321", "6320", "N", "0", "0", "setex"},
-		"id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client": []string{"127.0.0.1", "64958", "foo", "5", "0", "N", "1", "0", "client"},
+		"id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex":    []string{"", "6321", "6320", "N", "0", "0", "setex", "127.0.0.1", "63508"},
+		"id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client": []string{"foo", "5", "0", "N", "1", "0", "client", "127.0.0.1", "64958"},
 	}
 
 	for k, v := range tsts {
-		if host, port, name, age, idle, flags, db, omem, cmd, ok := parseClientListString(k); host != v[0] || port != v[1] || name != v[2] || age != v[3] || idle != v[4] || flags != v[5] || db != v[6] || omem != v[7] || cmd != v[8] || !ok {
-			t.Errorf("TestParseClientListString( %s ) error. Given: %s Wanted: %s", k, []string{host, port, name, age, idle, flags, db, omem, cmd}, v)
+		lbls, ok := parseClientListString(k)
+		mismatch := false
+		for idx, l := range lbls {
+			if l != v[idx] {
+				mismatch = true
+				break
+			}
+		}
+		if !ok || mismatch {
+			t.Errorf("TestParseClientListString( %s ) error. Given: %s Wanted: %s", k, lbls, v)
 		}
 	}
 }
@@ -1300,33 +1383,60 @@ func TestClusterMaster(t *testing.T) {
 }
 
 func TestPasswordProtectedInstance(t *testing.T) {
-	uriEnvs := []string{
-		"TEST_PWD_REDIS_URI",
-		"TEST_USER_PWD_REDIS_URI",
+	userAddr := os.Getenv("TEST_USER_PWD_REDIS_URI")
+
+	parsedPassword := ""
+	parsed, err := url.Parse(userAddr)
+	if err == nil && parsed.User != nil {
+		parsedPassword, _ = parsed.User.Password()
 	}
 
-	for _, uriEnvName := range uriEnvs {
-		if os.Getenv(uriEnvName) == "" {
-			t.Logf("%s not set - skipping", uriEnvName)
-			continue
-		}
+	tsts := []struct {
+		name string
+		addr string
+		user string
+		pwd  string
+	}{
+		{
+			name: "TEST_PWD_REDIS_URI",
+			addr: os.Getenv("TEST_PWD_REDIS_URI"),
+		},
+		{
+			name: "TEST_USER_PWD_REDIS_URI",
+			addr: userAddr,
+		},
+		{
+			name: "parsed-TEST_USER_PWD_REDIS_URI",
+			addr: parsed.Host,
+			user: parsed.User.Username(),
+			pwd:  parsedPassword,
+		},
+	}
 
-		uri := os.Getenv(uriEnvName)
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+			e, _ := NewRedisExporter(
+				tst.addr,
+				Options{
+					Namespace: "test",
+					Registry:  prometheus.NewRegistry(),
+					User:      tst.user,
+					Password:  tst.pwd,
+				})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
 
-		e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
-		ts := httptest.NewServer(e)
-		defer ts.Close()
+			chM := make(chan prometheus.Metric, 10000)
+			go func() {
+				e.Collect(chM)
+				close(chM)
+			}()
 
-		chM := make(chan prometheus.Metric, 10000)
-		go func() {
-			e.Collect(chM)
-			close(chM)
-		}()
-
-		body := downloadURL(t, ts.URL+"/metrics")
-		if !strings.Contains(body, "test_up") {
-			t.Errorf("%s - response to /metric doesn't contain test_up", uriEnvName)
-		}
+			body := downloadURL(t, ts.URL+"/metrics")
+			if !strings.Contains(body, "test_up 1") {
+				t.Errorf(`%s - response to /metric doesn't contain "test_up 1"`, tst)
+			}
+		})
 	}
 }
 
