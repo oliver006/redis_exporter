@@ -164,7 +164,6 @@ set-client-name        | REDIS_EXPORTER_SET_CLIENT_NAME       | Whether to set c
 
 Redis instance addresses can be tcp addresses: `redis://localhost:6379`, `redis.example.com:6379` or e.g. unix sockets: `unix:///tmp/redis.sock`.\
 SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).\
-Password-protected instances can be accessed by using the URI format including a password: `redis://h:<<PASSWORD>>@<<HOSTNAME>>:<<PORT>>`
 
 Command line settings take precedence over any configurations provided by the environment variables.
 
@@ -176,6 +175,8 @@ a username (new in Redis 6.x with ACLs) and a password.
 
 You can provide the username and password as part of the address, see [here](https://www.iana.org/assignments/uri-schemes/prov/redis) for the official documentation of the `redis://` scheme.
 This does NOT work when using the `/scrape` endpoint. It is to prevent users from sending Redis passwords in cleartext over the wire.
+
+An example for a URI including a password is: `redis://<<username (optional)>>:<<PASSWORD>>@<<HOSTNAME>>:<<PORT>>`
 
 Alternatively, you can provide the username and/or password using the `--redis.user` and `--redis.password` directly to the redis_exporter.
 
