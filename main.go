@@ -48,6 +48,7 @@ func main() {
 		redisAddr           = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of the Redis instance to scrape")
 		redisUser           = flag.String("redis.user", getEnv("REDIS_USER", ""), "User name to use for authentication (Redis ACL for Redis 6.0 and newer)")
 		redisPwd            = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
+		redisPwdFile        = flag.String("redis.password-file", getEnv("REDIS_PASSWORD_FILE", ""), "Password file of the Redis instance to scrape")
 		namespace           = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
 		checkKeys           = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
 		checkSingleKeys     = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
@@ -138,6 +139,13 @@ func main() {
 	registry := prometheus.NewRegistry()
 	if !*redisMetricsOnly {
 		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
+	}
+
+	if *redisPwdFile != "" {
+		err = exporter.LoadPwdFile(*redisPwdFile)
+		if err != nil {
+			log.Fatalf("Cloud't load password file, err: %s", err)
+		}
 	}
 
 	exp, err := exporter.NewRedisExporter(

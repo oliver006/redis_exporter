@@ -1557,6 +1557,10 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		uri = "redis://" + uri
 	}
 
+	if e.options.Password == "" && len(RedisPwd) > 0 {
+		options = append(options, redis.DialPassword(RedisPwd[uri]))
+	}
+
 	log.Debugf("Trying DialURL(): %s", uri)
 	c, err := redis.DialURL(uri, options...)
 	if err != nil {
