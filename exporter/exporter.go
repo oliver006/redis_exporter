@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -1553,22 +1554,37 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	}
 
 	uri := e.redisAddr
-	if !strings.Contains(uri, "://") {
-		uri = "redis://" + uri
+	if strings.Contains(uri, "://") {
+		uri = strings.Replace(uri, "redis://", "", 1)
 	}
 
-	log.Debugf("Trying DialURL(): %s", uri)
-	c, err := redis.DialURL(uri, options...)
+	isCluster := false
+
+	log.Debugf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{uri},
+		DialOptions:  options,
+	}
+
+	log.Debugf("Running refresh on cluster object")
+	if err := cluster.Refresh(); err == nil {
+		isCluster = true
+	}
+
+	log.Debugf("Creating redis connection object")
+	conn, err := cluster.Dial()
 	if err != nil {
-		log.Debugf("DialURL() failed, err: %s", err)
-		if frags := strings.Split(e.redisAddr, "://"); len(frags) == 2 {
-			log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
-			c, err = redis.Dial(frags[0], frags[1], options...)
-		} else {
-			log.Debugf("Trying: Dial(): tcp %s", e.redisAddr)
-			c, err = redis.Dial("tcp", e.redisAddr, options...)
+		log.Debugf("Dial failed: %v", err)
+	}
+
+	c := conn
+	if isCluster {
+		c, err = redisc.RetryConn(conn, 10, 100*time.Millisecond)
+		if err != nil {
+			log.Debugf("RetryConn failed: %v", err)
 		}
 	}
+
 	return c, err
 }
 
