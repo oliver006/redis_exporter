@@ -141,11 +141,9 @@ func main() {
 		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 	}
 
-	if *redisPwdFile != "" {
-		err = exporter.LoadPwdFile(*redisPwdFile)
-		if err != nil {
-			log.Fatalf("Cloud't load password file, err: %s", err)
-		}
+	passwordMap := exporter.NewPasswordMap()
+	if *redisPwd == "" && *redisPwdFile != "" {
+		passwordMap.LoadPwdFile(*redisPwdFile)
 	}
 
 	exp, err := exporter.NewRedisExporter(
@@ -153,6 +151,7 @@ func main() {
 		exporter.Options{
 			User:                  *redisUser,
 			Password:              *redisPwd,
+			PasswordMap:           passwordMap.RedisPwd,
 			Namespace:             *namespace,
 			ConfigCommandName:     *configCommand,
 			CheckKeys:             *checkKeys,

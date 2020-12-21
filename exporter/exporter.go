@@ -84,6 +84,7 @@ type Exporter struct {
 type Options struct {
 	User                  string
 	Password              string
+	PasswordMap           map[string]string
 	Namespace             string
 	ConfigCommandName     string
 	CheckSingleKeys       string
@@ -1557,8 +1558,9 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		uri = "redis://" + uri
 	}
 
-	if e.options.Password == "" && len(RedisPwd) > 0 {
-		options = append(options, redis.DialPassword(RedisPwd[uri]))
+	if len(e.options.PasswordMap) > 0 {
+		log.Debugf("%s pwd : ", e.redisAddr, e.options.PasswordMap[uri])
+		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
 	log.Debugf("Trying DialURL(): %s", uri)
