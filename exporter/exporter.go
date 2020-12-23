@@ -1559,7 +1559,6 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	}
 
 	if len(e.options.PasswordMap) > 0 {
-		log.Debugf("%s pwd : ", e.redisAddr, e.options.PasswordMap[uri])
 		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
