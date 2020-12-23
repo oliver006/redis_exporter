@@ -143,7 +143,11 @@ func main() {
 
 	passwordMap := exporter.NewPasswordMap()
 	if *redisPwd == "" && *redisPwdFile != "" {
-		passwordMap.LoadPwdFile(*redisPwdFile)
+		err := passwordMap.LoadPwdFile(*redisPwdFile)
+		if err != nil {
+			log.Warnf("Use empty redis password map.")
+			passwordMap.RedisPwd = map[string]string{}
+		}
 	}
 
 	exp, err := exporter.NewRedisExporter(

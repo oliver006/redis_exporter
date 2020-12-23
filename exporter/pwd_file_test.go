@@ -8,7 +8,10 @@ import (
 func TestLoadPwdFile(t *testing.T) {
 	confFile := "../sample-pwd-file.json"
 	p := NewPasswordMap()
-	p.LoadPwdFile(confFile)
+	err := p.LoadPwdFile(confFile)
+	if err != nil {
+		t.Fatalf("Test Failed, error: %v", err)
+	}
 
 	fmt.Println(len(p.RedisPwd))
 	fmt.Println("192.168.1.1 pwd is:", p.RedisPwd["192.168.1.1"])
