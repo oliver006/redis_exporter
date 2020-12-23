@@ -136,7 +136,7 @@ Name                   | Environment Variable Name            | Description
 redis.addr             | REDIS_ADDR                           | Address of the Redis instance, defaults to `redis://localhost:6379`.
 redis.user             | REDIS_USER                           | User name to use for authentication (Redis ACL for Redis 6.0 and newer).
 redis.password         | REDIS_PASSWORD                       | Password of the Redis instance, defaults to `""` (no password).
-redis.password-file         | REDIS_PASSWORD_FILE                       | Password file of the Redis instance to scrape, defaults to `""` (no password file)，only takes effect when `redis.password == ""` . 
+redis.password-file    | REDIS_PASSWORD_FILE                  | Password file of the Redis instance to scrape, defaults to `""` (no password file). 
 check-keys             | REDIS_EXPORTER_CHECK_KEYS            | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys. Warning: using `--check-keys` to match a very large number of keys can slow down the exporter to the point where it doesn't finish scraping the redis instance.
 check-single-keys      | REDIS_EXPORTER_CHECK_SINGLE_KEYS     | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
 check-streams          | REDIS_EXPORTER_CHECK_STREAMS         | Comma separated list of stream-patterns to export info about streams, groups and consumers. Syntax is the same as `check-keys`.
@@ -175,7 +175,8 @@ If your Redis instance requires authentication then there are several ways how y
 a username (new in Redis 6.x with ACLs) and a password.
 
 You can provide the username and password as part of the address, see [here](https://www.iana.org/assignments/uri-schemes/prov/redis) for the official documentation of the `redis://` scheme.
-This does NOT work when using the `/scrape` endpoint. It is to prevent users from sending Redis passwords in cleartext over the wire.
+
+You can set `-redis.password-file=sample-pwd-file.json` to specify a password file when using the `/scrape` endpoint, It only takes effect when `redis.password == ""`
 
 An example for a URI including a password is: `redis://<<username (optional)>>:<<PASSWORD>>@<<HOSTNAME>>:<<PORT>>`
 
