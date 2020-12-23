@@ -2244,3 +2244,112 @@ func TestProcessSentinelSlaves(t *testing.T) {
 		})
 	}
 }
+
+func TestHTTPScrapeWithPasswordFile(t *testing.T) {
+	if os.Getenv("TEST_REDIS_PWD_FILE") == "" {
+		t.Skipf("TEST_REDIS_PWD_FILE not set - skipping")
+	}
+
+	pwdFile := os.Getenv("TEST_REDIS_PWD_FILE")
+	p := NewPasswordMap()
+	err := p.LoadPwdFile(pwdFile)
+	if err != nil {
+		t.Fatalf("Test Failed, error: %v", err)
+	}
+
+	if len(p.RedisPwd) == 0 {
+		t.Skipf("Password map is empty -skipping")
+	}
+
+	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0]) // check-single-keys
+	cntk := dbNumStrFull + "=" + keys[0] + "*"           // count-keys
+
+	tst := struct {
+		name           string
+		ck             string
+		cntk           string
+		wantStatusCode int
+	}{name: "scrape-pwd-file", ck: csk, cntk: cntk}
+
+	for target, pwd := range p.RedisPwd {
+		t.Run(tst.name, func(t *testing.T) {
+			options := Options{
+				Namespace: "test",
+				Password:  pwd,
+				LuaScript: []byte(`return {"a", "11", "b", "12", "c", "13"}`),
+				Registry:  prometheus.NewRegistry(),
+			}
+
+			options.CheckKeys = tst.ck
+			options.CountKeys = tst.cntk
+
+			e, _ := NewRedisExporter(target, options)
+			ts := httptest.NewServer(e)
+
+			u := ts.URL
+			u += "/scrape"
+			v := url.Values{}
+			v.Add("target", target)
+			v.Add("check-keys", tst.ck)
+			v.Add("count-keys", tst.cntk)
+
+			up, _ := url.Parse(u)
+			up.RawQuery = v.Encode()
+			u = up.String()
+
+			wantStatusCode := http.StatusOK
+			if tst.wantStatusCode != 0 {
+				wantStatusCode = tst.wantStatusCode
+			}
+
+			gotStatusCode, body := downloadURLWithStatusCode(t, u)
+
+			if gotStatusCode != wantStatusCode {
+				t.Fatalf("got status code: %d   wanted: %d", gotStatusCode, wantStatusCode)
+				return
+			}
+
+			// we can stop here if we expected a non-200 response
+			if wantStatusCode != http.StatusOK {
+				return
+			}
+
+			wants := []string{
+				// metrics
+				`test_connected_clients`,
+				`test_commands_processed_total`,
+				`test_instance_info`,
+
+				"db_keys",
+				"cpu_sys_seconds_total",
+				"loading_dump_file", // testing renames
+				"config_maxmemory",  // testing config extraction
+				"config_maxclients", // testing config extraction
+				"slowlog_length",
+				"slowlog_last_id",
+				"start_time_seconds",
+				"uptime_in_seconds",
+
+				// labels and label values
+				`redis_mode`,
+				`standalone`,
+				`cmd="config`,
+				"maxmemory_policy",
+
+				`test_script_value`, // lua script
+
+				`test_db_keys{db="db11"} `,
+				`test_db_keys_expiring{db="db11"} `,
+				`test_up 1`,
+			}
+
+			for _, want := range wants {
+				if !strings.Contains(body, want) {
+					t.Errorf("url: %s    want metrics to include %q, have:\n%s", u, want, body)
+					break
+				}
+			}
+			ts.Close()
+		})
+	}
+}
