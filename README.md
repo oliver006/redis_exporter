@@ -180,6 +180,12 @@ An example for a URI including a password is: `redis://<<username (optional)>>:<
 
 Alternatively, you can provide the username and/or password using the `--redis.user` and `--redis.password` directly to the redis_exporter.
 
+If you want to use a dedicated Redis user for the redis_exporter (instead of the default user) then you need enable a list of commands for that user.
+You can use the following Redis command to set up the user, just replace `<<<USERNAME>>>` and `<<<PASSWORD>>>` with your desired values.
+```
+ACL SETUSER <<<USERNAME>>> +client +ping +info +config|get +cluster|info +slowlog +latency +memory +select +get +scan +xinfo +type +pfcount +strlen +llen +scard +zcard +hlen +xlen +eval allkeys on > <<<PASSWORD>>>
+```
+
 
 ### Run via Docker
 
