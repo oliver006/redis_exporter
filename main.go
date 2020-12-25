@@ -141,12 +141,11 @@ func main() {
 		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
 	}
 
-	passwordMap := exporter.NewPasswordMap()
+	passwordMap := make(map[string]string)
 	if *redisPwd == "" && *redisPwdFile != "" {
-		err := passwordMap.LoadPwdFile(*redisPwdFile)
+		passwordMap, err = exporter.LoadPwdFile(*redisPwdFile)
 		if err != nil {
-			log.Warnf("Use empty redis password map.")
-			passwordMap.RedisPwd = map[string]string{}
+			log.Fatalf("Use empty redis password map.")
 		}
 	}
 
@@ -155,7 +154,7 @@ func main() {
 		exporter.Options{
 			User:                  *redisUser,
 			Password:              *redisPwd,
-			PasswordMap:           passwordMap.RedisPwd,
+			PasswordMap:           passwordMap,
 			Namespace:             *namespace,
 			ConfigCommandName:     *configCommand,
 			CheckKeys:             *checkKeys,

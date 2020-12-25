@@ -7,25 +7,20 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type PasswordMap struct {
-	RedisPwd map[string]string
-}
+// LoadPwdFile Read the redis password file and return the password map
+func LoadPwdFile(passwordFile string) (map[string]string, error) {
+	passwordMap := make(map[string]string)
 
-func NewPasswordMap() *PasswordMap {
-	return &PasswordMap{}
-}
-
-func (p *PasswordMap) LoadPwdFile(pwdFile string) error {
-	log.Debugf("start load password file: %s", pwdFile)
-	bytes, err := ioutil.ReadFile(pwdFile)
+	log.Debugf("start load password file: %s", passwordFile)
+	bytes, err := ioutil.ReadFile(passwordFile)
 	if err != nil {
 		log.Warnf("load password file failed: %s", err)
-		return err
+		return nil, err
 	}
-	err = json.Unmarshal(bytes, &p.RedisPwd)
+	err = json.Unmarshal(bytes, &passwordMap)
 	if err != nil {
 		log.Warnf("password file format error: %s", err)
-		return err
+		return nil, err
 	}
-	return nil
+	return passwordMap, nil
 }
