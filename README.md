@@ -131,36 +131,40 @@ Prometheus uses file watches and all changes to the json file are applied immedi
 
 ### Command line flags
 
-Name                   | Environment Variable Name            | Description
------------------------|--------------------------------------|-----------------
-redis.addr             | REDIS_ADDR                           | Address of the Redis instance, defaults to `redis://localhost:6379`.
-redis.user             | REDIS_USER                           | User name to use for authentication (Redis ACL for Redis 6.0 and newer).
-redis.password         | REDIS_PASSWORD                       | Password of the Redis instance, defaults to `""` (no password).
-check-keys             | REDIS_EXPORTER_CHECK_KEYS            | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys. Warning: using `--check-keys` to match a very large number of keys can slow down the exporter to the point where it doesn't finish scraping the redis instance.
-check-single-keys      | REDIS_EXPORTER_CHECK_SINGLE_KEYS     | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
-check-streams          | REDIS_EXPORTER_CHECK_STREAMS         | Comma separated list of stream-patterns to export info about streams, groups and consumers. Syntax is the same as `check-keys`.
-check-single-streams   | REDIS_EXPORTER_CHECK_SINGLE_STREAMS  | Comma separated list of streams to export info about streams, groups and consumers. The streams specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-streams`.
-count-keys             | REDIS_EXPORTER_COUNT_KEYS            | Comma separated list of patterns to count, eg: `db3=sessions:*` will count all keys with prefix `sessions:` from db `3`. db defaults to `0` if omitted. Warning: The exporter runs SCAN to count the keys. This might not perform well on large databases.
-script                 | REDIS_EXPORTER_SCRIPT                | Path to Redis Lua script for gathering extra metrics.
-debug                  | REDIS_EXPORTER_DEBUG                 | Verbose debug output
-log-format             | REDIS_EXPORTER_LOG_FORMAT            | Log format, valid options are `txt` (default) and `json`.
-namespace              | REDIS_EXPORTER_NAMESPACE             | Namespace for the metrics, defaults to `redis`.
-connection-timeout     | REDIS_EXPORTER_CONNECTION_TIMEOUT    | Timeout for connection to Redis instance, defaults to "15s" (in Golang duration format)
-web.listen-address     | REDIS_EXPORTER_WEB_LISTEN_ADDRESS    | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
-web.telemetry-path     | REDIS_EXPORTER_WEB_TELEMETRY_PATH    | Path under which to expose metrics, defaults to `/metrics`.
-redis-only-metrics     | REDIS_EXPORTER_REDIS_ONLY_METRICS    | Whether to also export go runtime metrics, defaults to false.
-include-system-metrics | REDIS_EXPORTER_INCL_SYSTEM_METRICS   | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
-ping-on-connect        | REDIS_EXPORTER_PING_ON_CONNECT       | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
-is-tile38              | REDIS_EXPORTER_IS_TILE38             | Whether to scrape Tile38 specific metrics, defaults to false.
-export-client-list     | REDIS_EXPORTER_EXPORT_CLIENT_LIST    | Whether to scrape Client List specific metrics, defaults to false.
-export-client-port     | REDIS_EXPORTER_EXPORT_CLIENT_PORT    | Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory
-skip-tls-verification  | REDIS_EXPORTER_SKIP_TLS_VERIFICATION | Whether to to skip TLS verification
-tls-client-key-file    | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE   | Name of the client key file (including full path) if the server requires TLS client authentication
-tls-client-cert-file   | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE  | Name the client cert file (including full path) if the server requires TLS client authentication
-tls-server-key-file    | REDIS_EXPORTER_TLS_SERVER_KEY_FILE   | Name of the server key file (including full path) if the web interface and telemetry should use TLS
-tls-server-cert-file   | REDIS_EXPORTER_TLS_SERVER_CERT_FILE  | Name of the server certificate file (including full path) if the web interface and telemetry should use TLS
-tls-ca-cert-file       | REDIS_EXPORTER_TLS_CA_CERT_FILE      | Name of the CA certificate file (including full path) if the server requires TLS client authentication
-set-client-name        | REDIS_EXPORTER_SET_CLIENT_NAME       | Whether to set client name to redis_exporter, defaults to true.
+Name                        | Environment Variable Name                  | Description
+----------------------------|--------------------------------------------|-----------------
+redis.addr                  | REDIS_ADDR                                 | Address of the Redis instance, defaults to `redis://localhost:6379`.
+redis.user                  | REDIS_USER                                 | User name to use for authentication (Redis ACL for Redis 6.0 and newer).
+redis.password              | REDIS_PASSWORD                             | Password of the Redis instance, defaults to `""` (no password).
+check-keys                  | REDIS_EXPORTER_CHECK_KEYS                  | Comma separated list of key patterns to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted. The key patterns specified with this flag will be found using [SCAN](https://redis.io/commands/scan).  Use this option if you need glob pattern matching; `check-single-keys` is faster for non-pattern keys. Warning: using `--check-keys` to match a very large number of keys can slow down the exporter to the point where it doesn't finish scraping the redis instance.
+check-single-keys           | REDIS_EXPORTER_CHECK_SINGLE_KEYS           | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
+check-streams               | REDIS_EXPORTER_CHECK_STREAMS               | Comma separated list of stream-patterns to export info about streams, groups and consumers. Syntax is the same as `check-keys`.
+check-single-streams        | REDIS_EXPORTER_CHECK_SINGLE_STREAMS        | Comma separated list of streams to export info about streams, groups and consumers. The streams specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-streams`.
+count-keys                  | REDIS_EXPORTER_COUNT_KEYS                  | Comma separated list of patterns to count, eg: `db3=sessions:*` will count all keys with prefix `sessions:` from db `3`. db defaults to `0` if omitted. Warning: The exporter runs SCAN to count the keys. This might not perform well on large databases.
+script                      | REDIS_EXPORTER_SCRIPT                      | Path to Redis Lua script for gathering extra metrics.
+debug                       | REDIS_EXPORTER_DEBUG                       | Verbose debug output
+log-format                  | REDIS_EXPORTER_LOG_FORMAT                  | Log format, valid options are `txt` (default) and `json`.
+namespace                   | REDIS_EXPORTER_NAMESPACE                   | Namespace for the metrics, defaults to `redis`.
+connection-timeout          | REDIS_EXPORTER_CONNECTION_TIMEOUT          | Timeout for connection to Redis instance, defaults to "15s" (in Golang duration format)
+web.listen-address          | REDIS_EXPORTER_WEB_LISTEN_ADDRESS          | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
+web.telemetry-path          | REDIS_EXPORTER_WEB_TELEMETRY_PATH          | Path under which to expose metrics, defaults to `/metrics`.
+redis-only-metrics          | REDIS_EXPORTER_REDIS_ONLY_METRICS          | Whether to also export go runtime metrics, defaults to false.
+include-system-metrics      | REDIS_EXPORTER_INCL_SYSTEM_METRICS         | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
+ping-on-connect             | REDIS_EXPORTER_PING_ON_CONNECT             | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
+is-tile38                   | REDIS_EXPORTER_IS_TILE38                   | Whether to scrape Tile38 specific metrics, defaults to false.
+export-client-list          | REDIS_EXPORTER_EXPORT_CLIENT_LIST          | Whether to scrape Client List specific metrics, defaults to false.
+export-client-port          | REDIS_EXPORTER_EXPORT_CLIENT_PORT          | Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory
+skip-tls-verification       | REDIS_EXPORTER_SKIP_TLS_VERIFICATION       | Whether to to skip TLS verification
+tls-client-key-file         | REDIS_EXPORTER_TLS_CLIENT_KEY_FILE         | Name of the client key file (including full path) if the server requires TLS client authentication
+tls-client-cert-file        | REDIS_EXPORTER_TLS_CLIENT_CERT_FILE        | Name the client cert file (including full path) if the server requires TLS client authentication
+tls-server-key-file         | REDIS_EXPORTER_TLS_SERVER_KEY_FILE         | Name of the server key file (including full path) if the web interface and telemetry should use TLS
+tls-server-cert-file        | REDIS_EXPORTER_TLS_SERVER_CERT_FILE        | Name of the server certificate file (including full path) if the web interface and telemetry should use TLS
+tls-ca-cert-file            | REDIS_EXPORTER_TLS_CA_CERT_FILE            | Name of the CA certificate file (including full path) if the server requires TLS client authentication
+set-client-name             | REDIS_EXPORTER_SET_CLIENT_NAME             | Whether to set client name to redis_exporter, defaults to true.
+check-key-groups            | REDIS_EXPORTER_CHECK_KEY_GROUPS            | Comma separated list of [LUA regexes](https://www.lua.org/pil/20.1.html) for classifying keys into groups. The regexes are applied in specified order to individual keys, and the group name is generated by concatenating all capture groups of the first regex that matches a key. A key will be tracked under the `unclassified` group if none of the specified regexes matches it.
+check-key-groups-batch-size | REDIS_EXPORTER_CHECK_KEY_GROUPS_BATCH_SIZE | Approximate number of keys to process in each execution of the server-side key group metrics aggregation LUA script. This is basically the COUNT option that will be passed into the SCAN command as part of the execution of the key group metrics aggregation LUA script to gather the batch of keys to aggregate. You can configure a smaller batch size if you want to descrease the run time of each execution of the service-side key group metrics aggregation script (thus avoiding large latency bubble in the single Redis processing thread) at the expanse of more network round-trips during key group metrics aggregation.
+max-distinct-key-groups     | MAX_DISTINCT_KEY_GROUPS                    | Maximum number of distinct key groups that can be tracked independently *per Redis database*. If exceeded, only key groups with the highest memory consumption within the limit will be tracked separately, all remaining key groups will be tracked under a single `overflow` key group.
+
 
 Redis instance addresses can be tcp addresses: `redis://localhost:6379`, `redis.example.com:6379` or e.g. unix sockets: `unix:///tmp/redis.sock`.\
 SSL is supported by using the `rediss://` schema, for example: `rediss://azure-ssl-enabled-host.redis.cache.windows.net:6380` (note that the port is required when connecting to a non-standard 6379 port, e.g. with Azure Redis instances).\
@@ -250,7 +254,6 @@ If running [Redis Sentinel](https://redis.io/topics/sentinel), it may be desirab
 ## Using the mixin
 There is a set of sample rules, alerts and dashboards available in [redis-mixin](contrib/redis-mixin/)
 
-
 ## Upgrading from 0.x to 1.x
 
 [PR #256](https://github.com/oliver006/redis_exporter/pull/256) introduced breaking changes which were released as version v1.0.0.
@@ -259,6 +262,31 @@ If you only scrape one Redis instance and use command line flags `--redis.addres
 and `--redis.password` then you're most probably not affected.
 Otherwise, please see [PR #256](https://github.com/oliver006/redis_exporter/pull/256) and [this README](https://github.com/oliver006/redis_exporter#prometheus-configuration-to-scrape-multiple-redis-hosts) for more information.
 
+## Memory Usage Aggregation by Key Groups
+
+When a single Redis instance is used for multiple purposes, it is useful to be able to see how Redis memory is consumed among the different usage scenarios. This is particularly important when a Redis instance with no eviction policy is running low on memory as we want to identify whether certain applications are misbehaving (e.g. not deleting keys that are no longer in use) or the Redis instance needs to be scaled up to handle the increased resource demand. Fortunately, most applications using Redis will employ some sort of naming conventions for keys tied to their specific purpose such as (hierarchical) namespace prefixes which can be exploited by the check-keys, check-single-keys, and count-keys parameters of redis_exporter to surface the memory usage metrics of specific scenarios. *Memory usage aggregation by key groups* takes this one step further by harnessing the flexibility of Redis LUA scripting support to classify all keys on a Redis instance into groups through a list of user-defined [LUA regular expressions](https://www.lua.org/pil/20.1.html) so memory usage metrics can be aggregated into readily identifiable groups.
+
+To enable memory usage aggregation by key groups, simply specify a non-empty comma-separated list of LUA regular expressions through the `check-key-groups` redis_exporter parameter. On each aggregation of memory metrics by key groups, redis_exporter will set up a `SCAN` cursor through all keys for each Redis database to be processed in batches via a LUA script. Each key batch is then processed by the same LUA script on a key-by-key basis as follows:
+
+  1. The `MEMORY USAGE` command is called to gather memory usage for each key
+  2. The specified LUA regexes are applied to each key in the specified order, and the group name that a given key belongs to will be derived from concatenating the capture groups of the first regex that matches the key. For example, applying the regex `^(.*)_[^_]+$` to the key `key_exp_Nick` would yield a group name of `key_exp`. If none of the specified regexes matches a key, the key will be assigned to the `unclassified` group
+
+Once a key has been classified, the memory usage and key counter for the corresponding group will be incremented in a local LUA table. This aggregated metrics table will then be returned alongside the next `SCAN` cursor position to redis_exporter when all keys in a batch have been processed, and redis_exporter can aggregate the data from all batches into a single table of grouped memory usage metrics for the Prometheus metrics scrapper.
+
+Besides making the full flexibility of LUA regex available for classifying keys into groups, the LUA script also has the benefit of reducing network traffic by executing all `MEMORY USAGE` commands on the Redis server and returning aggregated data to redis_exporter in a far more compact format than key-level data. The use of `SCAN` cursor over batches of keys processed by a server-side LUA script also helps prevent unbounded latency bubble in Redis's single processing thread, and the batch size can be tailored to specific environments via the `check-key-groups-batch-size` parameter.
+
+Scanning the entire key space of a Redis instance may sound a lttle extravagant, but it takes only a single scan to classify all keys into groups, and on a moderately sized system with ~780K keys and a rather complex list of 17 regexes, it takes an average of ~5s to perform a full aggregation of memory usage by key groups. Of course, the actual performance for specific systems will vary widely depending on the total number of keys, the number and complexity of regexes used for classification, and the configured batch size.
+
+To protect Prometheus from being overwhelmed by a large number of time series resulting from misconfigured group classification regular expression (e.g. applying the regular expression `^(.*)$` where each key will be classified into its own distinct group), a limit on the number of distinct key groups *per Redis database* can be configured via the `max-distinct-key-groups` parameter. If the `max-distinct-key-groups` limit is exceeded, only the key groups with the highest memory usage within the limit will be tracked separately, remaining key groups will be reported under a single `overflow` key group.
+
+Here is a list of additional metrics that will be exposed when memory usage aggregation by key groups is enabled:
+
+|Name                                              |Labels      |Description
+|--------------------------------------------------|------------|-----------
+|redis_key_group_count                             |db,key_group|Number of keys in a key group
+|redis_key_group_memory_usage_bytes                |db,key_group|Memory usage by key group
+|redis_number_of_distinct_key_groups               |db          |Number of distinct key groups in a Redis database when the `overflow` group is fully expanded
+|redis_last_key_groups_scrape_duration_milliseconds|            |Duration of the last memory usage aggregation by key groups in milliseconds
 
 ## Development
 
