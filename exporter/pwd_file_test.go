@@ -2,27 +2,28 @@ package exporter
 
 import (
 	"log"
+	"os"
 	"testing"
 )
 
 func TestLoadPwdFile(t *testing.T) {
-	confFile := "../contrib/sample-pwd-file.json"
-	passwordMap, err := LoadPwdFile(confFile)
+	if os.Getenv("TEST_REDIS_PWD_FILE") == "" {
+		t.Skipf("TEST_REDIS_PWD_FILE not set - skipping")
+	}
+	passwordMap, err := LoadPwdFile(os.Getenv("TEST_REDIS_PWD_FILE"))
 	if err != nil {
 		t.Fatalf("Test Failed, error: %v", err)
 	}
 
-	redisHostList := []string{
-		"redis://192.168.1.1",
-		// Make sure it does not exist in sample-pwd-file.json
-		"redis://192.168.1.11",
+	if len(passwordMap) == 0 {
+		t.Skipf("Password map is empty -skipping")
 	}
 
-	for _, v := range redisHostList {
-		if passwordMap[v] != "" {
-			log.Printf("%s password found", v)
+	for host, password := range passwordMap {
+		if password != "" {
+			log.Printf("%s has a password", host)
 		} else {
-			log.Printf("%s password Not found", v)
+			log.Printf("%s password is empty", host)
 		}
 	}
 }
