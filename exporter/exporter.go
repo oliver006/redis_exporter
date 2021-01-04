@@ -1553,35 +1553,61 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		options = append(options, redis.DialPassword(e.options.Password))
 	}
 
+	isCluster := false
+
 	uri := e.redisAddr
 	if strings.Contains(uri, "://") {
-		uri = strings.Replace(uri, "redis://", "", 1)
+		url, _ := url.Parse(uri)
+		if url.Port() == "" {
+			uri = url.Host + ":6379"
+		} else {
+			uri = url.Host
+		}
+	} else {
+		if frags := strings.Split(uri, ":"); len(frags) != 2 {
+			uri = uri + ":6379"
+		}
 	}
-
-	isCluster := false
 
 	log.Debugf("Creating cluster object")
 	cluster := redisc.Cluster{
 		StartupNodes: []string{uri},
 		DialOptions:  options,
 	}
-
 	log.Debugf("Running refresh on cluster object")
 	if err := cluster.Refresh(); err == nil {
 		isCluster = true
 	}
 
-	log.Debugf("Creating redis connection object")
-	conn, err := cluster.Dial()
-	if err != nil {
-		log.Debugf("Dial failed: %v", err)
-	}
-
-	c := conn
 	if isCluster {
-		c, err = redisc.RetryConn(conn, 10, 100*time.Millisecond)
+		log.Debugf("Creating redis connection object")
+		conn, err := cluster.Dial()
+		if err != nil {
+			log.Debugf("Dial failed: %v", err)
+		}
+
+		c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 		if err != nil {
 			log.Debugf("RetryConn failed: %v", err)
+		}
+
+		return c, err
+	}
+
+	uri = e.redisAddr
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+
+	c, err := redis.DialURL(uri, options...)
+	if err != nil {
+		log.Debugf("DialURL() failed, err: %s", err)
+		if frags := strings.Split(e.redisAddr, "://"); len(frags) == 2 {
+			log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
+			c, err = redis.Dial(frags[0], frags[1], options...)
+		} else {
+			log.Debugf("Trying: Dial(): tcp %s", e.redisAddr)
+			c, err = redis.Dial("tcp", e.redisAddr, options...)
 		}
 	}
 
