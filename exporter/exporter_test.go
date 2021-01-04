@@ -2071,11 +2071,11 @@ func TestExtractSentinelMetricsForSentinel(t *testing.T) {
 		Options{Namespace: "test"},
 	)
 	c, err := redis.DialURL(addr)
-	defer c.Close()
-
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
+	defer c.Close()
+
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err != nil {
 		t.Logf("Redis INFO ALL err: %s", err)
