@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// LoadPwdFile Read the redis password file and return the password map
+// LoadPwdFile reads the redis password file and returns the password map
 func LoadPwdFile(passwordFile string) (map[string]string, error) {
 	passwordMap := make(map[string]string)
 
