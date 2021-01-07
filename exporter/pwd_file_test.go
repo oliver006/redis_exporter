@@ -8,7 +8,7 @@ import (
 
 func TestLoadPwdFile(t *testing.T) {
 	if os.Getenv("TEST_REDIS_PWD_FILE") == "" {
-		t.Skipf("TEST_REDIS_PWD_FILE not set - skipping")
+		t.Fatalf("TEST_REDIS_PWD_FILE not set!")
 	}
 	passwordMap, err := LoadPwdFile(os.Getenv("TEST_REDIS_PWD_FILE"))
 	if err != nil {
