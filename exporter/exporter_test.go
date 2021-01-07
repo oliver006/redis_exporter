@@ -2256,68 +2256,71 @@ func TestHTTPScrapeWithPasswordFile(t *testing.T) {
 	}
 
 	if len(passwordMap) == 0 {
-		t.Skipf("Password map is empty -skipping")
+		t.Fatalf("Password map is empty!")
 	}
-	for target, pwd := range passwordMap {
-		for _, tst := range []struct {
-			name           string
-			wants          []string
-			password       string
-			wantStatusCode int
-		}{
-			{name: "scrape-pwd-file", password: pwd, wants: []string{
-				"uptime_in_seconds",
-				"test_up 1",
-			}},
-			{name: "scrape-pwd-file-error-password", password: "error_password", wants: []string{
-				"test_up 0",
-			}},
-		} {
-			options := Options{
-				Namespace: "test",
-				Password:  tst.password,
-				LuaScript: []byte(`return {"a", "11", "b", "12", "c", "13"}`),
-				Registry:  prometheus.NewRegistry(),
-			}
-			t.Run(tst.name, func(t *testing.T) {
-				e, _ := NewRedisExporter(target, options)
-				ts := httptest.NewServer(e)
-
-				u := ts.URL
-				u += "/scrape"
-				v := url.Values{}
-				v.Add("target", target)
-
-				up, _ := url.Parse(u)
-				up.RawQuery = v.Encode()
-				u = up.String()
-
-				wantStatusCode := http.StatusOK
-				if tst.wantStatusCode != 0 {
-					wantStatusCode = tst.wantStatusCode
-				}
-
-				gotStatusCode, body := downloadURLWithStatusCode(t, u)
-
-				if gotStatusCode != wantStatusCode {
-					t.Fatalf("got status code: %d   wanted: %d", gotStatusCode, wantStatusCode)
-					return
-				}
-
-				// we can stop here if we expected a non-200 response
-				if wantStatusCode != http.StatusOK {
-					return
-				}
-
-				for _, want := range tst.wants {
-					if !strings.Contains(body, want) {
-						t.Errorf("url: %s    want metrics to include %q, have:\n%s", u, want, body)
-						break
-					}
-				}
-				ts.Close()
-			})
-
+	for _, tst := range []struct {
+		name             string
+		addr             string
+		wants            []string
+		useWrongPassword bool
+		wantStatusCode   int
+	}{
+		{name: "scrape-pwd-file", addr: os.Getenv("TEST_REDIS_URI"), wants: []string{
+			"uptime_in_seconds",
+			"test_up 1",
+		}},
+		{name: "scrape-pwd-file-wrong-password", addr: os.Getenv("TEST_REDIS_URI"), useWrongPassword: true, wants: []string{
+			"test_up 0",
+		}},
+	} {
+		if tst.useWrongPassword {
+			passwordMap[tst.addr] = "wrong-password"
 		}
+		options := Options{
+			Namespace:   "test",
+			PasswordMap: passwordMap,
+			LuaScript:   []byte(`return {"a", "11", "b", "12", "c", "13"}`),
+			Registry:    prometheus.NewRegistry(),
+		}
+		t.Run(tst.name, func(t *testing.T) {
+			e, _ := NewRedisExporter(tst.addr, options)
+			ts := httptest.NewServer(e)
+
+			u := ts.URL
+			u += "/scrape"
+			v := url.Values{}
+			v.Add("target", tst.addr)
+
+			up, _ := url.Parse(u)
+			up.RawQuery = v.Encode()
+			u = up.String()
+
+			wantStatusCode := http.StatusOK
+			if tst.wantStatusCode != 0 {
+				wantStatusCode = tst.wantStatusCode
+			}
+
+			gotStatusCode, body := downloadURLWithStatusCode(t, u)
+
+			if gotStatusCode != wantStatusCode {
+				t.Fatalf("got status code: %d   wanted: %d", gotStatusCode, wantStatusCode)
+				return
+			}
+
+			// we can stop here if we expected a non-200 response
+			if wantStatusCode != http.StatusOK {
+				return
+			}
+
+			for _, want := range tst.wants {
+				if !strings.Contains(body, want) {
+					t.Errorf("url: %s    want metrics to include %q, have:\n%s", u, want, body)
+					break
+				}
+			}
+			ts.Close()
+		})
+
 	}
+
 }
