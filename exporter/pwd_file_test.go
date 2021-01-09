@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoadPwdFile(t *testing.T) {
-	pwdFile := "contrib/simple-pwd-file.json"
+	pwdFile := "../contrib/simple-pwd-file.json"
 	passwordMap, err := LoadPwdFile(pwdFile)
 	if err != nil {
 		t.Fatalf("Test Failed, error: %v", err)
