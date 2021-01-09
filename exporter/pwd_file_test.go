@@ -1,19 +1,13 @@
 package exporter
 
 import (
-	"os"
 	"strings"
 	"testing"
 )
 
 func TestLoadPwdFile(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Fatalf("TEST_REDIS_URI not set!")
-	}
-	if os.Getenv("TEST_REDIS_PWD_FILE") == "" {
-		t.Fatalf("TEST_REDIS_PWD_FILE not set!")
-	}
-	passwordMap, err := LoadPwdFile(os.Getenv("TEST_REDIS_PWD_FILE"))
+	pwdFile := "contrib/simple-pwd-file.json"
+	passwordMap, err := LoadPwdFile(pwdFile)
 	if err != nil {
 		t.Fatalf("Test Failed, error: %v", err)
 	}
@@ -27,7 +21,7 @@ func TestLoadPwdFile(t *testing.T) {
 		addr string
 		want string
 	}{
-		{name: "password-hit", addr: os.Getenv("TEST_REDIS_URI"), want: os.Getenv("TEST_PWD_REDIS_URI")},
+		{name: "password-hit", addr: "redis://pwd-redis5:6380", want: "redis-password"},
 		{name: "password-missed", addr: "Non-existent-redis-host", want: ""},
 	} {
 		t.Run(tst.name, func(t *testing.T) {

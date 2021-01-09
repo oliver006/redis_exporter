@@ -2246,11 +2246,8 @@ func TestProcessSentinelSlaves(t *testing.T) {
 }
 
 func TestHTTPScrapeWithPasswordFile(t *testing.T) {
-	if os.Getenv("TEST_REDIS_PWD_FILE") == "" {
-		t.Fatalf("TEST_REDIS_PWD_FILE not set!")
-	}
-
-	passwordMap, err := LoadPwdFile(os.Getenv("TEST_REDIS_PWD_FILE"))
+	pwdFile := "contrib/simple-pwd-file.json"
+	passwordMap, err := LoadPwdFile(pwdFile)
 	if err != nil {
 		t.Fatalf("Test Failed, error: %v", err)
 	}
@@ -2265,11 +2262,11 @@ func TestHTTPScrapeWithPasswordFile(t *testing.T) {
 		useWrongPassword bool
 		wantStatusCode   int
 	}{
-		{name: "scrape-pwd-file", addr: os.Getenv("TEST_REDIS_URI"), wants: []string{
+		{name: "scrape-pwd-file", addr: "redis://pwd-redis5:6380", wants: []string{
 			"uptime_in_seconds",
 			"test_up 1",
 		}},
-		{name: "scrape-pwd-file-wrong-password", addr: os.Getenv("TEST_REDIS_URI"), useWrongPassword: true, wants: []string{
+		{name: "scrape-pwd-file-wrong-password", addr: "redis://pwd-redis5:6380", useWrongPassword: true, wants: []string{
 			"test_up 0",
 		}},
 	} {
