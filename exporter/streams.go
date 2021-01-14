@@ -143,11 +143,13 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 			log.Errorf("couldn't get info for stream '%s', err: %s", k.key, err)
 			continue
 		}
+
 		dbLabel := "db" + k.db
 		e.registerConstMetricGauge(ch, "stream_length", float64(info.Length), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_radix_tree_keys", float64(info.RadixTreeKeys), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_radix_tree_nodes", float64(info.RadixTreeNodes), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_groups", float64(info.Groups), dbLabel, k.key)
+
 		for _, g := range info.StreamGroupsInfo {
 			e.registerConstMetricGauge(ch, "stream_group_consumers", float64(g.Consumers), dbLabel, k.key, g.Name)
 			e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(g.Pending), dbLabel, k.key, g.Name)
@@ -156,6 +158,5 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 				e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)
 			}
 		}
-
 	}
 }

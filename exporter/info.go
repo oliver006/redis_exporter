@@ -24,8 +24,7 @@ func extractVal(s string) (val float64, err error) {
 }
 
 func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) {
-	instanceInfo := map[string]string{}
-	slaveInfo := map[string]string{}
+	keyValues := map[string]string{}
 	handledDBs := map[string]bool{}
 
 	fieldClass := ""
@@ -49,10 +48,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		fieldKey := split[0]
 		fieldValue := split[1]
 
-		var (
-			instanceInfoFields = map[string]bool{"role": true, "redis_version": true, "redis_build_id": true, "redis_mode": true, "os": true, "maxmemory_policy": true}
-			slaveInfoFields    = map[string]bool{"master_host": true, "master_port": true, "slave_read_only": true}
-		)
+		keyValues[fieldKey] = fieldValue
 
 		if fieldKey == "master_host" {
 			masterHost = fieldValue
@@ -60,16 +56,6 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 		if fieldKey == "master_port" {
 			masterPort = fieldValue
-		}
-
-		if _, ok := instanceInfoFields[fieldKey]; ok {
-			instanceInfo[fieldKey] = fieldValue
-			continue
-		}
-
-		if _, ok := slaveInfoFields[fieldKey]; ok {
-			slaveInfo[fieldKey] = fieldValue
-			continue
 		}
 
 		switch fieldClass {
@@ -120,18 +106,20 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	}
 
 	e.registerConstMetricGauge(ch, "instance_info", 1,
-		instanceInfo["role"],
-		instanceInfo["redis_version"],
-		instanceInfo["redis_build_id"],
-		instanceInfo["redis_mode"],
-		instanceInfo["os"],
-		instanceInfo["maxmemory_policy"])
+		keyValues["role"],
+		keyValues["redis_version"],
+		keyValues["redis_build_id"],
+		keyValues["redis_mode"],
+		keyValues["os"],
+		keyValues["maxmemory_policy"],
+		keyValues["tcp_port"], keyValues["run_id"], keyValues["process_id"],
+	)
 
-	if instanceInfo["role"] == "slave" {
+	if keyValues["role"] == "slave" {
 		e.registerConstMetricGauge(ch, "slave_info", 1,
-			slaveInfo["master_host"],
-			slaveInfo["master_port"],
-			slaveInfo["slave_read_only"])
+			keyValues["master_host"],
+			keyValues["master_port"],
+			keyValues["slave_read_only"])
 	}
 }
 
@@ -199,27 +187,27 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
 	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
-func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
+func parseConnectedSlaveString(slaveName string, keyValues string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
 	if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
 		return
 	}
-	connectedSlaveInfo := make(map[string]string)
-	for _, kvPart := range strings.Split(slaveInfo, ",") {
+	connectedkeyValues := make(map[string]string)
+	for _, kvPart := range strings.Split(keyValues, ",") {
 		x := strings.Split(kvPart, "=")
 		if len(x) != 2 {
 			log.Debugf("Invalid format for connected slave string, got: %s", kvPart)
 			return
 		}
-		connectedSlaveInfo[x[0]] = x[1]
+		connectedkeyValues[x[0]] = x[1]
 	}
-	offset, err := strconv.ParseFloat(connectedSlaveInfo["offset"], 64)
+	offset, err := strconv.ParseFloat(connectedkeyValues["offset"], 64)
 	if err != nil {
-		log.Debugf("Can not parse connected slave offset, got: %s", connectedSlaveInfo["offset"])
+		log.Debugf("Can not parse connected slave offset, got: %s", connectedkeyValues["offset"])
 		return
 	}
 
-	if lagStr, exists := connectedSlaveInfo["lag"]; !exists {
+	if lagStr, exists := connectedkeyValues["lag"]; !exists {
 		// Prior to Redis 3.0, "lag" property does not exist
 		lag = -1
 	} else {
@@ -231,9 +219,9 @@ func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float
 	}
 
 	ok = true
-	ip = connectedSlaveInfo["ip"]
-	port = connectedSlaveInfo["port"]
-	state = connectedSlaveInfo["state"]
+	ip = connectedkeyValues["ip"]
+	port = connectedkeyValues["port"]
+	state = connectedkeyValues["state"]
 
 	return
 }

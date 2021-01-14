@@ -1,10 +1,11 @@
 package exporter
 
 import (
-	"github.com/prometheus/client_golang/prometheus"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestTile38(t *testing.T) {

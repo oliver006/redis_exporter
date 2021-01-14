@@ -9,9 +9,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
-)
+var metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 
 func sanitizeMetricName(n string) string {
 	return metricNameRE.ReplaceAllString(n, "_")

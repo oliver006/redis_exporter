@@ -21,12 +21,11 @@ func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey s
 	}
 
 	if masterName, masterStatus, masterAddress, masterSlaves, masterSentinels, ok := parseSentinelMasterString(fieldKey, fieldValue); ok {
+		masterStatusNum := 0.0
 		if masterStatus == "ok" {
-			e.registerConstMetricGauge(ch, "sentinel_master_status", 1, masterName, masterAddress, masterStatus)
-		} else {
-			e.registerConstMetricGauge(ch, "sentinel_master_status", 0, masterName, masterAddress, masterStatus)
+			masterStatusNum = 1
 		}
-
+		e.registerConstMetricGauge(ch, "sentinel_master_status", masterStatusNum, masterName, masterAddress, masterStatus)
 		e.registerConstMetricGauge(ch, "sentinel_master_slaves", masterSlaves, masterName, masterAddress)
 		e.registerConstMetricGauge(ch, "sentinel_master_sentinels", masterSentinels, masterName, masterAddress)
 		return true

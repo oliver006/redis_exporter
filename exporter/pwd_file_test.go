@@ -4,7 +4,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os"
 	"strings"
 	"testing"
 
@@ -15,18 +14,30 @@ func TestLoadPwdFile(t *testing.T) {
 	for _, tst := range []struct {
 		name    string
 		pwdFile string
-		want    error
+		ok      bool
 	}{
-		{name: "load-password-file-success", pwdFile: "../contrib/sample-pwd-file.json"},
-		{name: "load-password-file-failed", pwdFile: "non-existent.json"},
+		{
+			name:    "load-password-file-success",
+			pwdFile: "../contrib/sample-pwd-file.json",
+			ok:      true,
+		},
+		{
+			name:    "load-password-file-missing",
+			pwdFile: "non-existent.json",
+			ok:      false,
+		},
+		{
+			name:    "load-password-file-malformed",
+			pwdFile: "../contrib/sample-pwd-file.json-malformed",
+			ok:      false,
+		},
 	} {
-		_, tst.want = os.Open(tst.pwdFile)
 		t.Run(tst.name, func(t *testing.T) {
 			_, err := LoadPwdFile(tst.pwdFile)
-			if err == nil && err != tst.want {
+			if err == nil && !tst.ok {
 				t.Fatalf("Test Failed, result is not what we want")
 			}
-			if err != nil && err.Error() != tst.want.Error() {
+			if err != nil && tst.ok {
 				t.Fatalf("Test Failed, result is not what we want")
 			}
 		})
