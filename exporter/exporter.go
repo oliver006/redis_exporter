@@ -1592,7 +1592,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.registerConstMetricGauge(ch, "exporter_last_scrape_connect_time_seconds", connectTookSeconds)
 
 	if err != nil {
-		log.Errorf("Couldn't connect to redis instance")
+		log.Errorf("Couldn't connect to redis instance %s", e.redisAddr)
 		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
 		return err
 	}
