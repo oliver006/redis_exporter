@@ -290,6 +290,12 @@ Here is a list of additional metrics that will be exposed when memory usage aggr
 |redis_number_of_distinct_key_groups               |db          |Number of distinct key groups in a Redis database when the `overflow` group is fully expanded
 |redis_last_key_groups_scrape_duration_milliseconds|            |Duration of the last memory usage aggregation by key groups in milliseconds
 
+### Script to collect Redis lists and respective sizes.
+If using Redis version < 4.0, most of the helpful metrics which we need to gather based on length or memory is not possible via default redis_exporter.
+With the help of LUA scripts, we can gather these metrics.
+One of these scripts [contrib/collect_lists_length_growing.lua](./contrib/collect_lists_length_growing.lua) will help to collect the length of redis lists.
+With this count, we can take following actions such as Create alerts or dashboards in Grafana or any similar tools with these Prometheus metrics.
+
 ## Development
 
 The tests require a variety of real Redis instances to not only verify correctness of the exporter but also
