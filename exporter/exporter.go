@@ -27,38 +27,6 @@ type BuildInfo struct {
 	Date      string
 }
 
-type dbKeyPair struct {
-	db, key string
-}
-
-type keyInfo struct {
-	size    float64
-	keyType string
-}
-
-// All fields of the streamInfo struct must be exported
-// because of redis.ScanStruct (reflect) limitations
-type streamInfo struct {
-	Length           int64 `redis:"length"`
-	RadixTreeKeys    int64 `redis:"radix-tree-keys"`
-	RadixTreeNodes   int64 `redis:"radix-tree-nodes"`
-	Groups           int64 `redis:"groups"`
-	StreamGroupsInfo []streamGroupsInfo
-}
-
-type streamGroupsInfo struct {
-	Name                     string `redis:"name"`
-	Consumers                int64  `redis:"consumers"`
-	Pending                  int64  `redis:"pending"`
-	StreamGroupConsumersInfo []streamGroupConsumersInfo
-}
-
-type streamGroupConsumersInfo struct {
-	Name    string `redis:"name"`
-	Pending int64  `redis:"pending"`
-	Idle    int64  `redis:"idle"`
-}
-
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	sync.Mutex
@@ -85,8 +53,8 @@ type Exporter struct {
 type Options struct {
 	User                    string
 	Password                string
-	PasswordMap             map[string]string
 	Namespace               string
+	PasswordMap             map[string]string
 	ConfigCommandName       string
 	CheckSingleKeys         string
 	CheckStreams            string
@@ -112,98 +80,6 @@ type Options struct {
 	PingOnConnect           bool
 	Registry                *prometheus.Registry
 	BuildInfo               BuildInfo
-}
-
-func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
-	target := r.URL.Query().Get("target")
-	if target == "" {
-		http.Error(w, "'target' parameter must be specified", http.StatusBadRequest)
-		e.targetScrapeRequestErrors.Inc()
-		return
-	}
-
-	if !strings.Contains(target, "://") {
-		target = "redis://" + target
-	}
-
-	u, err := url.Parse(target)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %ck ", err), http.StatusBadRequest)
-		e.targetScrapeRequestErrors.Inc()
-		return
-	}
-
-	// get rid of username/password info in "target" so users don't send them in plain text via http
-	u.User = nil
-	target = u.String()
-
-	opts := e.options
-
-	if ck := r.URL.Query().Get("check-keys"); ck != "" {
-		opts.CheckKeys = ck
-	}
-
-	if csk := r.URL.Query().Get("check-single-keys"); csk != "" {
-		opts.CheckSingleKeys = csk
-	}
-
-	if cs := r.URL.Query().Get("check-streams"); cs != "" {
-		opts.CheckStreams = cs
-	}
-
-	if css := r.URL.Query().Get("check-single-streams"); css != "" {
-		opts.CheckSingleStreams = css
-	}
-
-	if cntk := r.URL.Query().Get("count-keys"); cntk != "" {
-		opts.CountKeys = cntk
-	}
-
-	registry := prometheus.NewRegistry()
-	opts.Registry = registry
-
-	_, err = NewRedisExporter(target, opts)
-	if err != nil {
-		http.Error(w, "NewRedisExporter() err: err", http.StatusBadRequest)
-		e.targetScrapeRequestErrors.Inc()
-		return
-	}
-
-	promhttp.HandlerFor(
-		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
-	).ServeHTTP(w, r)
-}
-
-// splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
-func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
-	if keysArgString == "" {
-		return keys, err
-	}
-	for _, k := range strings.Split(keysArgString, ",") {
-		db := "0"
-		key := ""
-		frags := strings.Split(k, "=")
-		switch len(frags) {
-		case 1:
-			db = "0"
-			key, err = url.QueryUnescape(strings.TrimSpace(frags[0]))
-		case 2:
-			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
-			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
-		default:
-			return keys, fmt.Errorf("invalid key list argument: %s", k)
-		}
-		if err != nil {
-			return keys, fmt.Errorf("couldn't parse db/key string: %s", k)
-		}
-
-		keys = append(keys, dbKeyPair{db, key})
-	}
-	return keys, err
-}
-
-func newMetricDescr(namespace string, metricName string, docString string, labels []string) *prometheus.Desc {
-	return prometheus.NewDesc(prometheus.BuildFQName(namespace, "", metricName), docString, labels, nil)
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -452,7 +328,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"db_keys":                                      {txt: "Total number of keys by DB", lbls: []string{"db"}},
 		"db_keys_expiring":                             {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
 		"exporter_last_scrape_error":                   {txt: "The last scrape error status.", lbls: []string{"err"}},
-		"instance_info":                                {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy"}},
+		"instance_info":                                {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id"}},
 		"key_group_count":                              {txt: `Count of keys in key group`, lbls: []string{"db", "key_group"}},
 		"key_group_memory_usage_bytes":                 {txt: `Total memory usage of key group in bytes`, lbls: []string{"db", "key_group"}},
 		"key_size":                                     {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
@@ -519,26 +395,11 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		}
 	}
 
+	e.mux.HandleFunc("/", e.indexHandler)
 	e.mux.HandleFunc("/scrape", e.scrapeHandler)
-	e.mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`ok`))
-	})
-	e.mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`<html>
-<head><title>Redis Exporter ` + e.buildInfo.Version + `</title></head>
-<body>
-<h1>Redis Exporter ` + e.buildInfo.Version + `</h1>
-<p><a href='` + opts.MetricsPath + `'>Metrics</a></p>
-</body>
-</html>
-`))
-	})
+	e.mux.HandleFunc("/health", e.healthHandler)
 
 	return e, nil
-}
-
-func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	e.mux.ServeHTTP(w, r)
 }
 
 // Describe outputs Redis metric descriptions.
@@ -568,11 +429,11 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 	if e.redisAddr != "" {
 		startTime := time.Now()
-		var up float64 = 1
+		var up float64
 		if err := e.scrapeRedisHost(ch); err != nil {
-			up = 0
 			e.registerConstMetricGauge(ch, "exporter_last_scrape_error", 1.0, fmt.Sprintf("%s", err))
 		} else {
+			up = 1
 			e.registerConstMetricGauge(ch, "exporter_last_scrape_error", 0, "")
 		}
 
@@ -586,198 +447,6 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.totalScrapes
 	ch <- e.scrapeDuration
 	ch <- e.targetScrapeRequestErrors
-}
-
-func (e *Exporter) includeMetric(s string) bool {
-	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
-		return true
-	}
-	if _, ok := e.metricMapGauges[s]; ok {
-		return true
-	}
-
-	_, ok := e.metricMapCounters[s]
-	return ok
-}
-
-var (
-	metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
-)
-
-func sanitizeMetricName(n string) string {
-	return metricNameRE.ReplaceAllString(n, "_")
-}
-
-func extractVal(s string) (val float64, err error) {
-	split := strings.Split(s, "=")
-	if len(split) != 2 {
-		return 0, fmt.Errorf("nope")
-	}
-	val, err = strconv.ParseFloat(split[1], 64)
-	if err != nil {
-		return 0, fmt.Errorf("nope")
-	}
-	return
-}
-
-/*
-	Valid Examples
-	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex
-	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client
-*/
-func parseClientListString(clientInfo string) ([]string, bool) {
-	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
-		return nil, false
-	}
-	connectedClient := map[string]string{}
-	for _, kvPart := range strings.Split(clientInfo, " ") {
-		vPart := strings.Split(kvPart, "=")
-		if len(vPart) != 2 {
-			log.Debugf("Invalid format for client list string, got: %s", kvPart)
-			return nil, false
-		}
-		connectedClient[vPart[0]] = vPart[1]
-	}
-
-	hostPortString := strings.Split(connectedClient["addr"], ":")
-	if len(hostPortString) != 2 {
-		return nil, false
-	}
-
-	return []string{
-		connectedClient["name"],
-		connectedClient["age"],
-		connectedClient["idle"],
-		connectedClient["flags"],
-		connectedClient["db"],
-		connectedClient["omem"],
-		connectedClient["cmd"],
-
-		hostPortString[0], // host
-		hostPortString[1], // port
-	}, true
-
-}
-
-/*
-	valid example: db0:keys=1,expires=0,avg_ttl=0
-*/
-func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
-	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
-
-	if !strings.HasPrefix(inputKey, "db") {
-		log.Debugf("parseDBKeyspaceString inputKey not starting with 'db': [%s]", inputKey)
-		return
-	}
-
-	split := strings.Split(inputVal, ",")
-	if len(split) != 3 && len(split) != 2 {
-		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
-		return
-	}
-
-	var err error
-	if keysTotal, err = extractVal(split[0]); err != nil {
-		log.Debugf("parseDBKeyspaceString extractVal(split[0]) invalid, err: %s", err)
-		return
-	}
-	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
-		log.Debugf("parseDBKeyspaceString extractVal(split[1]) invalid, err: %s", err)
-		return
-	}
-
-	avgTTL = -1
-	if len(split) > 2 {
-		if avgTTL, err = extractVal(split[2]); err != nil {
-			log.Debugf("parseDBKeyspaceString extractVal(split[2]) invalid, err: %s", err)
-			return
-		}
-		avgTTL /= 1000
-	}
-
-	ok = true
-	return
-}
-
-/*
-	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
-	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
-*/
-func parseConnectedSlaveString(slaveName string, slaveInfo string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
-	ok = false
-	if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
-		return
-	}
-	connectedSlaveInfo := make(map[string]string)
-	for _, kvPart := range strings.Split(slaveInfo, ",") {
-		x := strings.Split(kvPart, "=")
-		if len(x) != 2 {
-			log.Debugf("Invalid format for connected slave string, got: %s", kvPart)
-			return
-		}
-		connectedSlaveInfo[x[0]] = x[1]
-	}
-	offset, err := strconv.ParseFloat(connectedSlaveInfo["offset"], 64)
-	if err != nil {
-		log.Debugf("Can not parse connected slave offset, got: %s", connectedSlaveInfo["offset"])
-		return
-	}
-
-	if lagStr, exists := connectedSlaveInfo["lag"]; !exists {
-		// Prior to Redis 3.0, "lag" property does not exist
-		lag = -1
-	} else {
-		lag, err = strconv.ParseFloat(lagStr, 64)
-		if err != nil {
-			log.Debugf("Can not parse connected slave lag, got: %s", lagStr)
-			return
-		}
-	}
-
-	ok = true
-	ip = connectedSlaveInfo["ip"]
-	port = connectedSlaveInfo["port"]
-	state = connectedSlaveInfo["state"]
-
-	return
-}
-
-/*
-	valid examples:
-		master0:name=user03,status=sdown,address=192.169.2.52:6381,slaves=1,sentinels=5
-		master1:name=user02,status=ok,address=192.169.2.54:6380,slaves=1,sentinels=5
-*/
-func parseSentinelMasterString(master string, masterInfo string) (masterName string, masterStatus string, masterAddr string, masterSlaves float64, masterSentinels float64, ok bool) {
-	ok = false
-	if matched, _ := regexp.MatchString(`^master\d+`, master); !matched {
-		return
-	}
-	matchedMasterInfo := make(map[string]string)
-	for _, kvPart := range strings.Split(masterInfo, ",") {
-		x := strings.Split(kvPart, "=")
-		if len(x) != 2 {
-			log.Errorf("Invalid format for sentinel's master string, got: %s", kvPart)
-			continue
-		}
-		matchedMasterInfo[x[0]] = x[1]
-	}
-
-	masterName = matchedMasterInfo["name"]
-	masterStatus = matchedMasterInfo["status"]
-	masterAddr = matchedMasterInfo["address"]
-	masterSlaves, err := strconv.ParseFloat(matchedMasterInfo["slaves"], 64)
-	if err != nil {
-		log.Debugf("parseSentinelMasterString(): couldn't parse slaves value, got: %s, err: %s", matchedMasterInfo["slaves"], err)
-		return
-	}
-	masterSentinels, err = strconv.ParseFloat(matchedMasterInfo["sentinels"], 64)
-	if err != nil {
-		log.Debugf("parseSentinelMasterString(): couldn't parse sentinels value, got: %s, err: %s", matchedMasterInfo["sentinels"], err)
-		return
-	}
-	ok = true
-
-	return
 }
 
 func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []string) (dbCount int, err error) {
@@ -1717,16 +1386,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractCountKeysMetrics(ch, c)
 
-	if strings.Contains(infoAll, "# Sentinel") {
-		e.extractSentinelMetrics(ch, c)
-	}
-
 	e.extractKeyGroupMetrics(ch, c, dbCount)
 
-	if e.options.LuaScript != nil && len(e.options.LuaScript) > 0 {
-		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
-			return err
-		}
+	if strings.Contains(infoAll, "# Sentinel") {
+		e.extractSentinelMetrics(ch, c)
 	}
 
 	if e.options.ExportClientList {
@@ -1737,98 +1400,11 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractTile38Metrics(ch, c)
 	}
 
+	if len(e.options.LuaScript) > 0 {
+		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
+			return err
+		}
+	}
+
 	return nil
-}
-
-func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	masterDetails, err := redis.Values(doRedisCmd(c, "SENTINEL", "MASTERS"))
-	if err != nil {
-		log.Debugf("Error getting sentinel master details %s:", err)
-		return
-	}
-
-	log.Debugf("Sentinel master details: %#v", masterDetails)
-
-	for _, masterDetail := range masterDetails {
-		masterDetailMap, err := redis.StringMap(masterDetail, nil)
-		if err != nil {
-			log.Debugf("Error getting masterDetailmap from masterDetail: %s, err: %s", masterDetail, err)
-			continue
-		}
-
-		masterName, ok := masterDetailMap["name"]
-		if !ok {
-			continue
-		}
-
-		masterIp, ok := masterDetailMap["ip"]
-		if !ok {
-			continue
-		}
-
-		masterPort, ok := masterDetailMap["port"]
-		if !ok {
-			continue
-		}
-		masterAddr := masterIp + ":" + masterPort
-
-		sentinelDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
-		log.Debugf("Sentinel details for master %s: %s", masterName, sentinelDetails)
-		e.processSentinelSentinels(ch, sentinelDetails, masterName, masterAddr)
-
-		slaveDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SLAVES", masterName))
-		log.Debugf("Slave details for master %s: %s", masterName, slaveDetails)
-		e.processSentinelSlaves(ch, slaveDetails, masterName, masterAddr)
-	}
-}
-
-func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentinelDetails []interface{}, labels ...string) {
-
-	// If we are here then this master is in ok state
-	masterOkSentinels := 1
-
-	for _, sentinelDetail := range sentinelDetails {
-		sentinelDetailMap, err := redis.StringMap(sentinelDetail, nil)
-		if err != nil {
-			log.Debugf("Error getting sentinelDetailMap from sentinelDetail: %s, err: %s", sentinelDetail, err)
-			continue
-		}
-
-		sentinelFlags, ok := sentinelDetailMap["flags"]
-		if !ok {
-			continue
-		}
-		if strings.Contains(sentinelFlags, "o_down") {
-			continue
-		}
-		if strings.Contains(sentinelFlags, "s_down") {
-			continue
-		}
-		masterOkSentinels = masterOkSentinels + 1
-	}
-	e.registerConstMetricGauge(ch, "sentinel_master_ok_sentinels", float64(masterOkSentinels), labels...)
-}
-
-func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetails []interface{}, labels ...string) {
-	masterOkSlaves := 0
-	for _, slaveDetail := range slaveDetails {
-		slaveDetailMap, err := redis.StringMap(slaveDetail, nil)
-		if err != nil {
-			log.Debugf("Error getting slavedetailMap from slaveDetail: %s, err: %s", slaveDetail, err)
-			continue
-		}
-
-		slaveFlags, ok := slaveDetailMap["flags"]
-		if !ok {
-			continue
-		}
-		if strings.Contains(slaveFlags, "o_down") {
-			continue
-		}
-		if strings.Contains(slaveFlags, "s_down") {
-			continue
-		}
-		masterOkSlaves = masterOkSlaves + 1
-	}
-	e.registerConstMetricGauge(ch, "sentinel_master_ok_slaves", float64(masterOkSlaves), labels...)
 }
