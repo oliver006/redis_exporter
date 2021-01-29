@@ -1,0 +1,4 @@
+{
+  "redis://redis6:6379": "",
+  "redis://pwd-redis5:6380": "redis-password"
+
