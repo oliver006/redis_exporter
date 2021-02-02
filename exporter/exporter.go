@@ -103,6 +103,7 @@ type Options struct {
 	SkipTLSVerification     bool
 	SetClientName           bool
 	IsTile38                bool
+	IsCluster               bool
 	ExportClientList        bool
 	ExportClientsInclPort   bool
 	ConnectionTimeouts      time.Duration
@@ -1560,33 +1561,35 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		options = append(options, redis.DialPassword(e.options.Password))
 	}
 
-	isCluster := false
+	isCluster := e.options.IsCluster
 
 	uri := e.redisAddr
-	if strings.Contains(uri, "://") {
-		url, _ := url.Parse(uri)
-		if url.Port() == "" {
-			uri = url.Host + ":6379"
-		} else {
-			uri = url.Host
-		}
-	} else {
-		if frags := strings.Split(uri, ":"); len(frags) != 2 {
-			uri = uri + ":6379"
-		}
-	}
-
-	log.Debugf("Creating cluster object")
-	cluster := redisc.Cluster{
-		StartupNodes: []string{uri},
-		DialOptions:  options,
-	}
-	log.Debugf("Running refresh on cluster object")
-	if err := cluster.Refresh(); err == nil {
-		isCluster = true
-	}
 
 	if isCluster {
+
+		if strings.Contains(uri, "://") {
+			url, _ := url.Parse(uri)
+			if url.Port() == "" {
+				uri = url.Host + ":6379"
+			} else {
+				uri = url.Host
+			}
+		} else {
+			if frags := strings.Split(uri, ":"); len(frags) != 2 {
+				uri = uri + ":6379"
+			}
+		}
+
+		log.Debugf("Creating cluster object")
+		cluster := redisc.Cluster{
+			StartupNodes: []string{uri},
+			DialOptions:  options,
+		}
+		log.Debugf("Running refresh on cluster object")
+		if err := cluster.Refresh(); err == nil {
+			isCluster = true
+		}
+
 		log.Debugf("Creating redis connection object")
 		conn, err := cluster.Dial()
 		if err != nil {
@@ -1601,7 +1604,6 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		return c, err
 	}
 
-	uri = e.redisAddr
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
 	}

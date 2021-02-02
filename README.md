@@ -153,6 +153,7 @@ redis-only-metrics          | REDIS_EXPORTER_REDIS_ONLY_METRICS          | Wheth
 include-system-metrics      | REDIS_EXPORTER_INCL_SYSTEM_METRICS         | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
 ping-on-connect             | REDIS_EXPORTER_PING_ON_CONNECT             | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38                   | REDIS_EXPORTER_IS_TILE38                   | Whether to scrape Tile38 specific metrics, defaults to false.
+is-cluster                  | REDIS_CLUSTER_MODE                         | Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).
 export-client-list          | REDIS_EXPORTER_EXPORT_CLIENT_LIST          | Whether to scrape Client List specific metrics, defaults to false.
 export-client-port          | REDIS_EXPORTER_EXPORT_CLIENT_PORT          | Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory
 skip-tls-verification       | REDIS_EXPORTER_SKIP_TLS_VERIFICATION       | Whether to to skip TLS verification
