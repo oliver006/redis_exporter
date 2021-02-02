@@ -147,22 +147,21 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 			continue
 		}
 
-		info, err := getKeyInfo(c, k.key)
-		if err != nil {
-			switch err {
-			case errKeyTypeNotFound:
-				log.Debugf("Key '%s' not found when trying to get type and size.", k.key)
-			default:
-				log.Error(err)
-			}
-			continue
-		}
 		dbLabel := "db" + k.db
-		e.registerConstMetricGauge(ch, "key_size", info.size, dbLabel, k.key)
+		info, err := getKeyInfo(c, k.key)
+		switch err {
+		case errKeyTypeNotFound:
+			log.Debugf("Key '%s' not found when trying to get type and size: using default '0.0'", k.key)
+			e.registerConstMetricGauge(ch, "key_size", 0.0, dbLabel, k.key)
+		case nil:
+			e.registerConstMetricGauge(ch, "key_size", info.size, dbLabel, k.key)
 
-		// Only record value metric if value is float-y
-		if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
-			e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
+			// Only record value metric if value is float-y
+			if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
+				e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
+			}
+		default:
+			log.Error(err)
 		}
 	}
 }

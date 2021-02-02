@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"net/http/httptest"
 	"net/url"
 	"os"
 	"reflect"
@@ -378,5 +379,22 @@ func TestCheckKeys(t *testing.T) {
 			t.Errorf("Expected failure for test: %#v, got no err", tst)
 			return
 		}
+	}
+}
+
+func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: "single", Registry: prometheus.NewRegistry()})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	chM := make(chan prometheus.Metric, 10000)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	body := downloadURL(t, ts.URL+"/metrics")
+	if !strings.Contains(body, `test_key_size{db="db0",key="single"} 0`) {
+		t.Errorf("Expected metric `test_key_size` with key=`single` and value 0 but got:\n%s", body)
 	}
 }
