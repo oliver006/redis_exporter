@@ -1,9 +1,12 @@
 package exporter
 
 import (
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -29,15 +32,56 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	}
 
 	uri := e.redisAddr
-	if !strings.Contains(uri, "://") {
-		uri = "redis://" + uri
-	}
 
 	if e.options.PasswordMap[uri] != "" {
 		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
-	log.Debugf("Trying DialURL(): %s", uri)
+	isCluster := e.options.IsCluster
+
+	if isCluster {
+
+		if strings.Contains(uri, "://") {
+			url, _ := url.Parse(uri)
+			if url.Port() == "" {
+				uri = url.Host + ":6379"
+			} else {
+				uri = url.Host
+			}
+		} else {
+			if frags := strings.Split(uri, ":"); len(frags) != 2 {
+				uri = uri + ":6379"
+			}
+		}
+
+		log.Debugf("Creating cluster object")
+		cluster := redisc.Cluster{
+			StartupNodes: []string{uri},
+			DialOptions:  options,
+		}
+		log.Debugf("Running refresh on cluster object")
+		if err := cluster.Refresh(); err == nil {
+			isCluster = true
+		}
+
+		log.Debugf("Creating redis connection object")
+		conn, err := cluster.Dial()
+		if err != nil {
+			log.Debugf("Dial failed: %v", err)
+		}
+
+		c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+		if err != nil {
+			log.Debugf("RetryConn failed: %v", err)
+		}
+
+		return c, err
+	}
+
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+
 	c, err := redis.DialURL(uri, options...)
 	if err != nil {
 		log.Debugf("DialURL() failed, err: %s", err)
