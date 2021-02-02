@@ -67,6 +67,7 @@ type Options struct {
 	SkipTLSVerification     bool
 	SetClientName           bool
 	IsTile38                bool
+	IsCluster               bool
 	ExportClientList        bool
 	ExportClientsInclPort   bool
 	ConnectionTimeouts      time.Duration
