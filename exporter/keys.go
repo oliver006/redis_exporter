@@ -218,8 +218,8 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 		return keys, err
 	}
 	for _, k := range strings.Split(keysArgString, ",") {
-		db := "0"
-		key := ""
+		var db string
+		var key string
 		frags := strings.Split(k, "=")
 		switch len(frags) {
 		case 1:

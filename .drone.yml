@@ -126,6 +126,19 @@ steps:
     depends_on:
       - start
 
+  - name: lint
+    image: golangci/golangci-lint:latest-alpine
+    pull: always
+    commands:
+      - apk add --update make
+      - make lint
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+    depends_on:
+      - start
 
   - name: tests
     image: "golang:1.15"
@@ -136,6 +149,7 @@ steps:
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
+      - sleep 5
       - make checks
       - make test
       - make upload-coverage

@@ -36,7 +36,13 @@ test:
 	TEST_REDIS_SENTINEL_URI="redis://redis-sentinel:26379" \
 	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
 
-
+.PHONY: lint
+lint:
+	#
+	# this will run the default linters on non-test files
+	# and then all but the "errcheck" linters on the tests
+	golangci-lint run --tests=false --exclude-use-default
+	golangci-lint run -D=errcheck   --exclude-use-default
 
 .PHONY: checks
 checks:
