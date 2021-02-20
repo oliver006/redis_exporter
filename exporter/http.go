@@ -15,12 +15,11 @@ func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (e *Exporter) healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(`ok`))
-
+	_, _ = w.Write([]byte(`ok`))
 }
 
 func (e *Exporter) indexHandler(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte(`<html>
+	_, _ = w.Write([]byte(`<html>
 <head><title>Redis Exporter ` + e.buildInfo.Version + `</title></head>
 <body>
 <h1>Redis Exporter ` + e.buildInfo.Version + `</h1>

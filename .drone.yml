@@ -75,9 +75,9 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.15"
+    image: "golang:1.16"
     commands:
-      - sleep 10
+      - sleep 5
       - 'echo "start"'
     when:
       event:
@@ -87,7 +87,7 @@ steps:
 
 
   - name: build-binaries
-    image: "golang:1.15"
+    image: "golang:1.16"
     pull: always
     environment:
       GO111MODULE: on
@@ -126,9 +126,22 @@ steps:
     depends_on:
       - start
 
+  - name: lint
+    image: golangci/golangci-lint:latest-alpine
+    pull: always
+    commands:
+      - apk add --update make
+      - make lint
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+    depends_on:
+      - start
 
   - name: tests
-    image: "golang:1.15"
+    image: "golang:1.16"
     pull: always
     environment:
       GO111MODULE: on
@@ -136,6 +149,7 @@ steps:
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
+      - sleep 5
       - make checks
       - make test
       - make upload-coverage
@@ -148,7 +162,7 @@ steps:
 
 
   - name: mixins
-    image: golang:1.15
+    image: golang:1.16
     commands:
       - cd ./contrib/redis-mixin
       - go install github.com/monitoring-mixins/mixtool/cmd/mixtool
@@ -267,7 +281,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.15"
+    image: "golang:1.16"
     pull: always
     environment:
       GITHUB_TOKEN:

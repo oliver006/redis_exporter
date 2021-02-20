@@ -13,7 +13,6 @@ import (
 type scanStreamFixture struct {
 	name       string
 	stream     string
-	pass       bool
 	streamInfo streamInfo
 	groups     []streamGroupsInfo
 	consumers  []streamGroupConsumersInfo
@@ -42,7 +41,6 @@ func TestGetStreamInfo(t *testing.T) {
 		{
 			name:   "Stream test",
 			stream: TestStreamName,
-			pass:   true,
 			streamInfo: streamInfo{
 				Length:         2,
 				RadixTreeKeys:  1,
