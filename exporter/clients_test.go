@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 
@@ -8,9 +9,16 @@ import (
 )
 
 func TestParseClientListString(t *testing.T) {
+	createdAt6321, _ := durationFieldToTimestamp("6321")
+	idleSince6320, _ := durationFieldToTimestamp("6320")
+	createdAt5, _ := durationFieldToTimestamp("5")
+	idleSince0, _ := durationFieldToTimestamp("0")
+
 	tsts := map[string][]string{
-		"id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex":    []string{"", "6321", "6320", "N", "0", "0", "setex", "127.0.0.1", "63508"},
-		"id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client": []string{"foo", "5", "0", "N", "1", "0", "client", "127.0.0.1", "64958"},
+		"id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex": []string{
+			"", strconv.FormatInt(createdAt6321, 10), strconv.FormatInt(idleSince6320, 10), "N", "0", "0", "setex", "127.0.0.1", "63508"},
+		"id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client": []string{
+			"foo", strconv.FormatInt(createdAt5, 10), strconv.FormatInt(idleSince0, 10), "N", "1", "0", "client", "127.0.0.1", "64958"},
 	}
 
 	for k, v := range tsts {
