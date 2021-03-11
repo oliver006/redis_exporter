@@ -154,6 +154,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"mem_clients_slaves":      "mem_clients_slaves",
 			"mem_clients_normal":      "mem_clients_normal",
 
+			"expired_stale_perc": "expired_stale_percentage",
+
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
 			// ... the sum of AOF and slaves buffer ....
 			"mem_not_counted_for_evict": "mem_not_counted_for_eviction_bytes",
