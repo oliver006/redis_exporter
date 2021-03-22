@@ -2,13 +2,14 @@ package exporter
 
 import (
 	"fmt"
-	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 	"net/http/httptest"
 	"os"
 	"regexp"
 	"strings"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 func TestKeyspaceStringParser(t *testing.T) {
