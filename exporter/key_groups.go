@@ -102,6 +102,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 	if len(keyGroupsNoEmptyStrings) == 0 {
 		return allMetrics
 	}
+	log.Debugf("keyGroups: %s", keyGroupsNoEmptyStrings)
 	for db := 0; db < dbCount; db++ {
 		if _, err := doRedisCmd(c, "SELECT", db); err != nil {
 			log.Errorf("Couldn't select database %d when getting key info.", db)

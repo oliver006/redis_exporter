@@ -91,6 +91,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 			options.CheckSingleStreams = tst.css
 			options.CheckStreams = tst.cs
 			options.CountKeys = tst.cntk
+			options.CheckKeysBatchSize = 1000
 
 			e, _ := NewRedisExporter(tst.addr, options)
 			ts := httptest.NewServer(e)

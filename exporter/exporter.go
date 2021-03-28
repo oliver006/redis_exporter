@@ -52,10 +52,11 @@ type Options struct {
 	Namespace               string
 	PasswordMap             map[string]string
 	ConfigCommandName       string
+	CheckKeys               string
 	CheckSingleKeys         string
 	CheckStreams            string
 	CheckSingleStreams      string
-	CheckKeys               string
+	CheckKeysBatchSize      int64
 	CheckKeyGroups          string
 	CheckKeyGroupsBatchSize int64
 	MaxDistinctKeyGroups    int64

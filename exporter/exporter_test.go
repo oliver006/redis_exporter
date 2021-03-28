@@ -35,9 +35,10 @@ var (
 	listKeys     = []string{}
 	ts           = int32(time.Now().Unix())
 
-	dbNumStr     = "11"
-	altDBNumStr  = "12"
-	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
+	dbNumStr        = "11"
+	altDBNumStr     = "12"
+	invalidDBNumStr = "16"
+	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
 )
 
 const (
@@ -277,6 +278,14 @@ func TestConnectionDurations(t *testing.T) {
 	}
 }
 
+// TODO Rework keys clean up.
+//      Clean all on startup or force `docker-compose down && up` each `make docker-test`
+//
+// Initialization can lead to unexpected results when using a persistent testing environment
+// When `make docker-env-up` is executed once and `make docker-test` is constantly run or
+// stopped during execution, the number of keys in the database changes, which can lead to
+// unexpected failures of tests. Use `make docker-env-down` periodacally to clean up
+// as a workaround.
 func init() {
 	rand.Seed(time.Now().UnixNano())
 

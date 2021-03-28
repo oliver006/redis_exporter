@@ -141,6 +141,7 @@ check-keys                  | REDIS_EXPORTER_CHECK_KEYS                  | Comma
 check-single-keys           | REDIS_EXPORTER_CHECK_SINGLE_KEYS           | Comma separated list of keys to export value and length/size, eg: `db3=user_count` will export key `user_count` from db `3`. db defaults to `0` if omitted.  The keys specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-keys`.
 check-streams               | REDIS_EXPORTER_CHECK_STREAMS               | Comma separated list of stream-patterns to export info about streams, groups and consumers. Syntax is the same as `check-keys`.
 check-single-streams        | REDIS_EXPORTER_CHECK_SINGLE_STREAMS        | Comma separated list of streams to export info about streams, groups and consumers. The streams specified with this flag will be looked up directly without any glob pattern matching.  Use this option if you don't need glob pattern matching;  it is faster than `check-streams`.
+check-keys-batch-size        | REDIS_EXPORTER_CHECK_KEYS_BATCH_SIZE      | Approximate number of keys to process in each execution, it is just a hint for the underlying SCAN command, see [COUNT option](https://redis.io/commands/scan#the-count-option). Larger value speeds up scanning. Still Redis is a single-threaded app, huge `COUNT` can affect production environment.
 count-keys                  | REDIS_EXPORTER_COUNT_KEYS                  | Comma separated list of patterns to count, eg: `db3=sessions:*` will count all keys with prefix `sessions:` from db `3`. db defaults to `0` if omitted. Warning: The exporter runs SCAN to count the keys. This might not perform well on large databases.
 script                      | REDIS_EXPORTER_SCRIPT                      | Path to Redis Lua script for gathering extra metrics.
 debug                       | REDIS_EXPORTER_DEBUG                       | Verbose debug output
@@ -228,6 +229,16 @@ Most items from the INFO command are exported,
 see [Redis documentation](https://redis.io/commands/info) for details.\
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.\
 You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
+Example:
+```yaml
+# Kubernetes deployment YAML
+...
+containers:
+- name: redis-exporter-example
+  image: oliver006/redis_exporter:latest
+  args: [ "-check-keys", "db0=production_*,db1=cache:*" ]
+...
+```
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
