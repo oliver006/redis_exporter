@@ -151,11 +151,17 @@ func getKeysCount(c redis.Conn, pattern string, count int64) (int, error) {
 	return keysCount, nil
 }
 
+// Regexp pattern to check if given key contains any
+// glob-style pattern symbol.
+//
+// https://redis.io/commands/scan#the-match-option
+var globPattern = regexp.MustCompile(`[\?\*\[\]\^]+`)
+
 // getKeysFromPatterns does a SCAN for a key if the key contains pattern characters
 func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64) (expandedKeys []dbKeyPair, err error) {
 	expandedKeys = []dbKeyPair{}
 	for _, k := range keys {
-		if regexp.MustCompile(`[\?\*\[\]\^]+`).MatchString(k.key) {
+		if globPattern.MatchString(k.key) {
 			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
 				return expandedKeys, err
 			}
@@ -204,20 +210,14 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 		// We want to guarantee at the top level that invalid values
 		// will not fall into the final Redis call.
-		if db == "" && key == "" {
-			log.Debugf("parseKeyArg(): Got empty database and key, pair skipped")
-			continue
-		} else if db == "" || key == "" {
+		if db == "" || key == "" {
 			log.Errorf("parseKeyArg(): Empty value parsed in pair '%s=%s', skip", db, key)
 			continue
 		}
 
 		number, err := strconv.Atoi(db)
-		if err != nil {
-			return keys, fmt.Errorf("couldn't parse string \"%s\", invalid database index for db \"%s\": %s", k, db, err)
-		}
-		if number < 0 {
-			return keys, fmt.Errorf("db index '%s' should be an non-negative integer value in '%s'", db, k)
+		if err != nil || number < 0 {
+			return keys, fmt.Errorf("Invalid database index for db \"%s\": %s", db, err)
 		}
 
 		keys = append(keys, dbKeyPair{db, key})
@@ -227,14 +227,12 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 // scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
 // This function was adapted from: https://github.com/reisinger/examples-redigo
-func scanKeys(c redis.Conn, pattern string, count int64) ([]interface{}, error) {
-	iter := 0
-	var keys []interface{}
-
+func scanKeys(c redis.Conn, pattern string, count int64) (keys []interface{}, err error) {
 	if pattern == "" {
-		return keys, fmt.Errorf("Pattern shouldn't be empty, got: '%s'", pattern)
+		return keys, fmt.Errorf("Pattern shouldn't be empty")
 	}
 
+	iter := 0
 	for {
 		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern, "COUNT", count))
 		if err != nil {
