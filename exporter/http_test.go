@@ -207,6 +207,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
 		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
 
+		// tile38 needs to be last in this list so we can identify it when selected, down in line 229
 		os.Getenv("TEST_TILE38_URI"),
 	}
 
@@ -220,9 +221,16 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 			requests := 100
 			for ; requests > 0; requests-- {
 				v := url.Values{}
-				target := uris[rand.Intn(len(uris))]
+
+				uriIdx := rand.Intn(len(uris))
+				target := uris[uriIdx]
 				v.Add("target", target)
-				v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+
+				// not appending this param for Tile38
+				// Tile38 doesn't support the SELECT command so this test will fail and spam the logs
+				if uriIdx != len(uris)-1 {
+					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+				}
 				up, _ := url.Parse(ts.URL + "/scrape")
 				up.RawQuery = v.Encode()
 				fullURL := up.String()
