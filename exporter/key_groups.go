@@ -107,7 +107,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 			log.Errorf("Couldn't select database %d when getting key info.", db)
 			continue
 		}
-		allGroups, err := gatherKeyGroupMetrics(c, e.options.CheckKeyGroupsBatchSize, keyGroupsNoEmptyStrings)
+		allGroups, err := gatherKeyGroupMetrics(c, e.options.CheckKeysBatchSize, keyGroupsNoEmptyStrings)
 		if err != nil {
 			log.Error(err)
 			continue

@@ -15,6 +15,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// defaultCount is used for `SCAN whatever COUNT defaultCount` command
+const (
+	defaultCount int64 = 10
+	invalidCount int64 = 0
+)
+
 func TestKeyValuesAndSizes(t *testing.T) {
 	e, _ := NewRedisExporter(
 		os.Getenv("TEST_REDIS_URI"),
@@ -47,19 +53,141 @@ func TestKeyValuesAndSizes(t *testing.T) {
 }
 
 func TestParseKeyArg(t *testing.T) {
-	if parsed, err := parseKeyArg(""); len(parsed) != 0 || err != nil {
-		t.Errorf("Parsing an empty string into a keys arg should yield an empty slice")
-		return
-	}
+	for _, test := range []struct {
+		name          string
+		keyArgs       string
+		expected      []dbKeyPair
+		expectSuccess bool
+	}{
+		// positive tests
+		{"empty_args", "", []dbKeyPair{}, true},
+		{"default_database", "my-key", []dbKeyPair{{"0", "my-key"}}, true},
+		{"prefixed_database", "db0=my-key", []dbKeyPair{{"0", "my-key"}}, true},
+		{"indexed_database", "0=my-key", []dbKeyPair{{"0", "my-key"}}, true},
+		{"triple_key", "check-key-01", []dbKeyPair{{"0", "check-key-01"}}, true},
+		{
+			name:    "default_database_multiple_keys",
+			keyArgs: "my-key1,my-key2",
+			expected: []dbKeyPair{
+				{"0", "my-key1"},
+				{"0", "my-key2"},
+			},
+			expectSuccess: true,
+		},
+		{
+			name:    "key_with_leading_space",
+			keyArgs: "my-key-noSpace, my-key-withSpace",
+			expected: []dbKeyPair{
+				{"0", "my-key-noSpace"},
+				{"0", "my-key-withSpace"},
+			},
+			expectSuccess: true,
+		},
+		{
+			name:    "key_with_spaces",
+			keyArgs: "my-key-noSpace1, my-key-withSpaces ,my-key-noSpace2",
+			expected: []dbKeyPair{
+				{"0", "my-key-noSpace1"},
+				{"0", "my-key-withSpaces"},
+				{"0", "my-key-noSpace2"},
+			},
+			expectSuccess: true,
+		},
+		{
+			name:    "different_databases",
+			keyArgs: "db0=key1,db1=key1",
+			expected: []dbKeyPair{
+				{"0", "key1"},
+				{"1", "key1"},
+			},
+			expectSuccess: true,
+		},
+		{
+			name:    "dbdb_replace",
+			keyArgs: "dbdbdb0=key1,db1=key1",
+			expected: []dbKeyPair{
+				{"0", "key1"},
+				{"1", "key1"},
+			},
+			expectSuccess: true,
+		},
+		{
+			name:    "default_database_with_another",
+			keyArgs: "key1,db1=key1",
+			expected: []dbKeyPair{
+				{"0", "key1"},
+				{"1", "key1"},
+			},
+			expectSuccess: true,
+		},
+		{
+			"invalid_args_with_args_separator_skipped",
+			"=", []dbKeyPair{}, true,
+		},
+		{
+			"empty_args_with_comma_separators_skipped",
+			",,,my-key", []dbKeyPair{{"0", "my-key"}}, true,
+		},
+		{
+			"multiple_invalid_args_skipped",
+			"=,=,,0=my-key", []dbKeyPair{{"0", "my-key"}}, true,
+		},
+		{
+			"empty_key_with_args_separator_skipped",
+			"0=", []dbKeyPair{}, true,
+		},
+		{
+			"empty_database_with_args_separator_skipped",
+			"=my-key", []dbKeyPair{}, true,
+		},
+		// negative tests
+		{
+			"string_database_index",
+			"wrong=my-key", []dbKeyPair{}, false,
+		},
+		{
+			"prefixed_string_database_index",
+			"dbwrong=my-key", []dbKeyPair{}, false,
+		},
+		{
+			"wrong_args_count",
+			"wrong=wrong=wrong", []dbKeyPair{}, false,
+		},
+		{
+			"wrong_args",
+			"wrong=wrong=1", []dbKeyPair{}, false,
+		},
+		{
+			"negative_database_index",
+			"db-1=my-key", []dbKeyPair{}, false,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			parsed, err := parseKeyArg(test.keyArgs)
+			if test.expectSuccess && err != nil {
+				t.Errorf("Expected success for test: %s, got err: %s", test.name, err)
+				return
+			}
+			if len(parsed) != len(test.expected) {
+				t.Errorf("Parsed elements count don't match expected: parsed %d; expected %d", len(parsed), len(test.expected))
+				return
+			}
+			for i, pair := range test.expected {
+				if pair != parsed[i] {
+					t.Errorf("Parsed elements don't match expected dbKeyPair:\n parsed %#v;\nexpected %#v", parsed[i], pair)
+					return
+				}
+			}
 
-	if parsed, err := parseKeyArg("my-key"); err != nil || len(parsed) != 1 || parsed[0].db != "0" || parsed[0].key != "my-key" {
-		t.Errorf("Expected DB: 0 and key: my-key, got: %#v", parsed[0])
-		return
-	}
-
-	if _, err := parseKeyArg("wrong=wrong=wrong"); err == nil {
-		t.Errorf("Expected an error")
-		return
+			if !test.expectSuccess && err == nil {
+				t.Errorf("Expected failure for test: %s, got no err", test.name)
+				return
+			}
+			if !test.expectSuccess && err != nil {
+				t.Logf("Expected failure for test: %s, got err: %s", test.name, err)
+				return
+			}
+		})
 	}
 }
 
@@ -90,7 +218,7 @@ func deleteKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	}
 }
 
-func TestScanForKeys(t *testing.T) {
+func TestScanKeys(t *testing.T) {
 	numKeys := 1000
 	fixtures := []keyFixture{}
 
@@ -125,7 +253,7 @@ func TestScanForKeys(t *testing.T) {
 
 	createKeyFixtures(t, c, fixtures)
 
-	matches, err := scanForKeys(c, "get_keys_test_*shouldmatch*")
+	matches, err := redis.Strings(scanKeys(c, "get_keys_test_*shouldmatch*", defaultCount))
 	if err != nil {
 		t.Errorf("Error getting keys matching a pattern: %#v", err)
 	}
@@ -140,12 +268,33 @@ func TestScanForKeys(t *testing.T) {
 			t.Errorf("Expected match to have prefix: get_keys_test_shouldmatch")
 		}
 	}
+
+	// Test expected errors separately
+	invalidFixtures := map[string]int64{
+		// empty string is a string after all
+		"":        100,
+		"pattern": invalidCount,
+	}
+	for pattern, count := range invalidFixtures {
+		got, err := redis.Strings(scanKeys(c, pattern, count))
+		if err != nil {
+			t.Logf("\"Passed\" expected, got error: %#v", err)
+			if pattern == "" && err.Error() != "Pattern shouldn't be empty" {
+				t.Errorf("\"Empty pattern\" error message expected, but got: %s", err.Error())
+			}
+		} else {
+			if len(got) >= 0 {
+				t.Errorf("Error expected, got valid response: %#v", got)
+			}
+		}
+	}
 }
 
 func TestGetKeysFromPatterns(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	dbMain := dbNumStr
 	dbAlt := altDBNumStr
+	dbInvalid := invalidDBNumStr
 
 	dbMainFixtures := []keyFixture{
 		newKeyFixture("SET", "dbMainNoPattern1", "woohoo!"),
@@ -164,6 +313,9 @@ func TestGetKeysFromPatterns(t *testing.T) {
 		{db: dbMain, key: "*SomePattern*"},
 		{db: dbAlt, key: "dbAltNoPattern1"},
 		{db: dbAlt, key: "*SomePattern*"},
+	}
+	invalidKeys := []dbKeyPair{
+		{db: dbInvalid, key: "someUnusedPattern*"},
 	}
 
 	c, err := redis.DialURL(addr)
@@ -198,7 +350,7 @@ func TestGetKeysFromPatterns(t *testing.T) {
 	}
 	createKeyFixtures(t, c, dbAltFixtures)
 
-	expandedKeys, err := getKeysFromPatterns(c, keys)
+	expandedKeys, err := getKeysFromPatterns(c, keys, defaultCount)
 	if err != nil {
 		t.Errorf("Error getting keys from patterns: %#v", err)
 	}
@@ -223,6 +375,16 @@ func TestGetKeysFromPatterns(t *testing.T) {
 	if !reflect.DeepEqual(expectedKeys, expandedKeys) {
 		t.Errorf("When expanding keys:\nexpected: %#v\nactual:   %#v", expectedKeys, expandedKeys)
 	}
+
+	got, err := getKeysFromPatterns(c, invalidKeys, defaultCount)
+	if err != nil {
+		t.Logf("Expected error - \"invalid DB\": %#v", err)
+	} else {
+		if len(got) != 0 {
+			t.Errorf("Error expected with invalid database %#v, got valid response: %#v", invalidKeys, got)
+		}
+	}
+
 }
 
 func TestGetKeyInfo(t *testing.T) {
@@ -396,5 +558,59 @@ func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, `test_key_size{db="db0",key="single"} 0`) {
 		t.Errorf("Expected metric `test_key_size` with key=`single` and value 0 but got:\n%s", body)
+	}
+}
+
+func TestGetKeysCount(t *testing.T) {
+	addr := os.Getenv("TEST_REDIS_URI")
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		{"SET", "count_test:keys_count_test_string1", []interface{}{"Woohoo!"}},
+		{"SET", "count_test:keys_count_test_string2", []interface{}{"!oohooW"}},
+		{"LPUSH", "count_test:keys_count_test_list1", []interface{}{"listval1", "listval2", "listval3"}},
+		{"LPUSH", "count_test:keys_count_test_list2", []interface{}{"listval1", "listval2", "listval3"}},
+		{"LPUSH", "count_test:keys_count_test_list3", []interface{}{"listval1", "listval2", "listval3"}},
+	}
+
+	createKeyFixtures(t, c, fixtures)
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	expectedCount := map[string]int{
+		"count_test:keys_count_test_string*": 2,
+		"count_test:keys_count_test_list*":   3,
+		"count_test:*":                       5,
+	}
+
+	for pattern, count := range expectedCount {
+		actualCount, err := getKeysCount(c, pattern, defaultCount)
+		if err != nil {
+			t.Errorf("Error getting count for pattern \"%#v\"", pattern)
+		}
+
+		if actualCount != count {
+			t.Errorf("Wrong count for pattern \"%#v\". Expected: %#v; Actual: %#v", pattern, count, actualCount)
+		}
+	}
+
+	got, err := getKeysCount(c, "pattern", invalidCount)
+	if err != nil {
+		t.Logf("Expected error - \"error retrieving keys\": %#v", err)
+	} else {
+		if got >= 0 {
+			t.Errorf("Error expected with invalidCount option \"%#v\", got valid response: %#v", invalidCount, got)
+		}
 	}
 }

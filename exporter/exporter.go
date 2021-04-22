@@ -47,34 +47,34 @@ type Exporter struct {
 }
 
 type Options struct {
-	User                    string
-	Password                string
-	Namespace               string
-	PasswordMap             map[string]string
-	ConfigCommandName       string
-	CheckSingleKeys         string
-	CheckStreams            string
-	CheckSingleStreams      string
-	CheckKeys               string
-	CheckKeyGroups          string
-	CheckKeyGroupsBatchSize int64
-	MaxDistinctKeyGroups    int64
-	CountKeys               string
-	LuaScript               []byte
-	ClientCertificates      []tls.Certificate
-	CaCertificates          *x509.CertPool
-	InclSystemMetrics       bool
-	SkipTLSVerification     bool
-	SetClientName           bool
-	IsTile38                bool
-	ExportClientList        bool
-	ExportClientsInclPort   bool
-	ConnectionTimeouts      time.Duration
-	MetricsPath             string
-	RedisMetricsOnly        bool
-	PingOnConnect           bool
-	Registry                *prometheus.Registry
-	BuildInfo               BuildInfo
+	User                  string
+	Password              string
+	Namespace             string
+	PasswordMap           map[string]string
+	ConfigCommandName     string
+	CheckKeys             string
+	CheckSingleKeys       string
+	CheckStreams          string
+	CheckSingleStreams    string
+	CheckKeysBatchSize    int64
+	CheckKeyGroups        string
+	MaxDistinctKeyGroups  int64
+	CountKeys             string
+	LuaScript             []byte
+	ClientCertificates    []tls.Certificate
+	CaCertificates        *x509.CertPool
+	InclSystemMetrics     bool
+	SkipTLSVerification   bool
+	SetClientName         bool
+	IsTile38              bool
+	ExportClientList      bool
+	ExportClientsInclPort bool
+	ConnectionTimeouts    time.Duration
+	MetricsPath           string
+	RedisMetricsOnly      bool
+	PingOnConnect         bool
+	Registry              *prometheus.Registry
+	BuildInfo             BuildInfo
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
