@@ -68,6 +68,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 		{name: "scrape-target-no-prefix", pwd: "", scrape: true, target: strings.TrimPrefix(os.Getenv("TEST_REDIS_URI"), "redis://"), ck: csk, cs: css, cntk: cntk},
 		{name: "scrape-broken-target", wantStatusCode: http.StatusBadRequest, scrape: true, target: "://nope"},
+		{name: "scrape-broken-target2", wantStatusCode: http.StatusBadRequest, scrape: true, target: os.Getenv("TEST_REDIS_URI") + "-", csk: csk, css: css, cntk: cntk},
 		{name: "scrape-broken-cs", wantStatusCode: http.StatusBadRequest, scrape: true, target: os.Getenv("TEST_REDIS_URI"), scrapeCs: "1=2=3=4"},
 
 		{name: "scrape-ck", pwd: "", scrape: true, target: os.Getenv("TEST_REDIS_URI"), ck: csk, scrapeCs: css, cntk: cntk},
@@ -204,10 +205,10 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		os.Getenv("TEST_REDIS5_URI"),
 		os.Getenv("TEST_REDIS6_URI"),
 
+
+		// tile38 & Cluster need to be last in this list so we can identify them when selected, down in line 229
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
 		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
-
-		// tile38 needs to be last in this list so we can identify it when selected, down in line 229
 		os.Getenv("TEST_TILE38_URI"),
 	}
 
@@ -226,9 +227,9 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 				target := uris[uriIdx]
 				v.Add("target", target)
 
-				// not appending this param for Tile38
-				// Tile38 doesn't support the SELECT command so this test will fail and spam the logs
-				if uriIdx != len(uris)-1 {
+				// not appending this param for Tile38 and cluster (the last two in the list)
+				// Tile38 & cluster don't support the SELECT command so this test will fail and spam the logs
+				if uriIdx < len(uris)-3 {
 					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
 				}
 				up, _ := url.Parse(ts.URL + "/scrape")
