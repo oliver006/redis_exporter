@@ -528,7 +528,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
-	if err != nil {
+	if err != nil || infoAll == "" {
 		log.Debugf("Redis INFO ALL err: %s", err)
 		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
