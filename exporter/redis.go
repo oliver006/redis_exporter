@@ -38,47 +38,6 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
-	isCluster := e.options.IsCluster
-
-	if isCluster {
-
-		if strings.Contains(uri, "://") {
-			url, _ := url.Parse(uri)
-			if url.Port() == "" {
-				uri = url.Host + ":6379"
-			} else {
-				uri = url.Host
-			}
-		} else {
-			if frags := strings.Split(uri, ":"); len(frags) != 2 {
-				uri = uri + ":6379"
-			}
-		}
-
-		log.Debugf("Creating cluster object")
-		cluster := redisc.Cluster{
-			StartupNodes: []string{uri},
-			DialOptions:  options,
-		}
-		log.Debugf("Running refresh on cluster object")
-		if err := cluster.Refresh(); err == nil {
-			isCluster = true
-		}
-
-		log.Debugf("Creating redis connection object")
-		conn, err := cluster.Dial()
-		if err != nil {
-			log.Debugf("Dial failed: %v", err)
-		}
-
-		c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
-		if err != nil {
-			log.Debugf("RetryConn failed: %v", err)
-		}
-
-		return c, err
-	}
-
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
 	}
@@ -94,6 +53,70 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 			c, err = redis.Dial("tcp", e.redisAddr, options...)
 		}
 	}
+	return c, err
+}
+
+func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
+	options := []redis.DialOption{
+		redis.DialConnectTimeout(e.options.ConnectionTimeouts),
+		redis.DialReadTimeout(e.options.ConnectionTimeouts),
+		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
+
+		redis.DialTLSConfig(&tls.Config{
+			InsecureSkipVerify: e.options.SkipTLSVerification,
+			Certificates:       e.options.ClientCertificates,
+			RootCAs:            e.options.CaCertificates,
+		}),
+	}
+
+	if e.options.User != "" {
+		options = append(options, redis.DialUsername(e.options.User))
+	}
+
+	if e.options.Password != "" {
+		options = append(options, redis.DialPassword(e.options.Password))
+	}
+
+	uri := e.redisAddr
+
+	if e.options.PasswordMap[uri] != "" {
+		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	}
+
+	if strings.Contains(uri, "://") {
+		url, _ := url.Parse(uri)
+		if url.Port() == "" {
+			uri = url.Host + ":6379"
+		} else {
+			uri = url.Host
+		}
+	} else {
+		if frags := strings.Split(uri, ":"); len(frags) != 2 {
+			uri = uri + ":6379"
+		}
+	}
+
+	log.Debugf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{uri},
+		DialOptions:  options,
+	}
+	log.Debugf("Running refresh on cluster object")
+	if err := cluster.Refresh(); err != nil {
+		log.Debugf("Cluster refresh failed: %v", err)
+	}
+
+	log.Debugf("Creating redis connection object")
+	conn, err := cluster.Dial()
+	if err != nil {
+		log.Debugf("Dial failed: %v", err)
+	}
+
+	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Debugf("RetryConn failed: %v", err)
+	}
+
 	return c, err
 }
 
