@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -273,34 +274,47 @@ func (e *Exporter) handleMetricsServer(ch chan<- prometheus.Metric, fieldKey str
 	}
 }
 
-func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
+func parseMetricsCommandStats(fieldKey string, fieldValue string) (string, float64, float64, error) {
 	/*
 		Format:
 		cmdstat_get:calls=21,usec=175,usec_per_call=8.33
 		cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
 		cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
+		cmdstat_georadius_ro:calls=75,usec=1260,usec_per_call=16.80
+
+		broken up like this:
+			fieldKey  = cmdstat_get
+			fieldValue= calls=21,usec=175,usec_per_call=8.33
 	*/
-	splitKey := strings.Split(fieldKey, "_")
-	if len(splitKey) != 2 {
-		return
+
+	const cmdPrefix = "cmdstat_"
+
+	if !strings.HasPrefix(fieldKey, cmdPrefix) {
+		return "", 0.0, 0.0, errors.New("Invalid fieldKey")
 	}
+	cmd := strings.TrimPrefix(fieldKey, cmdPrefix)
 
 	splitValue := strings.Split(fieldValue, ",")
 	if len(splitValue) < 3 {
-		return
+		return "", 0.0, 0.0, errors.New("Invalid fieldValue")
 	}
 
-	var calls float64
-	var usecTotal float64
-	var err error
-	if calls, err = extractVal(splitValue[0]); err != nil {
-		return
-	}
-	if usecTotal, err = extractVal(splitValue[1]); err != nil {
-		return
+	calls, err := extractVal(splitValue[0])
+	if err != nil {
+		return "", 0.0, 0.0, errors.New("Invalid splitValue[0]")
 	}
 
-	cmd := splitKey[1]
-	e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
-	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
+	usecTotal, err := extractVal(splitValue[1])
+	if err != nil {
+		return "", 0.0, 0.0, errors.New("Invalid splitValue[1]")
+	}
+
+	return cmd, calls, usecTotal, nil
+}
+
+func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
+	if cmd, calls, usecTotal, err := parseMetricsCommandStats(fieldKey, fieldValue); err == nil {
+		e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
+		e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
+	}
 }

@@ -109,11 +109,11 @@ func TestExtractSentinelMetricsForRedis(t *testing.T) {
 		Options{Namespace: "test"},
 	)
 	c, err := redis.DialURL(addr)
-	defer c.Close()
-
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
+	defer c.Close()
+
 	chM := make(chan prometheus.Metric)
 	go func() {
 		e.extractSentinelMetrics(chM, c)

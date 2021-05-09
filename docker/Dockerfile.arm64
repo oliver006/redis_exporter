@@ -1,7 +1,7 @@
 #
 # build container
 #
-FROM golang:1.15-alpine as builder
+FROM golang:1.16-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD .  /go/src/github.com/oliver006/redis_exporter/
@@ -24,6 +24,9 @@ FROM arm64v8/alpine:3.6 as alpine-arm64
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+
+# Run as non-root user for secure environments
+USER 59000:59000
 
 EXPOSE     9121
 ENTRYPOINT [ "/redis_exporter" ]

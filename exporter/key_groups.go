@@ -73,8 +73,8 @@ func (e *Exporter) extractKeyGroupMetrics(ch chan<- prometheus.Metric, c redis.C
 func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount int) *keyGroupsScrapeResult {
 	start := time.Now()
 	allMetrics := &keyGroupsScrapeResult{
-		metrics:           make([]map[string]*keyGroupMetrics, dbCount, dbCount),
-		overflowedMetrics: make([]*overflowedKeyGroupMetrics, dbCount, dbCount),
+		metrics:           make([]map[string]*keyGroupMetrics, dbCount),
+		overflowedMetrics: make([]*overflowedKeyGroupMetrics, dbCount),
 	}
 	defer func() {
 		allMetrics.duration = time.Since(start)
@@ -107,7 +107,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 			log.Errorf("Couldn't select database %d when getting key info.", db)
 			continue
 		}
-		allGroups, err := gatherKeyGroupMetrics(c, e.options.CheckKeyGroupsBatchSize, keyGroupsNoEmptyStrings)
+		allGroups, err := gatherKeyGroupMetrics(c, e.options.CheckKeysBatchSize, keyGroupsNoEmptyStrings)
 		if err != nil {
 			log.Error(err)
 			continue

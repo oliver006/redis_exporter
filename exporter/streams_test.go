@@ -13,7 +13,6 @@ import (
 type scanStreamFixture struct {
 	name       string
 	stream     string
-	pass       bool
 	streamInfo streamInfo
 	groups     []streamGroupsInfo
 	consumers  []streamGroupConsumersInfo
@@ -33,8 +32,7 @@ func TestGetStreamInfo(t *testing.T) {
 	setupDBKeys(t, addr)
 	defer deleteKeysFromDB(t, addr)
 
-	_, err = c.Do("SELECT", dbNumStr)
-	if err != nil {
+	if _, err = c.Do("SELECT", dbNumStr); err != nil {
 		t.Errorf("Couldn't select database %#v", dbNumStr)
 	}
 
@@ -42,7 +40,6 @@ func TestGetStreamInfo(t *testing.T) {
 		{
 			name:   "Stream test",
 			stream: TestStreamName,
-			pass:   true,
 			streamInfo: streamInfo{
 				Length:         2,
 				RadixTreeKeys:  1,
@@ -86,8 +83,8 @@ func TestScanStreamGroups(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
-	_, err = c.Do("SELECT", db)
-	if err != nil {
+
+	if _, err = c.Do("SELECT", db); err != nil {
 		t.Errorf("Couldn't select database %#v", db)
 	}
 
@@ -96,9 +93,9 @@ func TestScanStreamGroups(t *testing.T) {
 		{"XADD", "test_stream_2", []interface{}{"*", "field_pattern_1", "str_pattern_1"}},
 	}
 	// Create test streams
-	_, err = c.Do("XGROUP", "CREATE", "test_stream_1", "test_group_1", "$", "MKSTREAM")
-	_, err = c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_1", "$", "MKSTREAM")
-	_, err = c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_2", "$")
+	c.Do("XGROUP", "CREATE", "test_stream_1", "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_2", "$")
 	// Add simple values
 	createKeyFixtures(t, c, fixtures)
 	defer func() {
@@ -106,9 +103,9 @@ func TestScanStreamGroups(t *testing.T) {
 		c.Close()
 	}()
 	// Process messages to assign Consumers to their groups
-	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_1", ">")
-	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_2", ">")
-	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "test_stream_2", "0")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_1", ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_2", ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "test_stream_2", "0")
 
 	tsts := []scanStreamFixture{
 		{
@@ -181,8 +178,8 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
-	_, err = c.Do("SELECT", db)
-	if err != nil {
+
+	if _, err = c.Do("SELECT", db); err != nil {
 		t.Errorf("Couldn't select database %#v", db)
 	}
 
@@ -191,8 +188,8 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 		{"XADD", "multiple_consumer_stream", []interface{}{"*", "field_pattern_1", "str_pattern_1"}},
 	}
 	// Create test streams
-	_, err = c.Do("XGROUP", "CREATE", "single_consumer_stream", "test_group_1", "$", "MKSTREAM")
-	_, err = c.Do("XGROUP", "CREATE", "multiple_consumer_stream", "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", "single_consumer_stream", "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", "multiple_consumer_stream", "test_group_1", "$", "MKSTREAM")
 	// Add simple test items to streams
 	createKeyFixtures(t, c, fixtures)
 	defer func() {
@@ -200,9 +197,9 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 		c.Close()
 	}()
 	// Process messages to assign Consumers to their groups
-	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "single_consumer_stream", ">")
-	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "multiple_consumer_stream", ">")
-	_, err = c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "multiple_consumer_stream", "0")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "single_consumer_stream", ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "multiple_consumer_stream", ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "multiple_consumer_stream", "0")
 
 	tsts := []scanStreamFixture{
 		{

@@ -33,18 +33,33 @@ func TestTile38(t *testing.T) {
 			close(chM)
 		}()
 
-		found := false
-		want := "tile38_threads_total"
+		wantedMetrics := map[string]bool{
+			"tile38_threads_total":       false,
+			"tile38_cpus_total":          false,
+			"tile38_go_goroutines_total": false,
+			"tile38_avg_item_size_bytes": false,
+		}
+
 		for m := range chM {
-			if strings.Contains(m.Desc().String(), want) {
-				found = true
+			for want := range wantedMetrics {
+				if strings.Contains(m.Desc().String(), want) {
+					wantedMetrics[want] = true
+				}
 			}
 		}
 
-		if tst.wantTile38Metrics && !found {
-			t.Errorf("%s was *not* found in tile38 metrics but expected", want)
-		} else if !tst.wantTile38Metrics && found {
-			t.Errorf("%s was *found* in tile38 metrics but *not* expected", want)
+		if tst.wantTile38Metrics {
+			for want, found := range wantedMetrics {
+				if !found {
+					t.Errorf("%s was *not* found in tile38 metrics but expected", want)
+				}
+			}
+		} else if !tst.wantTile38Metrics {
+			for want, found := range wantedMetrics {
+				if found {
+					t.Errorf("%s was *found* in tile38 metrics but *not* expected", want)
+				}
+			}
 		}
 	}
 }

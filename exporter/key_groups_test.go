@@ -107,10 +107,10 @@ func TestKeyGroupMetrics(t *testing.T) {
 			e, _ := NewRedisExporter(
 				addr,
 				Options{
-					Namespace:               "test",
-					CheckKeyGroups:          tst.checkKeyGroups,
-					CheckKeyGroupsBatchSize: 1000,
-					MaxDistinctKeyGroups:    tst.maxDistinctKeyGroups,
+					Namespace:            "test",
+					CheckKeyGroups:       tst.checkKeyGroups,
+					CheckKeysBatchSize:   1000,
+					MaxDistinctKeyGroups: tst.maxDistinctKeyGroups,
 				},
 			)
 			for {

@@ -35,9 +35,10 @@ var (
 	listKeys     = []string{}
 	ts           = int32(time.Now().Unix())
 
-	dbNumStr     = "11"
-	altDBNumStr  = "12"
-	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
+	dbNumStr        = "11"
+	altDBNumStr     = "12"
+	invalidDBNumStr = "16"
+	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
 )
 
 const (
@@ -227,8 +228,8 @@ func TestKeysReset(t *testing.T) {
 	deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
 	body = downloadURL(t, ts.URL+"/metrics")
-	if strings.Contains(body, keys[0]) {
-		t.Errorf("Metric is present in metrics list %q\n%s", keys[0], body)
+	if !strings.Contains(body, keys[0]) {
+		t.Errorf("Key %q (from check-single-keys) should be available in metrics with default value 0\n%s", keys[0], body)
 	}
 }
 
