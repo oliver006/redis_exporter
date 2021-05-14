@@ -33,13 +33,13 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	}
 
 	uri := e.redisAddr
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+	log.Debugf("Trying DialURL(): %s", uri)
 
 	if e.options.PasswordMap[uri] != "" {
 		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
-	}
-
-	if !strings.Contains(uri, "://") {
-		uri = "redis://" + uri
 	}
 
 	c, err := redis.DialURL(uri, options...)
@@ -78,11 +78,6 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	}
 
 	uri := e.redisAddr
-
-	if e.options.PasswordMap[uri] != "" {
-		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
-	}
-
 	if strings.Contains(uri, "://") {
 		url, _ := url.Parse(uri)
 		if url.Port() == "" {
@@ -94,6 +89,11 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		if frags := strings.Split(uri, ":"); len(frags) != 2 {
 			uri = uri + ":6379"
 		}
+	}
+	log.Debugf("Trying DialURL(): %s", uri)
+
+	if e.options.PasswordMap[uri] != "" {
+		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
 	log.Debugf("Creating cluster object")
