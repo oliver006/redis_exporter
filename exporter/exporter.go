@@ -47,7 +47,6 @@ type Exporter struct {
 }
 
 type Options struct {
-
 	User                  string
 	Password              string
 	Namespace             string
@@ -77,7 +76,6 @@ type Options struct {
 	PingOnConnect         bool
 	Registry              *prometheus.Registry
 	BuildInfo             BuildInfo
-
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
