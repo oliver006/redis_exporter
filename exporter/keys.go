@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
@@ -65,56 +66,6 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	return info, err
 }
 
-// scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
-// This function was adapted from: https://github.com/reisinger/examples-redigo
-func scanForKeys(c redis.Conn, pattern string) ([]string, error) {
-	iter := 0
-	keys := []string{}
-
-	for {
-		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern))
-		if err != nil {
-			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
-		}
-		if len(arr) != 2 {
-			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
-		}
-
-		k, _ := redis.Strings(arr[1], nil)
-		keys = append(keys, k...)
-
-		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
-			break
-		}
-	}
-
-	return keys, nil
-}
-
-// getKeysFromPatterns does a SCAN for a key if the key contains pattern characters
-func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair) (expandedKeys []dbKeyPair, err error) {
-	expandedKeys = []dbKeyPair{}
-	for _, k := range keys {
-		if regexp.MustCompile(`[\?\*\[\]\^]+`).MatchString(k.key) {
-			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-				return expandedKeys, err
-			}
-			keyNames, err := scanForKeys(c, k.key)
-			if err != nil {
-				log.Errorf("error with SCAN for pattern: %#v err: %s", k.key, err)
-				continue
-			}
-			for _, keyName := range keyNames {
-				expandedKeys = append(expandedKeys, dbKeyPair{db: k.db, key: keyName})
-			}
-		} else {
-			expandedKeys = append(expandedKeys, k)
-		}
-	}
-
-	return expandedKeys, err
-}
-
 func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	keys, err := parseKeyArg(e.options.CheckKeys)
 	if err != nil {
@@ -133,7 +84,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	allKeys := append([]dbKeyPair{}, singleKeys...)
 
 	log.Debugf("e.keys: %#v", keys)
-	scannedKeys, err := getKeysFromPatterns(c, keys)
+	scannedKeys, err := getKeysFromPatterns(c, keys, e.options.CheckKeysBatchSize)
 	if err != nil {
 		log.Errorf("Error expanding key patterns: %#v", err)
 	} else {
@@ -143,7 +94,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	log.Debugf("allKeys: %#v", allKeys)
 	for _, k := range allKeys {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Debugf("Couldn't select database %#v when getting key info.", k.db)
+			log.Errorf("Couldn't select database %#v when getting key info.", k.db)
 			continue
 		}
 
@@ -175,10 +126,10 @@ func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.
 
 	for _, k := range cntKeys {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Debugf("Couldn't select database '%s' when getting stream info", k.db)
+			log.Errorf("Couldn't select database '%s' when getting stream info", k.db)
 			continue
 		}
-		cnt, err := scanForKeyCount(c, k.key)
+		cnt, err := getKeysCount(c, k.key, e.options.CheckKeysBatchSize)
 		if err != nil {
 			log.Errorf("couldn't get key count for '%s', err: %s", k.key, err)
 			continue
@@ -188,38 +139,60 @@ func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.
 	}
 }
 
-func scanForKeyCount(c redis.Conn, pattern string) (int, error) {
-	iter := 0
-	keys := 0
+func getKeysCount(c redis.Conn, pattern string, count int64) (int, error) {
+	keysCount := 0
 
-	for {
-		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern))
-		if err != nil {
-			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
-		}
-		if len(arr) != 2 {
-			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
-		}
+	keys, err := scanKeys(c, pattern, count)
+	if err != nil {
+		return keysCount, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
+	}
+	keysCount = len(keys)
 
-		k, _ := redis.Values(arr[1], nil)
-		keys += len(k)
+	return keysCount, nil
+}
 
-		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
-			break
+// Regexp pattern to check if given key contains any
+// glob-style pattern symbol.
+//
+// https://redis.io/commands/scan#the-match-option
+var globPattern = regexp.MustCompile(`[\?\*\[\]\^]+`)
+
+// getKeysFromPatterns does a SCAN for a key if the key contains pattern characters
+func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64) (expandedKeys []dbKeyPair, err error) {
+	expandedKeys = []dbKeyPair{}
+	for _, k := range keys {
+		if globPattern.MatchString(k.key) {
+			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+				return expandedKeys, err
+			}
+			keyNames, err := redis.Strings(scanKeys(c, k.key, count))
+			if err != nil {
+				log.Errorf("error with SCAN for pattern: %#v err: %s", k.key, err)
+				continue
+			}
+			for _, keyName := range keyNames {
+				expandedKeys = append(expandedKeys, dbKeyPair{db: k.db, key: keyName})
+			}
+		} else {
+			expandedKeys = append(expandedKeys, k)
 		}
 	}
 
-	return keys, nil
+	return expandedKeys, err
 }
 
-// splitKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
+// parseKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
 func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 	if keysArgString == "" {
+		log.Debugf("parseKeyArg(): Got empty key arguments, parsing skipped")
 		return keys, err
 	}
 	for _, k := range strings.Split(keysArgString, ",") {
 		var db string
 		var key string
+		if k == "" {
+			continue
+		}
 		frags := strings.Split(k, "=")
 		switch len(frags) {
 		case 1:
@@ -235,7 +208,47 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 			return keys, fmt.Errorf("couldn't parse db/key string: %s", k)
 		}
 
+		// We want to guarantee at the top level that invalid values
+		// will not fall into the final Redis call.
+		if db == "" || key == "" {
+			log.Errorf("parseKeyArg(): Empty value parsed in pair '%s=%s', skip", db, key)
+			continue
+		}
+
+		number, err := strconv.Atoi(db)
+		if err != nil || number < 0 {
+			return keys, fmt.Errorf("Invalid database index for db \"%s\": %s", db, err)
+		}
+
 		keys = append(keys, dbKeyPair{db, key})
 	}
 	return keys, err
+}
+
+// scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
+// This function was adapted from: https://github.com/reisinger/examples-redigo
+func scanKeys(c redis.Conn, pattern string, count int64) (keys []interface{}, err error) {
+	if pattern == "" {
+		return keys, fmt.Errorf("Pattern shouldn't be empty")
+	}
+
+	iter := 0
+	for {
+		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern, "COUNT", count))
+		if err != nil {
+			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
+		}
+		if len(arr) != 2 {
+			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
+		}
+
+		k, _ := redis.Values(arr[1], nil)
+		keys = append(keys, k...)
+
+		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
+			break
+		}
+	}
+
+	return keys, nil
 }

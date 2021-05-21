@@ -23,6 +23,7 @@ FROM scratch as scratch
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+COPY --from=builder /etc/nsswitch.conf /etc/nsswitch.conf
 
 # Run as non-root user for secure environments
 USER 59000:59000
@@ -38,6 +39,9 @@ FROM alpine as alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+
+# Run as non-root user for secure environments
+USER 59000:59000
 
 EXPOSE     9121
 ENTRYPOINT [ "/redis_exporter" ]

@@ -158,7 +158,7 @@ steps:
         - pull_request
         - push
     depends_on:
-      - start
+      - build-binaries
 
 
   - name: mixins

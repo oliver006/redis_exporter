@@ -35,9 +35,10 @@ var (
 	listKeys     = []string{}
 	ts           = int32(time.Now().Unix())
 
-	dbNumStr     = "11"
-	altDBNumStr  = "12"
-	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
+	dbNumStr        = "11"
+	altDBNumStr     = "12"
+	invalidDBNumStr = "16"
+	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
 )
 
 const (

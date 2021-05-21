@@ -180,3 +180,90 @@ func TestClusterSlave(t *testing.T) {
 		}
 	}
 }
+
+func TestParseCommandStats(t *testing.T) {
+
+	for _, tst := range []struct {
+		fieldKey   string
+		fieldValue string
+
+		wantSuccess   bool
+		wantCmd       string
+		wantCalls     float64
+		wantUsecTotal float64
+	}{
+		{
+			fieldKey:      "cmdstat_get",
+			fieldValue:    "calls=21,usec=175,usec_per_call=8.33",
+			wantSuccess:   true,
+			wantCmd:       "get",
+			wantCalls:     21,
+			wantUsecTotal: 175,
+		},
+		{
+			fieldKey:      "cmdstat_georadius_ro",
+			fieldValue:    "calls=75,usec=1260,usec_per_call=16.80",
+			wantSuccess:   true,
+			wantCmd:       "georadius_ro",
+			wantCalls:     75,
+			wantUsecTotal: 1260,
+		},
+		{
+			fieldKey:    "borked_stats",
+			fieldValue:  "calls=75,usec=1260,usec_per_call=16.80",
+			wantSuccess: false,
+		},
+		{
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "borked_values",
+			wantSuccess: false,
+		},
+
+		{
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "usec_per_call=16.80",
+			wantSuccess: false,
+		},
+		{
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "calls=ABC,usec=1260,usec_per_call=16.80",
+			wantSuccess: false,
+		},
+		{
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "calls=75,usec=DEF,usec_per_call=16.80",
+			wantSuccess: false,
+		},
+	} {
+		t.Run(tst.fieldKey+tst.fieldValue, func(t *testing.T) {
+
+			cmd, calls, usecTotal, err := parseMetricsCommandStats(tst.fieldKey, tst.fieldValue)
+
+			if tst.wantSuccess && err != nil {
+				t.Fatalf("err: %s", err)
+				return
+			}
+
+			if !tst.wantSuccess && err == nil {
+				t.Fatalf("expected err!")
+				return
+			}
+
+			if !tst.wantSuccess {
+				return
+			}
+
+			if cmd != tst.wantCmd {
+				t.Fatalf("cmd not matching, got: %s, wanted: %s", cmd, tst.wantCmd)
+			}
+
+			if calls != tst.wantCalls {
+				t.Fatalf("cmd not matching, got: %f, wanted: %f", calls, tst.wantCalls)
+			}
+			if usecTotal != tst.wantUsecTotal {
+				t.Fatalf("cmd not matching, got: %f, wanted: %f", usecTotal, tst.wantUsecTotal)
+			}
+		})
+	}
+
+}

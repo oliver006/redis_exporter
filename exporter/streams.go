@@ -125,7 +125,7 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 	}
 	allStreams := append([]dbKeyPair{}, singleStreams...)
 
-	scannedStreams, err := getKeysFromPatterns(c, streams)
+	scannedStreams, err := getKeysFromPatterns(c, streams, e.options.CheckKeysBatchSize)
 	if err != nil {
 		log.Errorf("Error expanding key patterns: %s", err)
 	} else {

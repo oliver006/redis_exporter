@@ -47,34 +47,34 @@ type Exporter struct {
 }
 
 type Options struct {
-	User                    string
-	Password                string
-	Namespace               string
-	PasswordMap             map[string]string
-	ConfigCommandName       string
-	CheckSingleKeys         string
-	CheckStreams            string
-	CheckSingleStreams      string
-	CheckKeys               string
-	CheckKeyGroups          string
-	CheckKeyGroupsBatchSize int64
-	MaxDistinctKeyGroups    int64
-	CountKeys               string
-	LuaScript               []byte
-	ClientCertificates      []tls.Certificate
-	CaCertificates          *x509.CertPool
-	InclSystemMetrics       bool
-	SkipTLSVerification     bool
-	SetClientName           bool
-	IsTile38                bool
-	ExportClientList        bool
-	ExportClientsInclPort   bool
-	ConnectionTimeouts      time.Duration
-	MetricsPath             string
-	RedisMetricsOnly        bool
-	PingOnConnect           bool
-	Registry                *prometheus.Registry
-	BuildInfo               BuildInfo
+	User                  string
+	Password              string
+	Namespace             string
+	PasswordMap           map[string]string
+	ConfigCommandName     string
+	CheckKeys             string
+	CheckSingleKeys       string
+	CheckStreams          string
+	CheckSingleStreams    string
+	CheckKeysBatchSize    int64
+	CheckKeyGroups        string
+	MaxDistinctKeyGroups  int64
+	CountKeys             string
+	LuaScript             []byte
+	ClientCertificates    []tls.Certificate
+	CaCertificates        *x509.CertPool
+	InclSystemMetrics     bool
+	SkipTLSVerification   bool
+	SetClientName         bool
+	IsTile38              bool
+	ExportClientList      bool
+	ExportClientsInclPort bool
+	ConnectionTimeouts    time.Duration
+	MetricsPath           string
+	RedisMetricsOnly      bool
+	PingOnConnect         bool
+	Registry              *prometheus.Registry
+	BuildInfo             BuildInfo
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -154,6 +154,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"mem_clients_slaves":      "mem_clients_slaves",
 			"mem_clients_normal":      "mem_clients_normal",
 
+			"expired_stale_perc": "expired_stale_percentage",
+
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
 			// ... the sum of AOF and slaves buffer ....
 			"mem_not_counted_for_evict": "mem_not_counted_for_eviction_bytes",
@@ -223,22 +225,25 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 			// # Tile38
 			// based on https://tile38.com/commands/server/
-			"tile38_aof_size":        "tile38_aof_size_bytes",
-			"tile38_avg_item_size":   "tile38_avg_item_size_bytes",
-			"tile38_cpus":            "tile38_cpus_total",
-			"tile38_heap_released":   "tile38_heap_released_bytes",
-			"tile38_heap_size":       "tile38_heap_size_bytes",
-			"tile38_http_transport":  "tile38_http_transport",
-			"tile38_in_memory_size":  "tile38_in_memory_size_bytes",
-			"tile38_max_heap_size":   "tile38_max_heap_size_bytes",
-			"tile38_mem_alloc":       "tile38_mem_alloc_bytes",
-			"tile38_num_collections": "tile38_num_collections_total",
-			"tile38_num_hooks":       "tile38_num_hooks_total",
-			"tile38_num_objects":     "tile38_num_objects_total",
-			"tile38_num_points":      "tile38_num_points_total",
-			"tile38_pointer_size":    "tile38_pointer_size_bytes",
-			"tile38_read_only":       "tile38_read_only",
-			"tile38_threads":         "tile38_threads_total",
+			"tile38_aof_size":             "tile38_aof_size_bytes",
+			"tile38_avg_point_size":       "tile38_avg_item_size_bytes",
+			"tile38_sys_cpus":             "tile38_cpus_total",
+			"tile38_heap_released_bytes":  "tile38_heap_released_bytes",
+			"tile38_heap_alloc_bytes":     "tile38_heap_size_bytes",
+			"tile38_http_transport":       "tile38_http_transport",
+			"tile38_in_memory_size":       "tile38_in_memory_size_bytes",
+			"tile38_max_heap_size":        "tile38_max_heap_size_bytes",
+			"tile38_alloc_bytes":          "tile38_mem_alloc_bytes",
+			"tile38_num_collections":      "tile38_num_collections_total",
+			"tile38_num_hooks":            "tile38_num_hooks_total",
+			"tile38_num_objects":          "tile38_num_objects_total",
+			"tile38_num_points":           "tile38_num_points_total",
+			"tile38_pointer_size":         "tile38_pointer_size_bytes",
+			"tile38_read_only":            "tile38_read_only",
+			"tile38_go_threads":           "tile38_threads_total",
+			"tile38_go_goroutines":        "tile38_go_goroutines_total",
+			"tile38_last_gc_time_seconds": "tile38_last_gc_time_seconds",
+			"tile38_next_gc_bytes":        "tile38_next_gc_bytes",
 
 			// addtl. KeyDB metrics
 			"server_threads":        "server_threads_total",
@@ -523,7 +528,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
-	if err != nil {
+	if err != nil || infoAll == "" {
 		log.Debugf("Redis INFO ALL err: %s", err)
 		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
