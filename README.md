@@ -222,6 +222,14 @@ docker run -d --name redis_exporter --network host oliver006/redis_exporter
 
 [Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar to a Redis instance.
 
+
+### Tile38
+
+[Tile38](https://tile38.com) now has native Prometheus support for exporting server metrics and basic stats about number of objects, strings, etc.
+You can also use redis_exporter to export Tile38 metrics, especially more advanced metrics by using Lua scripts or the `-check-keys` flag.\
+To enable Tile38 support, run the exporter with `--is-tile38=true`.
+
+
 ## What's exported
 
 Most items from the INFO command are exported,
