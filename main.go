@@ -207,7 +207,17 @@ func main() {
 	log.Debugf("Configured redis addr: %#v", *redisAddr)
 	if *tlsServerCertFile != "" && *tlsServerKeyFile != "" {
 		log.Debugf("Bind as TLS using cert %s and key %s", *tlsServerCertFile, *tlsServerKeyFile)
-		log.Fatal(http.ListenAndServeTLS(*listenAddress, *tlsServerCertFile, *tlsServerKeyFile, exp))
+
+		// Verify that the initial key pair is accepted
+		_, err := exporter.LoadKeyPair(*tlsServerCertFile, *tlsServerKeyFile)
+		if err != nil {
+			log.Fatalf("Couldn't load TLS server key pair, err: %s", err)
+		}
+		server := &http.Server{
+			Addr:      *listenAddress,
+			TLSConfig: &tls.Config{GetCertificate: exporter.GetServerCertificateFunc(*tlsServerCertFile, *tlsServerKeyFile)},
+			Handler:   exp}
+		log.Fatal(server.ListenAndServeTLS("", ""))
 	} else {
 		log.Fatal(http.ListenAndServe(*listenAddress, exp))
 	}
