@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"crypto/tls"
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
@@ -9,16 +8,16 @@ import (
 )
 
 func (e *Exporter) connectToRedis() (redis.Conn, error) {
+	tlsConfig, err := e.CreateClientTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(e.options.ConnectionTimeouts),
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
-
-		redis.DialTLSConfig(&tls.Config{
-			InsecureSkipVerify: e.options.SkipTLSVerification,
-			Certificates:       e.options.ClientCertificates,
-			RootCAs:            e.options.CaCertificates,
-		}),
+		redis.DialTLSConfig(tlsConfig),
 	}
 
 	if e.options.User != "" {

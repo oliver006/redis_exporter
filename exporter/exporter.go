@@ -1,8 +1,6 @@
 package exporter
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
 	"net/http"
 	"runtime"
@@ -61,8 +59,9 @@ type Options struct {
 	MaxDistinctKeyGroups  int64
 	CountKeys             string
 	LuaScript             []byte
-	ClientCertificates    []tls.Certificate
-	CaCertificates        *x509.CertPool
+	ClientCertFile        string
+	ClientKeyFile         string
+	CaCertFile            string
 	InclSystemMetrics     bool
 	SkipTLSVerification   bool
 	SetClientName         bool
