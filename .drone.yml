@@ -80,7 +80,7 @@ steps:
 
 
   - name: redis-sentinel
-    image: "docker.io/bitnami/redis-sentinel:6.0-debian-10"
+    image: "docker.io/bitnami/redis-sentinel:6.2-debian-10"
     environment:
       REDIS_MASTER_HOST: redis6
     ports:
