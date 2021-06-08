@@ -70,7 +70,7 @@ steps:
   - name: start
     image: "golang:1.16"
     commands:
-      - sleep 5
+      - sleep 10
       - 'echo "start"'
     when:
       event:
