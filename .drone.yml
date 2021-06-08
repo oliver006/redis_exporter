@@ -58,26 +58,19 @@ services:
 
   - name: redis-cluster
     image: grokzen/redis-cluster
-    ports: [7000, 7001, 7002, 7003, 7004, 7005]
+    ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
 
   - name: tile38
     image: tile38/tile38:latest
     ports:
       - 9851
 
-  - name: redis-sentinel
-    image: docker.io/bitnami/redis-sentinel:6.0-debian-10
-    environment:
-      REDIS_MASTER_HOST: redis6
-    ports:
-      - 26379
-
 
 steps:
   - name: start
     image: "golang:1.16"
     commands:
-      - sleep 5
+      - sleep 10
       - 'echo "start"'
     when:
       event:
@@ -85,6 +78,25 @@ steps:
         - push
         - tag
 
+  #
+  # starting this service down here using "detached: true" because it depends on
+  # the "redis6" service and it intermittently fails if that service is not available yet
+  # making it start after the "start" step which waits 10 seconds hopefully fixes that issue
+  #
+  - name: redis-sentinel
+    image: "docker.io/bitnami/redis-sentinel:6.2-debian-10"
+    environment:
+      REDIS_MASTER_HOST: redis6
+    ports:
+      - 26379
+    detach: true
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+    depends_on:
+      - start
 
   - name: build-binaries
     image: "golang:1.16"
