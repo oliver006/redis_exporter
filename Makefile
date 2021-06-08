@@ -21,7 +21,8 @@ docker-test:
 
 
 .PHONY: test
-test: 
+test:
+	contrib/tls/gen-test-certs.sh
 	TEST_REDIS_URI="redis://redis6:6379" \
 	TEST_REDIS5_URI="redis://redis5:6383" \
 	TEST_REDIS6_URI="redis://redis6:6379" \
