@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"crypto/x509"
 	"flag"
 	"io/ioutil"
 	"net/http"
@@ -120,28 +119,6 @@ func main() {
 		log.Fatalf("Couldn't parse connection timeout duration, err: %s", err)
 	}
 
-	var tlsClientCertificates []tls.Certificate
-	if (*tlsClientKeyFile != "") != (*tlsClientCertFile != "") {
-		log.Fatal("TLS client key file and cert file should both be present")
-	}
-	if *tlsClientKeyFile != "" && *tlsClientCertFile != "" {
-		cert, err := tls.LoadX509KeyPair(*tlsClientCertFile, *tlsClientKeyFile)
-		if err != nil {
-			log.Fatalf("Couldn't load TLS client key pair, err: %s", err)
-		}
-		tlsClientCertificates = append(tlsClientCertificates, cert)
-	}
-
-	var tlsCaCertificates *x509.CertPool
-	if *tlsCaCertFile != "" {
-		caCert, err := ioutil.ReadFile(*tlsCaCertFile)
-		if err != nil {
-			log.Fatalf("Couldn't load TLS Ca certificate, err: %s", err)
-		}
-		tlsCaCertificates = x509.NewCertPool()
-		tlsCaCertificates.AppendCertsFromPEM(caCert)
-	}
-
 	passwordMap := make(map[string]string)
 	if *redisPwd == "" && *redisPwdFile != "" {
 		passwordMap, err = exporter.LoadPwdFile(*redisPwdFile)
@@ -185,8 +162,9 @@ func main() {
 			ExportClientList:      *exportClientList,
 			ExportClientsInclPort: *exportClientPort,
 			SkipTLSVerification:   *skipTLSVerification,
-			ClientCertificates:    tlsClientCertificates,
-			CaCertificates:        tlsCaCertificates,
+			ClientCertFile:        *tlsClientCertFile,
+			ClientKeyFile:         *tlsClientKeyFile,
+			CaCertFile:            *tlsCaCertFile,
 			ConnectionTimeouts:    to,
 			MetricsPath:           *metricPath,
 			RedisMetricsOnly:      *redisMetricsOnly,
@@ -203,11 +181,30 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Verify that initial client keypair and CA are accepted
+	if (*tlsClientCertFile != "") != (*tlsClientKeyFile != "") {
+		log.Fatal("TLS client key file and cert file should both be present")
+	}
+	_, err = exp.CreateClientTLSConfig()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	log.Infof("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Debugf("Configured redis addr: %#v", *redisAddr)
 	if *tlsServerCertFile != "" && *tlsServerKeyFile != "" {
 		log.Debugf("Bind as TLS using cert %s and key %s", *tlsServerCertFile, *tlsServerKeyFile)
-		log.Fatal(http.ListenAndServeTLS(*listenAddress, *tlsServerCertFile, *tlsServerKeyFile, exp))
+
+		// Verify that the initial key pair is accepted
+		_, err := exporter.LoadKeyPair(*tlsServerCertFile, *tlsServerKeyFile)
+		if err != nil {
+			log.Fatalf("Couldn't load TLS server key pair, err: %s", err)
+		}
+		server := &http.Server{
+			Addr:      *listenAddress,
+			TLSConfig: &tls.Config{GetCertificate: exporter.GetServerCertificateFunc(*tlsServerCertFile, *tlsServerKeyFile)},
+			Handler:   exp}
+		log.Fatal(server.ListenAndServeTLS("", ""))
 	} else {
 		log.Fatal(http.ListenAndServe(*listenAddress, exp))
 	}
