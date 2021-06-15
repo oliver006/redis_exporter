@@ -310,7 +310,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 	e.metricDescriptions = map[string]*prometheus.Desc{}
 
-	connectedClientsLabels := []string{"name", "age", "idle", "flags", "db", "omem", "cmd", "host"}
+	connectedClientsLabels := []string{"name", "created_at", "idle_since", "flags", "db", "omem", "cmd", "host"}
 	if e.options.ExportClientsInclPort {
 		connectedClientsLabels = append(connectedClientsLabels, "port")
 	}
