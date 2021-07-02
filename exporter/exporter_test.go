@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -117,6 +118,74 @@ func setupDBKeys(t *testing.T, uri string) error {
 	return nil
 }
 
+func setupDBKeysCluster(t *testing.T, uri string) error {
+	log.Printf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{uri},
+	}
+	log.Printf("Running refresh on cluster object")
+	if err := cluster.Refresh(); err != nil {
+		log.Debugf("Cluster refresh failed: %v", err)
+	}
+
+	log.Printf("Creating redis connection object")
+	conn, err := cluster.Dial()
+	if err != nil {
+		log.Printf("Dial failed: %v", err)
+	}
+
+	// fmt.Println("conn", conn)
+	// fmt.Println("mapping", cluster)
+
+	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Printf("RetryConn failed: %v", err)
+	}
+	// c, err = cluster.Dial()
+	// if err != nil {
+	// 	t.Errorf("couldn't setup redis for uri %s, err: %s ", uri, err)
+	// 	return err
+	// }
+	defer c.Close()
+
+	// fmt.Println(cluster.Stats())
+
+	if _, err := c.Do("SELECT", dbNumStr); err != nil {
+		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
+	}
+
+	for _, key := range keys {
+		_, err = c.Do("SET", key, TestValue)
+		if err != nil {
+			t.Errorf("couldn't setup redis, err: %s ", err)
+			return err
+		}
+	}
+
+	for _, key := range keysExpiring {
+		_, err = c.Do("SETEX", key, "300", TestValue)
+		if err != nil {
+			t.Errorf("couldn't setup redis, err: %s ", err)
+			return err
+		}
+	}
+
+	for _, key := range listKeys {
+		for _, val := range keys {
+			_, err = c.Do("LPUSH", key, val)
+			if err != nil {
+				t.Errorf("couldn't setup redis, err: %s ", err)
+				return err
+			}
+		}
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
+	return nil
+}
+
 func deleteKeysFromDB(t *testing.T, addr string) error {
 
 	c, err := redis.DialURL(addr)
@@ -145,6 +214,53 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 
 	c.Do("DEL", TestSetName)
 	c.Do("DEL", TestStreamName)
+	return nil
+}
+
+func deleteKeysFromDBCluster(t *testing.T, addr string) error {
+	log.Debugf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{addr},
+	}
+	log.Debugf("Running refresh on cluster object")
+	if err := cluster.Refresh(); err != nil {
+		log.Debugf("Cluster refresh failed: %v", err)
+	}
+
+	log.Debugf("Creating redis connection object")
+	conn, err := cluster.Dial()
+	if err != nil {
+		log.Debugf("Dial failed: %v", err)
+	}
+
+	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Debugf("RetryConn failed: %v", err)
+	}
+	c, err = cluster.Dial()
+	if err != nil {
+		t.Errorf("couldn't setup redis for uri %s, err: %s ", addr, err)
+		return err
+	}
+	defer c.Close()
+
+	if _, err := c.Do("SELECT", dbNumStr); err != nil {
+		log.Printf("deleteKeysFromDB() - couldn't setup redis, err: %s ", err)
+		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
+	}
+
+	for _, key := range keys {
+		c.Do("DEL", key)
+	}
+
+	for _, key := range keysExpiring {
+		c.Do("DEL", key)
+	}
+
+	for _, key := range listKeys {
+		c.Do("DEL", key)
+	}
+
 	return nil
 }
 
