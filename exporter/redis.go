@@ -56,16 +56,16 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
+	tlsConfig, err := e.CreateClientTLSConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	options := []redis.DialOption{
 		redis.DialConnectTimeout(e.options.ConnectionTimeouts),
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
-
-		redis.DialTLSConfig(&tls.Config{
-			InsecureSkipVerify: e.options.SkipTLSVerification,
-			Certificates:       e.options.ClientCertificates,
-			RootCAs:            e.options.CaCertificates,
-		}),
+		redis.DialTLSConfig(tlsConfig),
 	}
 
 	if e.options.User != "" {
@@ -77,11 +77,6 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	}
 
 	uri := e.redisAddr
-
-	if e.options.PasswordMap[uri] != "" {
-		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
-	}
-
 	if strings.Contains(uri, "://") {
 		url, _ := url.Parse(uri)
 		if url.Port() == "" {
@@ -93,6 +88,11 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		if frags := strings.Split(uri, ":"); len(frags) != 2 {
 			uri = uri + ":6379"
 		}
+	}
+	log.Debugf("Trying DialURL(): %s", uri)
+
+	if e.options.PasswordMap[uri] != "" {
+		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
 	log.Debugf("Creating cluster object")
