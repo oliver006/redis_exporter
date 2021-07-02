@@ -134,23 +134,14 @@ func setupDBKeysCluster(t *testing.T, uri string) error {
 		log.Printf("Dial failed: %v", err)
 	}
 
-	// fmt.Println("conn", conn)
-	// fmt.Println("mapping", cluster)
-
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
 		log.Printf("RetryConn failed: %v", err)
 	}
-	// c, err = cluster.Dial()
-	// if err != nil {
-	// 	t.Errorf("couldn't setup redis for uri %s, err: %s ", uri, err)
-	// 	return err
-	// }
+
 	defer c.Close()
 
-	// fmt.Println(cluster.Stats())
-
-	if _, err := c.Do("SELECT", dbNumStr); err != nil {
+	if _, err := c.Do("SELECT", "0"); err != nil {
 		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
@@ -237,14 +228,10 @@ func deleteKeysFromDBCluster(t *testing.T, addr string) error {
 	if err != nil {
 		log.Debugf("RetryConn failed: %v", err)
 	}
-	c, err = cluster.Dial()
-	if err != nil {
-		t.Errorf("couldn't setup redis for uri %s, err: %s ", addr, err)
-		return err
-	}
+
 	defer c.Close()
 
-	if _, err := c.Do("SELECT", dbNumStr); err != nil {
+	if _, err := c.Do("SELECT", "0"); err != nil {
 		log.Printf("deleteKeysFromDB() - couldn't setup redis, err: %s ", err)
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
