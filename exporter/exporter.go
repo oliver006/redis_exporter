@@ -66,6 +66,7 @@ type Options struct {
 	SkipTLSVerification   bool
 	SetClientName         bool
 	IsTile38              bool
+	IsCluster             bool
 	ExportClientList      bool
 	ExportClientsInclPort bool
 	ConnectionTimeouts    time.Duration
@@ -559,7 +560,16 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractLatencyMetrics(ch, c)
 
-	e.extractCheckKeyMetrics(ch, c)
+	if e.options.IsCluster {
+		clusterClient, err := e.connectToRedisCluster()
+		if err != nil {
+			log.Errorf("Couldn't connect to redis cluster")
+			return err
+		}
+		e.extractCheckKeyMetrics(ch, clusterClient)
+	} else {
+		e.extractCheckKeyMetrics(ch, c)
+	}
 
 	e.extractSlowLogMetrics(ch, c)
 
