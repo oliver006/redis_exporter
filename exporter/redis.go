@@ -37,6 +37,9 @@ func configureOptions(e *Exporter) ([]redis.DialOption, error) {
 func (e *Exporter) connectToRedis() (redis.Conn, error) {
 
 	options, err := configureOptions(e)
+	if err != nil {
+		return nil, err
+	}
 
 	uri := e.redisAddr
 	if !strings.Contains(uri, "://") {
@@ -65,6 +68,9 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 
 	options, err := configureOptions(e)
+	if err != nil {
+		return nil, err
+	}
 
 	uri := e.redisAddr
 	if strings.Contains(uri, "://") {
