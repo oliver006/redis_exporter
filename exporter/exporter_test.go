@@ -60,13 +60,36 @@ func getTestExporterWithOptions(opt Options) *Exporter {
 	return e
 }
 
-func setupDBKeys(t *testing.T, uri string) error {
-	c, err := redis.DialURL(uri)
-	if err != nil {
-		t.Errorf("couldn't setup redis for uri %s, err: %s ", uri, err)
-		return err
+func createClusterClient(uri string) (redis.Conn, error) {
+
+	log.Printf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{uri},
 	}
-	defer c.Close()
+	log.Printf("Running refresh on cluster object")
+	if err := cluster.Refresh(); err != nil {
+		log.Debugf("Cluster refresh failed: %v", err)
+		return nil, err
+	}
+
+	log.Printf("Creating redis connection object")
+	conn, err := cluster.Dial()
+	if err != nil {
+		log.Printf("Dial failed: %v", err)
+		return nil, err
+	}
+
+	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Printf("RetryConn failed: %v", err)
+		return nil, err
+	}
+
+	return c, nil
+
+}
+
+func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 
 	if _, err := c.Do("SELECT", dbNumStr); err != nil {
 		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
@@ -74,7 +97,7 @@ func setupDBKeys(t *testing.T, uri string) error {
 	}
 
 	for _, key := range keys {
-		_, err = c.Do("SET", key, TestValue)
+		_, err := c.Do("SET", key, TestValue)
 		if err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
@@ -83,7 +106,7 @@ func setupDBKeys(t *testing.T, uri string) error {
 
 	// setting to expire in 300 seconds, should be plenty for a test run
 	for _, key := range keysExpiring {
-		_, err = c.Do("SETEX", key, "300", TestValue)
+		_, err := c.Do("SETEX", key, "300", TestValue)
 		if err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
@@ -92,7 +115,7 @@ func setupDBKeys(t *testing.T, uri string) error {
 
 	for _, key := range listKeys {
 		for _, val := range keys {
-			_, err = c.Do("LPUSH", key, val)
+			_, err := c.Do("LPUSH", key, val)
 			if err != nil {
 				t.Errorf("couldn't setup redis, err: %s ", err)
 				return err
@@ -113,78 +136,11 @@ func setupDBKeys(t *testing.T, uri string) error {
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestStreamName, ">")
 	c.Do("XREADGROUP", "GROUP", "test_group_2", "test_consumer_1", "COUNT", "1", "STREAMS", TestStreamName, "0")
 
-	time.Sleep(time.Millisecond * 50)
-
 	return nil
+
 }
 
-func setupDBKeysCluster(t *testing.T, uri string) error {
-	log.Printf("Creating cluster object")
-	cluster := redisc.Cluster{
-		StartupNodes: []string{uri},
-	}
-	log.Printf("Running refresh on cluster object")
-	if err := cluster.Refresh(); err != nil {
-		log.Debugf("Cluster refresh failed: %v", err)
-	}
-
-	log.Printf("Creating redis connection object")
-	conn, err := cluster.Dial()
-	if err != nil {
-		log.Printf("Dial failed: %v", err)
-	}
-
-	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
-	if err != nil {
-		log.Printf("RetryConn failed: %v", err)
-	}
-
-	defer c.Close()
-
-	if _, err := c.Do("SELECT", "0"); err != nil {
-		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
-		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
-	}
-
-	for _, key := range keys {
-		_, err = c.Do("SET", key, TestValue)
-		if err != nil {
-			t.Errorf("couldn't setup redis, err: %s ", err)
-			return err
-		}
-	}
-
-	for _, key := range keysExpiring {
-		_, err = c.Do("SETEX", key, "300", TestValue)
-		if err != nil {
-			t.Errorf("couldn't setup redis, err: %s ", err)
-			return err
-		}
-	}
-
-	for _, key := range listKeys {
-		for _, val := range keys {
-			_, err = c.Do("LPUSH", key, val)
-			if err != nil {
-				t.Errorf("couldn't setup redis, err: %s ", err)
-				return err
-			}
-		}
-	}
-
-	time.Sleep(time.Millisecond * 50)
-
-	return nil
-}
-
-func deleteKeysFromDB(t *testing.T, addr string) error {
-
-	c, err := redis.DialURL(addr)
-	if err != nil {
-		t.Errorf("couldn't setup redis, err: %s ", err)
-		return err
-	}
-	defer c.Close()
+func deleteKeys(c redis.Conn, dbNumStr string) {
 
 	if _, err := c.Do("SELECT", dbNumStr); err != nil {
 		log.Printf("deleteKeysFromDB() - couldn't setup redis, err: %s ", err)
@@ -205,48 +161,72 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 
 	c.Do("DEL", TestSetName)
 	c.Do("DEL", TestStreamName)
+
+}
+
+func setupDBKeys(t *testing.T, uri string) error {
+	c, err := redis.DialURL(uri)
+	if err != nil {
+		t.Errorf("couldn't setup redis for uri %s, err: %s ", uri, err)
+		return err
+	}
+	defer c.Close()
+
+	err = setupKeys(t, c, dbNumStr)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+
+	time.Sleep(time.Millisecond * 50)
+
 	return nil
 }
 
-func deleteKeysFromDBCluster(t *testing.T, addr string) error {
-	log.Debugf("Creating cluster object")
-	cluster := redisc.Cluster{
-		StartupNodes: []string{addr},
-	}
-	log.Debugf("Running refresh on cluster object")
-	if err := cluster.Refresh(); err != nil {
-		log.Debugf("Cluster refresh failed: %v", err)
-	}
+func setupDBKeysCluster(t *testing.T, uri string) error {
 
-	log.Debugf("Creating redis connection object")
-	conn, err := cluster.Dial()
+	c, err := createClusterClient(uri)
 	if err != nil {
-		log.Debugf("Dial failed: %v", err)
-	}
-
-	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
-	if err != nil {
-		log.Debugf("RetryConn failed: %v", err)
+		return err
 	}
 
 	defer c.Close()
 
-	if _, err := c.Do("SELECT", "0"); err != nil {
-		log.Printf("deleteKeysFromDB() - couldn't setup redis, err: %s ", err)
-		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
+	err = setupKeys(t, c, "0")
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
 	}
 
-	for _, key := range keys {
-		c.Do("DEL", key)
+	time.Sleep(time.Millisecond * 50)
+
+	return nil
+}
+
+func deleteKeysFromDB(t *testing.T, addr string) error {
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("couldn't setup redis, err: %s ", err)
+		return err
+	}
+	defer c.Close()
+
+	deleteKeys(c, dbNumStr)
+
+	return nil
+}
+
+func deleteKeysFromDBCluster(t *testing.T, addr string) error {
+
+	c, err := createClusterClient(addr)
+	if err != nil {
+		return err
 	}
 
-	for _, key := range keysExpiring {
-		c.Do("DEL", key)
-	}
+	defer c.Close()
 
-	for _, key := range listKeys {
-		c.Do("DEL", key)
-	}
+	deleteKeys(c, "0")
 
 	return nil
 }
