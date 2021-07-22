@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func configureOptions(e *Exporter) ([]redis.DialOption, error) {
+func configureOptions(e *Exporter, uri string) ([]redis.DialOption, error) {
 	tlsConfig, err := e.CreateClientTLSConfig()
 	if err != nil {
 		return nil, err
@@ -31,23 +31,22 @@ func configureOptions(e *Exporter) ([]redis.DialOption, error) {
 		options = append(options, redis.DialPassword(e.options.Password))
 	}
 
+	if e.options.PasswordMap[uri] != "" {
+		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	}
+
 	return options, nil
 }
 
 func (e *Exporter) connectToRedis() (redis.Conn, error) {
-
-	options, err := configureOptions(e)
-	if err != nil {
-		return nil, err
-	}
-
 	uri := e.redisAddr
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
 	}
 
-	if e.options.PasswordMap[uri] != "" {
-		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	options, err := configureOptions(e, uri)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Debugf("Trying DialURL(): %s", uri)
@@ -66,12 +65,6 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
-
-	options, err := configureOptions(e)
-	if err != nil {
-		return nil, err
-	}
-
 	uri := e.redisAddr
 	if strings.Contains(uri, "://") {
 		url, _ := url.Parse(uri)
@@ -86,8 +79,9 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		}
 	}
 
-	if e.options.PasswordMap[uri] != "" {
-		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	options, err := configureOptions(e, uri)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Debugf("Creating cluster object")
