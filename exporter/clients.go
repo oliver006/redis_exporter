@@ -2,7 +2,9 @@ package exporter
 
 import (
 	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,6 +30,18 @@ func parseClientListString(clientInfo string) ([]string, bool) {
 		connectedClient[vPart[0]] = vPart[1]
 	}
 
+	createdAtTs, err := durationFieldToTimestamp(connectedClient["age"])
+	if err != nil {
+		log.Debugf("cloud not parse age field(%s): %s", connectedClient["age"], err.Error())
+		return nil, false
+	}
+
+	idleSinceTs, err := durationFieldToTimestamp(connectedClient["idle"])
+	if err != nil {
+		log.Debugf("cloud not parse idle field(%s): %s", connectedClient["idle"], err.Error())
+		return nil, false
+	}
+
 	hostPortString := strings.Split(connectedClient["addr"], ":")
 	if len(hostPortString) != 2 {
 		return nil, false
@@ -35,8 +49,8 @@ func parseClientListString(clientInfo string) ([]string, bool) {
 
 	return []string{
 		connectedClient["name"],
-		connectedClient["age"],
-		connectedClient["idle"],
+		createdAtTs,
+		idleSinceTs,
 		connectedClient["flags"],
 		connectedClient["db"],
 		connectedClient["omem"],
@@ -46,6 +60,15 @@ func parseClientListString(clientInfo string) ([]string, bool) {
 		hostPortString[1], // port
 	}, true
 
+}
+
+func durationFieldToTimestamp(field string) (string, error) {
+	parsed, err := strconv.ParseInt(field, 10, 64)
+	if err != nil {
+		return "", err
+	}
+
+	return strconv.FormatInt(time.Now().Unix()-parsed, 10), nil
 }
 
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
