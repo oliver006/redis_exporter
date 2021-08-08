@@ -30,13 +30,13 @@ func parseClientListString(clientInfo string) ([]string, bool) {
 		connectedClient[vPart[0]] = vPart[1]
 	}
 
-	createdAt, err := durationFieldToTimestamp(connectedClient["age"])
+	createdAtTs, err := durationFieldToTimestamp(connectedClient["age"])
 	if err != nil {
 		log.Debugf("cloud not parse age field(%s): %s", connectedClient["age"], err.Error())
 		return nil, false
 	}
 
-	idleSince, err := durationFieldToTimestamp(connectedClient["idle"])
+	idleSinceTs, err := durationFieldToTimestamp(connectedClient["idle"])
 	if err != nil {
 		log.Debugf("cloud not parse idle field(%s): %s", connectedClient["idle"], err.Error())
 		return nil, false
@@ -49,8 +49,8 @@ func parseClientListString(clientInfo string) ([]string, bool) {
 
 	return []string{
 		connectedClient["name"],
-		strconv.FormatInt(createdAt, 10),
-		strconv.FormatInt(idleSince, 10),
+		createdAtTs,
+		idleSinceTs,
 		connectedClient["flags"],
 		connectedClient["db"],
 		connectedClient["omem"],
@@ -62,14 +62,13 @@ func parseClientListString(clientInfo string) ([]string, bool) {
 
 }
 
-func durationFieldToTimestamp(field string) (int64, error) {
+func durationFieldToTimestamp(field string) (string, error) {
 	parsed, err := strconv.ParseInt(field, 10, 64)
 	if err != nil {
-		return 0, err
-		//return errors.New("age field of client details could not be parsed. expected an integer, got: %s", connectedClient["age"])
+		return "", err
 	}
 
-	return time.Now().Unix() - parsed, nil
+	return strconv.FormatInt(time.Now().Unix()-parsed, 10), nil
 }
 
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {

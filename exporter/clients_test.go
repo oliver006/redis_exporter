@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"strconv"
 	"strings"
 	"testing"
 
@@ -10,12 +9,11 @@ import (
 
 func TestParseClientListString(t *testing.T) {
 	convertDurationToTimestampString := func(duration string) string {
-		timestamp, err := durationFieldToTimestamp(duration)
+		ts, err := durationFieldToTimestamp(duration)
 		if err != nil {
 			panic(err)
 		}
-
-		return strconv.FormatInt(timestamp, 10)
+		return ts
 	}
 
 	tsts := map[string][]string{
