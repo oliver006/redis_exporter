@@ -33,6 +33,8 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	case "none":
 		return info, errKeyTypeNotFound
 	case "string":
+        // Use PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
+        // while PFCOUNT only works on HLL strings and returns an error on regular strings.
 		if size, err := redis.Int64(doRedisCmd(c, "PFCOUNT", key)); err == nil {
 			// hyperloglog
 			info.size = float64(size)
