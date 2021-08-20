@@ -107,10 +107,13 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 		case nil:
 			e.registerConstMetricGauge(ch, "key_size", info.size, dbLabel, k.key)
 
-			// Only record value metric if value is float-y
-			if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
-				e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
-			}
+            // Only run on single value strings
+            if info.keyType == "string" {
+			    // Only record value metric if value is float-y
+			    if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
+			    	e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
+			    }
+            }
 		default:
 			log.Error(err)
 		}
