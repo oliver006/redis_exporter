@@ -68,7 +68,7 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.16"
+    image: "golang:1.17"
     commands:
       - sleep 10
       - 'echo "start"'
@@ -99,7 +99,7 @@ steps:
       - start
 
   - name: build-binaries
-    image: "golang:1.16"
+    image: "golang:1.17"
     pull: always
     environment:
       GO111MODULE: on
@@ -153,7 +153,7 @@ steps:
       - start
 
   - name: tests
-    image: "golang:1.16"
+    image: "golang:1.17"
     pull: always
     environment:
       GO111MODULE: on
@@ -174,7 +174,7 @@ steps:
 
 
   - name: mixins
-    image: golang:1.16
+    image: golang:1.17
     commands:
       - cd ./contrib/redis-mixin
       - go install github.com/monitoring-mixins/mixtool/cmd/mixtool
@@ -293,7 +293,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.16"
+    image: "golang:1.17"
     pull: always
     environment:
       GITHUB_TOKEN:
