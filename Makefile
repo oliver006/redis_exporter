@@ -60,7 +60,7 @@ mixin:
 
 .PHONY: upload-coverage
 upload-coverage:
-	go get github.com/mattn/goveralls
+	go install github.com/mattn/goveralls@v0.0.9
 	/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io
 
 
