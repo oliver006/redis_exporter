@@ -164,7 +164,9 @@ steps:
       - sleep 5
       - make checks
       - make test
-      - make upload-coverage
+# coveralls seems to have issues right now
+# https://github.com/lemurheavy/coveralls-public/issues/1573
+#      - make upload-coverage
     when:
       event:
         - pull_request
