@@ -296,45 +296,41 @@ steps:
 #
 # Mirroring the docker images to quay.io
 #
-  - name: release-docker-image-scratch-quay
+  - name: release-quay-scratch
     image: plugins/docker
     settings:
-      registry: quay.io
+      registry: "quay.io"
+      repo: "quay.io/oliver006/redis_exporter"
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
       dockerfile: ./docker/Dockerfile.amd64
-      repo: oliver006/redis_exporter
       target: scratch
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      username:
-        from_secret: quay_user
-      password:
-        from_secret: quay_pass
+      config:
+        from_secret: docker_config_json
     when:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
-  - name: release-docker-image-alpine-arm64-quay
+  - name: release-quay-alpine-arm64
     image: plugins/docker
     settings:
-      registry: quay.io
+      registry: "quay.io"
+      repo: "quay.io/oliver006/redis_exporter"
       tags: "latest-arm64,${DRONE_TAG}-arm64"
       dockerfile: ./docker/Dockerfile.arm64
-      repo: oliver006/redis_exporter
       target: alpine-arm64
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm64'
-      username:
-        from_secret: quay_user
-      password:
-        from_secret: quay_pass
+      config:
+        from_secret: docker_config_json
     when:
       event:
         - tag
@@ -342,22 +338,20 @@ steps:
       - tests
 
 
-  - name: release-docker-image-alpine-arm-quay
+  - name: release-quay-alpine-arm
     image: plugins/docker
     settings:
-      registry: quay.io
+      registry: "quay.io"
+      repo: "quay.io/oliver006/redis_exporter"
       tags: "latest-arm,${DRONE_TAG}-arm"
       dockerfile: ./docker/Dockerfile.arm
-      repo: oliver006/redis_exporter
       target: alpine-arm
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm'
-      username:
-        from_secret: quay_user
-      password:
-        from_secret: quay_pass
+      config:
+        from_secret: docker_config_json
     when:
       event:
         - tag
@@ -365,22 +359,20 @@ steps:
       - tests
 
 
-  - name: release-docker-image-alpine-amd64-quay
+  - name: release-quay-alpine-amd64
     image: plugins/docker
     settings:
-      registry: quay.io
+      registry: "quay.io"
+      repo: "quay.io/oliver006/redis_exporter"
       tags: "alpine,${DRONE_TAG}-alpine"
       dockerfile: ./docker/Dockerfile.amd64
-      repo: oliver006/redis_exporter
       target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      username:
-        from_secret: quay_user
-      password:
-        from_secret: quay_pass
+      docker_config:
+        from_secret: docker_config_json
     when:
       event:
         - tag
