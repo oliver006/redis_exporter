@@ -203,9 +203,15 @@ You can run it like this:
 docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
 ```
 
+Docker images are also published to the [quay.io docker repo](https://quay.io/oliver006/redis_exporter) so you can pull them from there if for instance you run into rate limiting issues with Docker hub.
+
+```sh
+docker run -d --name redis_exporter -p 9121:9121 quay.io/oliver006/redis_exporter
+```
+
 The `latest` docker image contains only the exporter binary.
-If, e.g. for debugging purposes, you need the exporter running
-in an image that has a shell, etc then you can run the `alpine` image:
+If e.g. for debugging purposes, you need the exporter running
+in an image that has a shell then you can run the `alpine` image:
 
 ```sh
 docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter:alpine
