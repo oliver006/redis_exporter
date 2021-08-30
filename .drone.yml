@@ -171,6 +171,7 @@ steps:
       event:
         - pull_request
         - push
+        - tag
     depends_on:
       - build-binaries
 
@@ -316,7 +317,7 @@ steps:
       event:
         - tag
     depends_on:
-      - start
+      - tests
 
 
   - name: release-quay-alpine-arm64
