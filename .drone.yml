@@ -374,7 +374,7 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      docker_config:
+      config:
         from_secret: docker_config_json
     when:
       event:
