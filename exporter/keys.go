@@ -33,8 +33,8 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	case "none":
 		return info, errKeyTypeNotFound
 	case "string":
-        // Use PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
-        // while PFCOUNT only works on HLL strings and returns an error on regular strings.
+		// Use PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
+		// while PFCOUNT only works on HLL strings and returns an error on regular strings.
 		if size, err := redis.Int64(doRedisCmd(c, "PFCOUNT", key)); err == nil {
 			// hyperloglog
 			info.size = float64(size)
@@ -98,11 +98,11 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 		if e.options.IsCluster {
 			//Cluster mode only has one db
 			k.db = "0"
-		}
-
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Errorf("Couldn't select database %#v when getting key info.", k.db)
-			continue
+		} else {
+			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+				log.Errorf("Couldn't select database %#v when getting key info.", k.db)
+				continue
+			}
 		}
 
 		dbLabel := "db" + k.db
@@ -114,13 +114,13 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 		case nil:
 			e.registerConstMetricGauge(ch, "key_size", info.size, dbLabel, k.key)
 
-            // Only run on single value strings
-            if info.keyType == "string" {
-			    // Only record value metric if value is float-y
-			    if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
-			    	e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
-			    }
-            }
+			// Only run on single value strings
+			if info.keyType == "string" {
+				// Only record value metric if value is float-y
+				if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
+					e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
+				}
+			}
 		default:
 			log.Error(err)
 		}

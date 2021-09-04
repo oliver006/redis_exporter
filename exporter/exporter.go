@@ -566,6 +566,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			log.Errorf("Couldn't connect to redis cluster")
 			return err
 		}
+		defer clusterClient.Close()
+
 		e.extractCheckKeyMetrics(ch, clusterClient)
 	} else {
 		e.extractCheckKeyMetrics(ch, c)
