@@ -24,7 +24,7 @@ func LoadPwdFile(passwordFile string) (map[string]string, error) {
 	}
 
 	log.Errorf("Loaded %d entries from %s", len(res), passwordFile)
-	for k, _ := range res {
+	for k := range res {
 		log.Debugf("%s", k)
 	}
 
