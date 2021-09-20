@@ -17,14 +17,15 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 	}
 
 	if len(kv) == 0 {
+		log.Debugf("Lua script returned no results")
 		return nil
 	}
 
 	for key, stringVal := range kv {
 		val, err := strconv.ParseFloat(stringVal, 64)
 		if err != nil {
-			log.Errorf("Error converting %s to float, err: %s", stringVal, err)
-			continue
+			log.Errorf("Error parsing lua script results, err: %s", err)
+			return err
 		}
 		e.registerConstMetricGauge(ch, "script_values", val, key)
 	}

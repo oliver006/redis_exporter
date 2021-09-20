@@ -300,4 +300,6 @@ func init() {
 		key := fmt.Sprintf("key_exp_%s_%d", n, ts)
 		keysExpiring = append(keysExpiring, key)
 	}
+
+	log.SetLevel(log.DebugLevel)
 }
