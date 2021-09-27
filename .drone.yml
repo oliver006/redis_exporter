@@ -115,17 +115,17 @@ steps:
       - start
 
   - name: test-docker-build
-    image: plugins/docker
+    image: thegeeklab/drone-docker-buildx
     settings:
       tags: "test"
-      dockerfile: ./docker/Dockerfile.amd64
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
+      platforms: linux/amd64
       dry_run: true
       build_args:
         - 'TAG=test'
         - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=amd64'
       username:
         from_secret: docker_test_user
       password:
@@ -207,18 +207,18 @@ steps:
       - tests
 
 
-  - name: release-docker-image-scratch
-    image: plugins/docker
+  - name: release-docker-image-scratch-multi-arch
+    image: thegeeklab/drone-docker-buildx
     settings:
-      tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
-      dockerfile: ./docker/Dockerfile.amd64
+      tags: "latest-scratch,${DRONE_TAG}-scratch"
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
+      platforms: linux/amd64,linux/arm64,linux/arm
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=amd64'
-      username:
+        username:
         from_secret: docker_user
       password:
         from_secret: docker_pass
@@ -229,61 +229,17 @@ steps:
       - tests
 
 
-  - name: release-docker-image-alpine-arm64
-    image: plugins/docker
+  - name: release-docker-image-alpine-multi-arch
+    image: thegeeklab/drone-docker-buildx
     settings:
-      tags: "latest-arm64,${DRONE_TAG}-arm64"
-      dockerfile: ./docker/Dockerfile.arm64
-      repo: oliver006/redis_exporter
-      target: alpine-arm64
-      build_args:
-        - 'TAG=${DRONE_TAG}'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=arm64'
-      username:
-        from_secret: docker_user
-      password:
-        from_secret: docker_pass
-    when:
-      event:
-        - tag
-    depends_on:
-      - tests
-
-
-  - name: release-docker-image-alpine-arm
-    image: plugins/docker
-    settings:
-      tags: "latest-arm,${DRONE_TAG}-arm"
-      dockerfile: ./docker/Dockerfile.arm
-      repo: oliver006/redis_exporter
-      target: alpine-arm
-      build_args:
-        - 'TAG=${DRONE_TAG}'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=arm'
-      username:
-        from_secret: docker_user
-      password:
-        from_secret: docker_pass
-    when:
-      event:
-        - tag
-    depends_on:
-      - tests
-
-
-  - name: release-docker-image-alpine-amd64
-    image: plugins/docker
-    settings:
-      tags: "alpine,${DRONE_TAG}-alpine"
-      dockerfile: ./docker/Dockerfile.amd64
+      tags: "latest,${DRONE_TAG}"
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
+      platforms: linux/amd64,linux/arm64,linux/arm
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=amd64'
       username:
         from_secret: docker_user
       password:
@@ -293,87 +249,46 @@ steps:
         - tag
     depends_on:
       - tests
-
 
 ###########
 #
 # Mirroring the docker images to quay.io
 #
-  - name: release-quay-scratch
+  - name: release-quay-scratch-multi-arch
     image: plugins/docker
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
-      dockerfile: ./docker/Dockerfile.amd64
-      target: scratch
-      build_args:
-        - 'TAG=${DRONE_TAG}'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
-    when:
-      event:
-        - tag
-    depends_on:
-      - tests
-
-
-  - name: release-quay-alpine-arm64
-    image: plugins/docker
-    settings:
-      registry: "quay.io"
-      repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest-arm64,${DRONE_TAG}-arm64"
-      dockerfile: ./docker/Dockerfile.arm64
-      target: alpine-arm64
-      build_args:
-        - 'TAG=${DRONE_TAG}'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=arm64'
-      config:
-        from_secret: docker_config_json
-    when:
-      event:
-        - tag
-    depends_on:
-      - tests
-
-
-  - name: release-quay-alpine-arm
-    image: plugins/docker
-    settings:
-      registry: "quay.io"
-      repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest-arm,${DRONE_TAG}-arm"
-      dockerfile: ./docker/Dockerfile.arm
-      target: alpine-arm
-      build_args:
-        - 'TAG=${DRONE_TAG}'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=arm'
-      config:
-        from_secret: docker_config_json
-    when:
-      event:
-        - tag
-    depends_on:
-      - tests
-
-
-  - name: release-quay-alpine-amd64
-    image: plugins/docker
-    settings:
-      registry: "quay.io"
-      repo: "quay.io/oliver006/redis_exporter"
-      tags: "alpine,${DRONE_TAG}-alpine"
-      dockerfile: ./docker/Dockerfile.amd64
+      tags: "latest,${DRONE_TAG}"
+      dockerfile: ./docker/Dockerfile
+      repo: oliver006/redis_exporter
       target: alpine
+      platforms: linux/amd64,linux/arm64,linux/arm
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=amd64'
+      config:
+        from_secret: docker_config_json
+    when:
+      event:
+        - tag
+    depends_on:
+      - tests
+
+
+  - name: release-quay-alpine-multi-arch
+    image: plugins/docker
+    settings:
+      registry: "quay.io"
+      repo: "quay.io/oliver006/redis_exporter"
+      tags: "latest,${DRONE_TAG}"
+      dockerfile: ./docker/Dockerfile
+      repo: oliver006/redis_exporter
+      target: alpine
+      platforms: linux/amd64,linux/arm64,linux/arm
+      build_args:
+        - 'TAG=${DRONE_TAG}'
+        - 'SHA1=${DRONE_COMMIT_SHA}'
       config:
         from_secret: docker_config_json
     when:
