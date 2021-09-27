@@ -4,17 +4,19 @@
 FROM golang:1.17-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
-ADD .  /go/src/github.com/oliver006/redis_exporter/
+ADD . /go/src/github.com/oliver006/redis_exporter/
 
-ARG GOARCH="amd64"
+ARG TARGETPLATFORM
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 
 RUN apk --no-cache add ca-certificates
-RUN BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -o /redis_exporter \
+RUN GOOS=$(echo $TARGETPLATFORM | cut -d/ -f 1) && \
+    GOARCH=$(echo $TARGETPLATFORM | cut -d/ -f 2) && \
+    BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -o /redis_exporter \
     -ldflags  "-s -w -extldflags \"-static\" -X main.BuildVersion=$TAG -X main.BuildCommitSha=$SHA1 -X main.BuildDate=$BUILD_DATE" .
 
-RUN [ $GOARCH = "amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
+RUN [ $TARGETPLATFORM = "amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
 
 #
 # scratch release container
