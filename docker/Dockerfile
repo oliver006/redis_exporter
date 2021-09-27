@@ -16,7 +16,7 @@ RUN GOOS=$(echo $TARGETPLATFORM | cut -d/ -f 1) && \
     BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -o /redis_exporter \
     -ldflags  "-s -w -extldflags \"-static\" -X main.BuildVersion=$TAG -X main.BuildCommitSha=$SHA1 -X main.BuildDate=$BUILD_DATE" .
 
-RUN [ $TARGETPLATFORM = "amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
+RUN [ $TARGETPLATFORM = "linux/amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
 
 #
 # scratch release container
