@@ -123,6 +123,7 @@ steps:
       target: scratch
       platforms: linux/amd64
       dry_run: true
+      debug: true
       build_args:
         - 'TAG=test'
         - 'SHA1=${DRONE_COMMIT_SHA}'
