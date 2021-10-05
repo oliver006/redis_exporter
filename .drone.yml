@@ -120,6 +120,7 @@ steps:
       tags: "test"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
+      privileged: true
       target: scratch
       platforms: linux/amd64
       dry_run: true
