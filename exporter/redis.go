@@ -10,7 +10,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func configureOptions(e *Exporter, uri string) ([]redis.DialOption, error) {
+func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 	tlsConfig, err := e.CreateClientTLSConfig()
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		uri = "redis://" + uri
 	}
 
-	options, err := configureOptions(e, uri)
+	options, err := e.configureOptions(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +79,7 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		}
 	}
 
-	options, err := configureOptions(e, uri)
+	options, err := e.configureOptions(uri)
 	if err != nil {
 		return nil, err
 	}
@@ -91,18 +91,18 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	}
 	log.Debugf("Running refresh on cluster object")
 	if err := cluster.Refresh(); err != nil {
-		log.Debugf("Cluster refresh failed: %v", err)
+		log.Errorf("Cluster refresh failed: %v", err)
 	}
 
 	log.Debugf("Creating redis connection object")
 	conn, err := cluster.Dial()
 	if err != nil {
-		log.Debugf("Dial failed: %v", err)
+		log.Errorf("Dial failed: %v", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
-		log.Debugf("RetryConn failed: %v", err)
+		log.Errorf("RetryConn failed: %v", err)
 	}
 
 	return c, err

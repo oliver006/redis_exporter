@@ -59,18 +59,6 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 	)
 
 	uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
-	if strings.Contains(uri, "://") {
-		url, _ := url.Parse(uri)
-		if url.Port() == "" {
-			uri = url.Host + ":6379"
-		} else {
-			uri = url.Host
-		}
-	} else {
-		if frags := strings.Split(uri, ":"); len(frags) != 2 {
-			uri = uri + ":6379"
-		}
-	}
 
 	setupDBKeysCluster(t, uri)
 	defer deleteKeysFromDBCluster(t, uri)
