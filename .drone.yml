@@ -115,23 +115,23 @@ steps:
       - start
 
   - name: test-docker-build
-    image: thegeeklab/drone-docker-buildx
-    settings:
-      tags: "test"
-      dockerfile: ./docker/Dockerfile
-      repo: oliver006/redis_exporter
-      privileged: true
-      target: scratch
-      platforms: linux/amd64
-      dry_run: true
-      debug: true
-      build_args:
-        - 'TAG=test'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-      username:
-        from_secret: docker_test_user
-      password:
-        from_secret: docker_test_pass
+    image: plugins/docker
+    commands:
+      - "docker buildx build --platform linux/amd64 -f ./docker/Dockerfile -t test --target scratch --build-arg SHA1=${DRONE_COMMIT_SHA} --build-arg GOARCH=amd6 --build-arg TAG=test ."
+    # settings:
+#      tags: "test"
+      # dockerfile: ./docker/Dockerfile
+#      repo: oliver006/redis_exporter
+      # target: scratch
+      # dry_run: true
+      # build_args:
+      #   - 'TAG=test'
+      #   - 'SHA1=${DRONE_COMMIT_SHA}'
+      #   - 'GOARCH=amd64'
+      # username:
+      #   from_secret: docker_test_user
+      # password:
+      #   from_secret: docker_test_pass
     when:
       event:
         - pull_request
