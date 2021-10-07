@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
-	"github.com/mna/redisc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
@@ -58,33 +57,6 @@ func getTestExporterWithOptions(opt Options) *Exporter {
 	}
 	e, _ := NewRedisExporter(addr, opt)
 	return e
-}
-
-func createClusterClient(uri string) (redis.Conn, error) {
-	log.Printf("Creating cluster object")
-	cluster := redisc.Cluster{
-		StartupNodes: []string{uri},
-	}
-	log.Printf("Running refresh on cluster object")
-	if err := cluster.Refresh(); err != nil {
-		log.Debugf("Cluster refresh failed: %v", err)
-		return nil, err
-	}
-
-	log.Printf("Creating redis connection object")
-	conn, err := cluster.Dial()
-	if err != nil {
-		log.Errorf("Dial failed: %v", err)
-		return nil, err
-	}
-
-	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
-	if err != nil {
-		log.Errorf("RetryConn failed: %v", err)
-		return nil, err
-	}
-
-	return c, nil
 }
 
 func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
