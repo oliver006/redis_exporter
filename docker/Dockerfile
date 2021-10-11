@@ -21,7 +21,7 @@ RUN [ $TARGETPLATFORM = "linux/amd64" ]  && /redis_exporter -version || ls -la /
 #
 # scratch release container
 #
-FROM scratch as scratch
+FROM --platform=$TARGETPLATFORM scratch as scratch
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
@@ -37,7 +37,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM alpine as alpine
+FROM --platform=$TARGETPLATFORM alpine as alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
