@@ -3,7 +3,7 @@ name: default
 
 workspace:
   base: /go
-  path: src/github.com/oliver006/redis_exporter
+  path: src/github.com/garrygerber/redis_exporter
 
 
 services:
