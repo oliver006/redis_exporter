@@ -307,6 +307,11 @@ steps:
         - linux/amd64
         - linux/arm
         - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - tests
 
 ###########
 #
