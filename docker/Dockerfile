@@ -1,3 +1,4 @@
+ARG GOARCH="amd64"
 #
 # build container
 #
@@ -6,7 +7,6 @@ WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
 
-ARG GOARCH="amd64"
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 
@@ -19,7 +19,7 @@ RUN [ $GOARCH = "amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
 #
 # scratch release container
 #
-FROM --platform=linux/$GOARCH scratch as scratch
+FROM --platform=linux/${GOARCH} scratch as scratch
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
@@ -35,7 +35,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM --platform=linux/$GOARCH alpine as alpine
+FROM --platform=linux/${GOARCH} alpine as alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
