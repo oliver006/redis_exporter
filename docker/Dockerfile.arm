@@ -20,7 +20,7 @@ RUN [ $GOARCH = "amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
 #
 # Alpine ARM release container
 #
-FROM arm32v6/alpine:3.6 as alpine-arm
+FROM arm32v6/alpine:3.14 as alpine-arm
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
