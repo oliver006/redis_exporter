@@ -98,6 +98,7 @@ steps:
     depends_on:
       - start
 
+
   - name: build-binaries
     image: "golang:1.17"
     pull: always
@@ -113,6 +114,7 @@ steps:
         - tag
     depends_on:
       - start
+
 
   - name: test-docker-build
     image: plugins/docker
@@ -139,7 +141,7 @@ steps:
       - start
 
   - name: lint
-    image: golangci/golangci-lint@sha256:39e13a431c69fca37f88ab4b2340655eef7d7d18373df10d5e737f0b77866747
+    image: golangci/golangci-lint:v1.42.1-alpine
     pull: always
     commands:
       - apk add --update make
@@ -158,13 +160,10 @@ steps:
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
-      COVERALLS_TOKEN:
-        from_secret: coveralls-token
     commands:
       - sleep 15
       - make checks
       - make test
-      - make upload-coverage
     when:
       event:
         - pull_request
@@ -201,6 +200,25 @@ steps:
       event:
         - pull_request
         - push
+    depends_on:
+      - tests
+
+
+  - name: upload-coveralls
+    image: "golang:1.17"
+    pull: always
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
+      COVERALLS_TOKEN:
+        from_secret: coveralls-token
+    commands:
+      - make upload-coverage
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
     depends_on:
       - tests
 
