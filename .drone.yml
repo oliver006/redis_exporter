@@ -161,7 +161,7 @@ steps:
       COVERALLS_TOKEN:
         from_secret: coveralls-token
     commands:
-      - sleep 5
+      - sleep 15
       - make checks
       - make test
       - make upload-coverage
@@ -171,7 +171,7 @@ steps:
         - push
         - tag
     depends_on:
-      - build-binaries
+      - start
 
 
   - name: mixins
