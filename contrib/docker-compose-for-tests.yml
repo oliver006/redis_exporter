@@ -2,7 +2,7 @@ version: '3'
 services:
 
   redis5:
-    image: redis:5
+    image: redis:6
     command: "redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
       - 6383
@@ -14,7 +14,7 @@ services:
       - 6379
 
   pwd-redis5:
-    image: redis:5
+    image: redis:6
     command: "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
     ports:
       - 6380
@@ -26,7 +26,7 @@ services:
       - 6390
 
   redis-2-8:
-    image: redis:2.8
+    image: redis:6.2
     command: "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
       - 6381

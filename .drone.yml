@@ -8,7 +8,7 @@ workspace:
 
 services:
   - name: redis5
-    image: redis:5
+    image: redis:6
     commands:
       - "redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
@@ -22,7 +22,7 @@ services:
       - 6379
 
   - name: pwd-redis5
-    image: redis:5
+    image: redis:6
     commands:
       - "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
     ports:
@@ -36,7 +36,7 @@ services:
       - 6390
 
   - name: redis-2-8
-    image: redis:2.8
+    image: redis:6.2
     commands:
       - "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
