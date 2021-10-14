@@ -139,7 +139,7 @@ steps:
       - start
 
   - name: lint
-    image: golangci/golangci-lint@sha256:39e13a431c69fca37f88ab4b2340655eef7d7d18373df10d5e737f0b77866747
+    image: golangci/golangci-lint@sha256:4dfd9f92a38ae32aaa8265aa242024a2aa90db14d513e848f24852ca5b53ccde
     pull: always
     commands:
       - apk add --update make
