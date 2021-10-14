@@ -127,8 +127,8 @@ steps:
     image: golangci/golangci-lint:v1.42.1-alpine
     pull: always
     commands:
-      - apk add --update make
-      - make lint
+      - golangci-lint run --tests=false --exclude-use-default
+      - golangci-lint run -D=errcheck   --exclude-use-default
     when:
       event:
         - pull_request
