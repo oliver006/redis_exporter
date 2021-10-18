@@ -173,12 +173,14 @@ steps:
 
 
   - name: coverage-codecov
-    image: plugins/codecov
-    settings:
-      token:
+    image: golang:1.17
+    environment:
+      CODECOV_TOKEN:
         from_secret: codecov-token
-      files:
-        - coverage.txt
+    commands:
+      - curl -Os https://uploader.codecov.io/latest/linux/codecov
+      - chmod +x codecov
+      - ./codecov -t ${CODECOV_TOKEN} -f coverage.txt
     when:
       event:
         - pull_request
@@ -187,7 +189,7 @@ steps:
       - tests
 
 
-  - name: upload-coveralls
+  - name: coverage-coveralls
     image: "golang:1.17"
     pull: always
     environment:
