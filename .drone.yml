@@ -318,6 +318,7 @@ steps:
     depends_on:
       - tests
 
+
   - name: manifest-alpine
     image: plugins/manifest
     settings:
@@ -429,6 +430,7 @@ steps:
     depends_on:
       - tests
 
+
   - name: manifest-quay-alpine
     image: plugins/manifest
     settings:
@@ -450,6 +452,7 @@ steps:
       - release-quay-alpine-arm64
       - release-quay-alpine-arm
       - release-quay-alpine-amd64
+
 
   - name: release-github-binaries
     image: "golang:1.17"
