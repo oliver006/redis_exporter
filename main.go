@@ -81,6 +81,7 @@ func main() {
 		isDebug              = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information")
 		setClientName        = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
 		isTile38             = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
+		isCluster            = flag.Bool("is-cluster", getEnvBool("REDIS_EXPORTER_IS_CLUSTER", false), "Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).")
 		exportClientList     = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
 		exportClientPort     = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
 		showVersion          = flag.Bool("version", false, "Show version information and exit")
@@ -159,6 +160,7 @@ func main() {
 			InclSystemMetrics:     *inclSystemMetrics,
 			SetClientName:         *setClientName,
 			IsTile38:              *isTile38,
+			IsCluster:             *isCluster,
 			ExportClientList:      *exportClientList,
 			ExportClientsInclPort: *exportClientPort,
 			SkipTLSVerification:   *skipTLSVerification,

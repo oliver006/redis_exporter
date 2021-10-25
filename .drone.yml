@@ -98,21 +98,6 @@ steps:
     depends_on:
       - start
 
-  - name: build-binaries
-    image: "golang:1.17"
-    pull: always
-    environment:
-      GO111MODULE: on
-      LOG_LEVEL: "info"
-    commands:
-      - make build-binaries
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - start
 
   - name: test-docker-build
     image: plugins/docker
@@ -139,11 +124,11 @@ steps:
       - start
 
   - name: lint
-    image: golangci/golangci-lint@sha256:39e13a431c69fca37f88ab4b2340655eef7d7d18373df10d5e737f0b77866747
+    image: golangci/golangci-lint:v1.42.1-alpine
     pull: always
     commands:
-      - apk add --update make
-      - make lint
+      - golangci-lint run --tests=false --exclude-use-default
+      - golangci-lint run -D=errcheck   --exclude-use-default
     when:
       event:
         - pull_request
@@ -158,22 +143,17 @@ steps:
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
-      COVERALLS_TOKEN:
-        from_secret: coveralls-token
     commands:
-      - sleep 5
+      - sleep 15
       - make checks
       - make test
-# coveralls seems to have issues right now
-# https://github.com/lemurheavy/coveralls-public/issues/1573
-#      - make upload-coverage
     when:
       event:
         - pull_request
         - push
         - tag
     depends_on:
-      - build-binaries
+      - start
 
 
   - name: mixins
@@ -193,16 +173,54 @@ steps:
 
 
   - name: coverage-codecov
-    image: plugins/codecov
-    settings:
-      token:
+    image: golang:1.17
+    environment:
+      CODECOV_TOKEN:
         from_secret: codecov-token
-      files:
-        - coverage.txt
+    commands:
+      - curl -Os https://uploader.codecov.io/latest/linux/codecov
+      - chmod +x codecov
+      - ./codecov -t ${CODECOV_TOKEN} -f coverage.txt
     when:
       event:
         - pull_request
         - push
+    depends_on:
+      - tests
+
+
+  - name: coverage-coveralls
+    image: "golang:1.17"
+    pull: always
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
+      COVERALLS_TOKEN:
+        from_secret: coveralls-token
+    commands:
+      - make upload-coverage
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
+    depends_on:
+      - tests
+
+
+  - name: build-binaries
+    image: "golang:1.17"
+    pull: always
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
+    commands:
+      - make build-binaries
+    when:
+      event:
+        - pull_request
+        - push
+        - tag
     depends_on:
       - tests
 

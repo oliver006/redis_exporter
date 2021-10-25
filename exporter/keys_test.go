@@ -52,6 +52,39 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	}
 }
 
+func TestClusterKeyValuesAndSizes(t *testing.T) {
+	e, _ := NewRedisExporter(
+		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
+		Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]), IsCluster: true},
+	)
+
+	uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+
+	setupDBKeysCluster(t, uri)
+	defer deleteKeysFromDBCluster(t, uri)
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	want := map[string]bool{"test_key_size": false, "test_key_value": false}
+
+	for m := range chM {
+		for k := range want {
+			if strings.Contains(m.Desc().String(), k) {
+				want[k] = true
+			}
+		}
+	}
+	for k, found := range want {
+		if !found {
+			t.Errorf("didn't find %s", k)
+		}
+	}
+}
+
 func TestParseKeyArg(t *testing.T) {
 	for _, test := range []struct {
 		name          string
