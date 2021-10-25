@@ -338,6 +338,9 @@ steps:
         - tag
     depends_on:
       - tests
+      - release-docker-image-alpine-arm64
+      - release-docker-image-alpine-arm
+      - release-docker-image-alpine-amd64
 
 ###########
 #
@@ -441,11 +444,12 @@ steps:
         - linux/arm64
     when:
       event:
-        - pull_request
-        - push
         - tag
     depends_on:
       - tests
+      - release-quay-alpine-arm64
+      - release-quay-alpine-arm
+      - release-quay-alpine-amd64
 
   - name: release-github-binaries
     image: "golang:1.17"
