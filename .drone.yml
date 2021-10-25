@@ -253,7 +253,7 @@ steps:
       tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
-      target: alpine-arm64
+      target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -277,7 +277,7 @@ steps:
       tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
-      target: alpine-arm
+      target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
