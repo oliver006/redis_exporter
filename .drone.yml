@@ -328,8 +328,6 @@ steps:
         - linux/arm64
     when:
       event:
-        - pull_request
-        - push
         - tag
     depends_on:
       - tests
