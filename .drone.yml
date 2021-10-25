@@ -250,7 +250,7 @@ steps:
   - name: release-docker-image-alpine-arm64
     image: plugins/docker
     settings:
-      tags: "latest-arm64,${DRONE_TAG}-arm64"
+      tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine-arm64
@@ -274,7 +274,7 @@ steps:
   - name: release-docker-image-alpine-arm
     image: plugins/docker
     settings:
-      tags: "latest-arm,${DRONE_TAG}-arm"
+      tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine-arm
@@ -298,7 +298,7 @@ steps:
   - name: release-docker-image-alpine-amd64
     image: plugins/docker
     settings:
-      tags: "alpine,${DRONE_TAG}-alpine"
+      tags: "alpine,${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
@@ -369,7 +369,7 @@ steps:
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest-arm64,${DRONE_TAG}-arm64"
+      tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
       dockerfile: ./docker/Dockerfile
       target: alpine-arm64
       build_args:
@@ -390,7 +390,7 @@ steps:
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest-arm,${DRONE_TAG}-arm"
+      tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
       dockerfile: ./docker/Dockerfile
       target: alpine-arm
       build_args:
@@ -411,7 +411,7 @@ steps:
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "alpine,${DRONE_TAG}-alpine"
+      tags: "alpine,${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       target: alpine
       build_args:
@@ -422,6 +422,27 @@ steps:
         from_secret: docker_config_json
     when:
       event:
+        - tag
+    depends_on:
+      - tests
+
+  - name: manifest-quay-alpine
+    image: plugins/manifest
+    settings:
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+      target: oliver006/redis_exporter:alpine
+      template: quay.io/oliver006/redis_exporter:alpine-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - pull_request
+        - push
         - tag
     depends_on:
       - tests
