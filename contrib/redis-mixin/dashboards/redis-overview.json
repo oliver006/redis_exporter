@@ -89,7 +89,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(irate(redis_commands_total{instance=~\"$instance\"} [1m])) by (cmd)",
+          "expr": "avg(irate(redis_commands_total{instance=~\"$instance\"} [$__rate_interval])) by (cmd)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -196,7 +196,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[1m])) by (cmd)\n  /\navg(irate(redis_commands_total{instance=~\"$instance\"}[1m])) by (cmd)\n",
+          "expr": "avg(irate(redis_commands_duration_seconds_total{instance=~\"$instance\"}[$__rate_interval])) by (cmd)\n  /\navg(irate(redis_commands_total{instance=~\"$instance\"}[$__rate_interval])) by (cmd)\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -313,7 +313,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(irate(redis_keyspace_hits_total{instance=~\"$instance\"}[1m]) / (irate(redis_keyspace_misses_total{instance=~\"$instance\"}[1m]) + irate(redis_keyspace_hits_total{instance=~\"$instance\"}[1m]))) by (instance)",
+          "expr": "avg(irate(redis_keyspace_hits_total{instance=~\"$instance\"}[$__rate_interval]) / (irate(redis_keyspace_misses_total{instance=~\"$instance\"}[$__rate_interval]) + irate(redis_keyspace_hits_total{instance=~\"$instance\"}[$__rate_interval]))) by (instance)",
           "format": "time_series",
           "hide": false,
           "interval": "",
@@ -696,7 +696,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "irate(redis_evicted_keys_total{instance=~\"$instance\"}[1m])",
+          "expr": "irate(redis_evicted_keys_total{instance=~\"$instance\"}[$__rate_interval])",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1332,7 +1332,7 @@
         },
         "hide": 0,
         "includeAll": false,
-        "label": null,
+        "label": "Data Source",
         "multi": false,
         "name": "datasource",
         "options": [],

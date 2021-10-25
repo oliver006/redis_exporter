@@ -95,9 +95,14 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 
 	log.Debugf("allKeys: %#v", allKeys)
 	for _, k := range allKeys {
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Errorf("Couldn't select database %#v when getting key info.", k.db)
-			continue
+		if e.options.IsCluster {
+			//Cluster mode only has one db
+			k.db = "0"
+		} else {
+			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+				log.Errorf("Couldn't select database %#v when getting key info.", k.db)
+				continue
+			}
 		}
 
 		dbLabel := "db" + k.db
