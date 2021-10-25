@@ -264,8 +264,6 @@ steps:
         from_secret: docker_pass
     when:
       event:
-        - pull_request
-        - push
         - tag
     depends_on:
       - tests
@@ -288,8 +286,6 @@ steps:
         from_secret: docker_pass
     when:
       event:
-        - pull_request
-        - push
         - tag
     depends_on:
       - tests
@@ -312,8 +308,6 @@ steps:
         from_secret: docker_pass
     when:
       event:
-        - pull_request
-        - push
         - tag
     depends_on:
       - tests
