@@ -479,7 +479,6 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
       - release-quay-alpine-arm64
       - release-quay-alpine-arm
       - release-quay-alpine-amd64
