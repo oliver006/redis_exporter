@@ -339,8 +339,8 @@ steps:
         from_secret: docker_user
       password:
         from_secret: docker_pass
-      target: oliver006/redis_exporter:alpine
-      template: oliver006/redis_exporter:alpine-ARCH
+      target: garrygerber/redis_exporter:alpine
+      template: garrygerber/redis_exporter:alpine-ARCH
       platforms:
         - linux/amd64
         - linux/arm
@@ -470,8 +470,8 @@ steps:
         from_secret: docker_user
       password:
         from_secret: docker_pass
-      target: oliver006/redis_exporter:alpine
-      template: quay.io/oliver006/redis_exporter:alpine-ARCH
+      target: garrygerber/redis_exporter:alpine
+      template: quay.io/garrygerber/redis_exporter:alpine-ARCH
       platforms:
         - linux/amd64
         - linux/arm
