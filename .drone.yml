@@ -68,13 +68,15 @@ services:
 
 steps:
   - name: start
-    image: jansauer/dockercli-plus-awscli
+    image: docker
     commands:
       - docker pull golang:1.17
       - sleep 10
       - 'echo "start"'
+    privileged: true
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - name: docker_socket
+        path: /var/run/docker.sock
     when:
       event:
         - pull_request
@@ -465,3 +467,8 @@ steps:
     depends_on:
       - tests
       - build-binaries
+
+volumes:
+    - name: docker_socket
+      host:
+        path: /var/run/docker.sock
