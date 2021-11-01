@@ -68,8 +68,9 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.17"
+    image: jansauer/dockercli-plus-awscli
     commands:
+      - docker pull golang:1.17
       - sleep 10
       - 'echo "start"'
     when:
