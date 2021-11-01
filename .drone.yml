@@ -498,5 +498,4 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
       - build-binaries
