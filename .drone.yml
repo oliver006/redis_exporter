@@ -73,6 +73,8 @@ steps:
       - docker pull golang:1.17
       - sleep 10
       - 'echo "start"'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
     when:
       event:
         - pull_request
