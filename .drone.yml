@@ -186,7 +186,7 @@ steps:
 
 
   - name: coverage-codecov
-    image: golang:1.17-alpine
+    image: golang:1.17
     pull: if-not-exists
     environment:
       CODECOV_TOKEN:
@@ -204,7 +204,7 @@ steps:
 
 
   - name: coverage-coveralls
-    image: "golang:1.17-alpine"
+    image: "golang:1.17"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -223,7 +223,7 @@ steps:
 
 
   - name: build-binaries
-    image: "golang:1.17-alpine"
+    image: "golang:1.17"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -373,6 +373,10 @@ steps:
         - 'GOARCH=amd64'
       config:
         from_secret: docker_config_json
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
     when:
       event:
         - tag
@@ -395,6 +399,10 @@ steps:
         - 'GOARCH=arm64'
       config:
         from_secret: docker_config_json
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
     when:
       event:
         - tag
@@ -417,6 +425,10 @@ steps:
         - 'GOARCH=arm'
       config:
         from_secret: docker_config_json
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
     when:
       event:
         - tag
@@ -439,6 +451,10 @@ steps:
         - 'GOARCH=amd64'
       config:
         from_secret: docker_config_json
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
     when:
       event:
         - tag
@@ -471,7 +487,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.17-alpine"
+    image: "golang:1.17"
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:
