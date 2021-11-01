@@ -349,7 +349,6 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
       - release-docker-image-alpine-arm64
       - release-docker-image-alpine-arm
       - release-docker-image-alpine-amd64
