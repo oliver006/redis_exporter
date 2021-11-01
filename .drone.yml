@@ -68,7 +68,7 @@ services:
 
 steps:
   - name: start
-    image: docker
+    image: plugins/docker
     commands:
       - docker pull golang:1.17
       - sleep 10
