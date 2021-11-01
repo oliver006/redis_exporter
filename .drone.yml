@@ -73,7 +73,6 @@ steps:
       - docker pull golang:1.17
       - sleep 10
       - 'echo "start"'
-    privileged: true
     volumes:
       - name: docker_socket
         path: /var/run/docker.sock
