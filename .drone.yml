@@ -150,7 +150,7 @@ steps:
       - start
 
   - name: tests
-    image: "golang:1.17-alpine"
+    image: "golang:1.17"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -169,7 +169,7 @@ steps:
 
 
   - name: mixins
-    image: golang:1.17-alpine
+    image: golang:1.17
     pull: if-not-exists
     commands:
       - cd ./contrib/redis-mixin
