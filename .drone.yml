@@ -312,7 +312,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
-      tags: "alpine,${DRONE_TAG}-alpine,alpine-amd64"
+      tags: "${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       repo: garrygerber/redis_exporter
       target: alpine
@@ -441,7 +441,7 @@ steps:
     settings:
       registry: "quay.io"
       repo: "quay.io/garrygerber/redis_exporter"
-      tags: "alpine,${DRONE_TAG}-alpine,alpine-amd64"
+      tags: "${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       target: alpine
       build_args:
