@@ -1,4 +1,3 @@
-ARG GOARCH="amd64"
 #
 # build container
 #
@@ -7,6 +6,7 @@ WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
 
+ARG GOARCH="amd64"
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 
