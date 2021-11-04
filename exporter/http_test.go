@@ -14,7 +14,9 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/common/expfmt"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/mod/semver"
 )
 
 func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
@@ -176,6 +178,13 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				`test_up 1`,
 			}
 
+			version := extractVersionfromBody(t, body, options.Namespace)
+
+			// io-threads are only supported on redis 6+
+			if semver.Compare("v"+version, "v6") >= 0 {
+				wants = append(wants, "config_io_threads")
+			}
+
 			for _, want := range wants {
 				if !strings.Contains(body, want) {
 					t.Errorf("url: %s    want metrics to include %q, have:\n%s", u, want, body)
@@ -305,4 +314,28 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 	}
 
 	return resp.StatusCode, string(body)
+}
+
+func extractVersionfromBody(t *testing.T, body, namespace string) string {
+	metric := fmt.Sprintf("%s_instance_info", namespace)
+
+	var parser expfmt.TextParser
+	mf, err := parser.TextToMetricFamilies(strings.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m, ok := mf[metric]
+	if !ok {
+		t.Fatalf("Couldn't find metric %s in the provided body", metric)
+	}
+
+	for _, l := range m.Metric[0].Label {
+		if l.GetName() == "redis_version" {
+			return l.GetValue()
+		}
+	}
+
+	t.Fatalf("Something went wrong, couldn't extract redis version")
+	return ""
 }
