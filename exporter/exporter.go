@@ -466,13 +466,15 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []st
 
 		// todo: we can add more configs to this map if there's interest
 		if !map[string]bool{
-			"maxmemory":  true,
+			"io-threads": true,
 			"maxclients": true,
+			"maxmemory":  true,
 		}[strKey] {
 			continue
 		}
 
 		if val, err := strconv.ParseFloat(strVal, 64); err == nil {
+			strKey = strings.ReplaceAll(strKey, "-", "_")
 			e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
 		}
 	}
