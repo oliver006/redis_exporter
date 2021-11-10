@@ -247,6 +247,7 @@ steps:
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -270,6 +271,7 @@ steps:
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -293,6 +295,7 @@ steps:
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -316,6 +319,7 @@ steps:
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -340,7 +344,7 @@ steps:
       password:
         from_secret: docker_pass
       target: oliver006/redis_exporter:latest
-      template: oliver006/redis_exporter:latest-ARCH
+      template: "oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
@@ -363,8 +367,8 @@ steps:
         from_secret: docker_user
       password:
         from_secret: docker_pass
-      target: oliver006/redis_exporter:${DRONE_TAG}
-      template: oliver006/redis_exporter:${DRONE_TAG}-ARCH
+      target: "oliver006/redis_exporter:${DRONE_TAG}"
+      template: "oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
@@ -415,6 +419,7 @@ steps:
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
       dockerfile: ./docker/Dockerfile
       target: scratch
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -426,6 +431,7 @@ steps:
         - tag
     depends_on:
       - tests
+      - release-docker-image-scratch
 
 
   - name: release-quay-alpine-arm64
@@ -437,6 +443,7 @@ steps:
       tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
       dockerfile: ./docker/Dockerfile
       target: alpine
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -448,6 +455,7 @@ steps:
         - tag
     depends_on:
       - tests
+      - release-docker-image-alpine-arm64
 
 
   - name: release-quay-alpine-arm
@@ -459,6 +467,7 @@ steps:
       tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
       dockerfile: ./docker/Dockerfile
       target: alpine
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -470,6 +479,7 @@ steps:
         - tag
     depends_on:
       - tests
+      - release-docker-image-alpine-arm
 
 
   - name: release-quay-alpine-amd64
@@ -481,6 +491,7 @@ steps:
       tags: "${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       target: alpine
+      no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -492,6 +503,7 @@ steps:
         - tag
     depends_on:
       - tests
+      - release-docker-image-alpine-amd64
 
 
   - name: manifest-quay-latest
@@ -503,7 +515,7 @@ steps:
       password:
         from_secret: quay_pass
       target: quay.io/oliver006/redis_exporter:latest
-      template: quay.io/oliver006/redis_exporter:latest-ARCH
+      template: "quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
@@ -525,8 +537,8 @@ steps:
         from_secret: quay_user
       password:
         from_secret: quay_pass
-      target: quay.io/oliver006/redis_exporter:${DRONE_TAG}
-      template: quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH
+      target: "quay.io/oliver006/redis_exporter:${DRONE_TAG}"
+      template: "quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
