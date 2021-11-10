@@ -363,7 +363,7 @@ steps:
         from_secret: docker_user
       password:
         from_secret: docker_pass
-      target: oliver006/redis_exporter:${DRONE_TAG}
+      target: "oliver006/redis_exporter:${DRONE_TAG}"
       template: oliver006/redis_exporter:${DRONE_TAG}-ARCH
       platforms:
         - linux/amd64
@@ -525,7 +525,7 @@ steps:
         from_secret: quay_user
       password:
         from_secret: quay_pass
-      target: quay.io/oliver006/redis_exporter:${DRONE_TAG}
+      target: "quay.io/oliver006/redis_exporter:${DRONE_TAG}"
       template: quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH
       platforms:
         - linux/amd64
