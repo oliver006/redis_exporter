@@ -449,8 +449,10 @@ steps:
     image: plugins/manifest
     pull: if-not-exists
     settings:
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
       target: quay.io/oliver006/redis_exporter:alpine
       template: quay.io/oliver006/redis_exporter:alpine-ARCH
       platforms:
