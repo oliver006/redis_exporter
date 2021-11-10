@@ -451,7 +451,7 @@ steps:
     settings:
       config:
         from_secret: docker_config_json
-      target: oliver006/redis_exporter:alpine
+      target: quay.io/oliver006/redis_exporter:alpine
       template: quay.io/oliver006/redis_exporter:alpine-ARCH
       platforms:
         - linux/amd64
