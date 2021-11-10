@@ -1,3 +1,4 @@
+ARG GOARCH="amd64"
 #
 # build container
 #
@@ -6,7 +7,6 @@ WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
 
-ARG GOARCH="arm"
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 
@@ -16,11 +16,26 @@ RUN BUILD_DATE=$(date +%F-%T) && CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go buil
 
 RUN [ $GOARCH = "amd64" ]  && /redis_exporter -version || ls -la /redis_exporter
 
+#
+# scratch release container
+#
+FROM --platform=linux/${GOARCH} scratch as scratch
+
+COPY --from=builder /redis_exporter /redis_exporter
+COPY --from=builder /etc/ssl/certs /etc/ssl/certs
+COPY --from=builder /etc/nsswitch.conf /etc/nsswitch.conf
+
+# Run as non-root user for secure environments
+USER 59000:59000
+
+EXPOSE     9121
+ENTRYPOINT [ "/redis_exporter" ]
+
 
 #
-# Alpine ARM release container
+# Alpine release container
 #
-FROM arm32v6/alpine:3.14 as alpine-arm
+FROM --platform=linux/${GOARCH} alpine as alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs

@@ -9,6 +9,7 @@ workspace:
 services:
   - name: redis5
     image: redis:5
+    pull: if-not-exists
     commands:
       - "redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
@@ -16,6 +17,7 @@ services:
 
   - name: redis6
     image: redis:6
+    pull: if-not-exists
     commands:
       - "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
@@ -23,6 +25,7 @@ services:
 
   - name: pwd-redis5
     image: redis:5
+    pull: if-not-exists
     commands:
       - "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
     ports:
@@ -30,6 +33,7 @@ services:
 
   - name: pwd-redis6
     image: redis:6
+    pull: if-not-exists
     commands:
       - "redis-server --port 6390 --requirepass dummy --user exporter on +INFO +CLIENT +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
     ports:
@@ -37,6 +41,7 @@ services:
 
   - name: redis-2-8
     image: redis:2.8
+    pull: if-not-exists
     commands:
       - "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
@@ -44,6 +49,7 @@ services:
 
   - name: keydb-01
     image: "eqalpha/keydb:x86_64_v5.3.0"
+    pull: if-not-exists
     commands:
       - "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
     ports:
@@ -51,6 +57,7 @@ services:
 
   - name: keydb-02
     image: "eqalpha/keydb:x86_64_v5.3.0"
+    pull: if-not-exists
     commands:
       - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
     ports:
@@ -58,10 +65,12 @@ services:
 
   - name: redis-cluster
     image: grokzen/redis-cluster
+    pull: if-not-exists
     ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
 
   - name: tile38
     image: tile38/tile38:latest
+    pull: if-not-exists
     ports:
       - 9851
 
@@ -69,6 +78,7 @@ services:
 steps:
   - name: start
     image: "golang:1.17"
+    pull: if-not-exists
     commands:
       - sleep 10
       - 'echo "start"'
@@ -85,6 +95,7 @@ steps:
   #
   - name: redis-sentinel
     image: "docker.io/bitnami/redis-sentinel:6.2-debian-10"
+    pull: if-not-exists
     environment:
       REDIS_MASTER_HOST: redis6
     ports:
@@ -101,9 +112,10 @@ steps:
 
   - name: test-docker-build
     image: plugins/docker
+    pull: if-not-exists
     settings:
       tags: "test"
-      dockerfile: ./docker/Dockerfile.amd64
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
       dry_run: true
@@ -125,7 +137,7 @@ steps:
 
   - name: lint
     image: golangci/golangci-lint:v1.42.1-alpine
-    pull: always
+    pull: if-not-exists
     commands:
       - golangci-lint run --tests=false --exclude-use-default
       - golangci-lint run -D=errcheck   --exclude-use-default
@@ -139,7 +151,7 @@ steps:
 
   - name: tests
     image: "golang:1.17"
-    pull: always
+    pull: if-not-exists
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
@@ -158,6 +170,7 @@ steps:
 
   - name: mixins
     image: golang:1.17
+    pull: if-not-exists
     commands:
       - cd ./contrib/redis-mixin
       - go install github.com/monitoring-mixins/mixtool/cmd/mixtool
@@ -174,6 +187,7 @@ steps:
 
   - name: coverage-codecov
     image: golang:1.17
+    pull: if-not-exists
     environment:
       CODECOV_TOKEN:
         from_secret: codecov-token
@@ -191,7 +205,7 @@ steps:
 
   - name: coverage-coveralls
     image: "golang:1.17"
-    pull: always
+    pull: if-not-exists
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
@@ -210,7 +224,7 @@ steps:
 
   - name: build-binaries
     image: "golang:1.17"
-    pull: always
+    pull: if-not-exists
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
@@ -227,9 +241,10 @@ steps:
 
   - name: release-docker-image-scratch
     image: plugins/docker
+    pull: if-not-exists
     settings:
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
-      dockerfile: ./docker/Dockerfile.amd64
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: scratch
       build_args:
@@ -249,11 +264,12 @@ steps:
 
   - name: release-docker-image-alpine-arm64
     image: plugins/docker
+    pull: if-not-exists
     settings:
-      tags: "latest-arm64,${DRONE_TAG}-arm64"
-      dockerfile: ./docker/Dockerfile.arm64
+      tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
-      target: alpine-arm64
+      target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -271,11 +287,12 @@ steps:
 
   - name: release-docker-image-alpine-arm
     image: plugins/docker
+    pull: if-not-exists
     settings:
-      tags: "latest-arm,${DRONE_TAG}-arm"
-      dockerfile: ./docker/Dockerfile.arm
+      tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
-      target: alpine-arm
+      target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -293,9 +310,10 @@ steps:
 
   - name: release-docker-image-alpine-amd64
     image: plugins/docker
+    pull: if-not-exists
     settings:
-      tags: "alpine,${DRONE_TAG}-alpine"
-      dockerfile: ./docker/Dockerfile.amd64
+      tags: "${DRONE_TAG}-alpine,alpine-amd64"
+      dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
       target: alpine
       build_args:
@@ -313,17 +331,40 @@ steps:
       - tests
 
 
+  - name: manifest-alpine
+    image: plugins/manifest
+    pull: if-not-exists
+    settings:
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+      target: oliver006/redis_exporter:alpine
+      template: oliver006/redis_exporter:alpine-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - release-docker-image-alpine-arm64
+      - release-docker-image-alpine-arm
+      - release-docker-image-alpine-amd64
+
 ###########
 #
 # Mirroring the docker images to quay.io
 #
   - name: release-quay-scratch
     image: plugins/docker
+    pull: if-not-exists
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
-      dockerfile: ./docker/Dockerfile.amd64
+      dockerfile: ./docker/Dockerfile
       target: scratch
       build_args:
         - 'TAG=${DRONE_TAG}'
@@ -340,12 +381,13 @@ steps:
 
   - name: release-quay-alpine-arm64
     image: plugins/docker
+    pull: if-not-exists
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest-arm64,${DRONE_TAG}-arm64"
-      dockerfile: ./docker/Dockerfile.arm64
-      target: alpine-arm64
+      tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
+      dockerfile: ./docker/Dockerfile
+      target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -361,12 +403,13 @@ steps:
 
   - name: release-quay-alpine-arm
     image: plugins/docker
+    pull: if-not-exists
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "latest-arm,${DRONE_TAG}-arm"
-      dockerfile: ./docker/Dockerfile.arm
-      target: alpine-arm
+      tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
+      dockerfile: ./docker/Dockerfile
+      target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
@@ -382,11 +425,12 @@ steps:
 
   - name: release-quay-alpine-amd64
     image: plugins/docker
+    pull: if-not-exists
     settings:
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
-      tags: "alpine,${DRONE_TAG}-alpine"
-      dockerfile: ./docker/Dockerfile.amd64
+      tags: "${DRONE_TAG}-alpine,alpine-amd64"
+      dockerfile: ./docker/Dockerfile
       target: alpine
       build_args:
         - 'TAG=${DRONE_TAG}'
@@ -400,9 +444,31 @@ steps:
     depends_on:
       - tests
 
+
+  - name: manifest-quay-alpine
+    image: plugins/manifest
+    pull: if-not-exists
+    settings:
+      config:
+        from_secret: docker_config_json
+      target: oliver006/redis_exporter:alpine
+      template: quay.io/oliver006/redis_exporter:alpine-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - release-quay-alpine-arm64
+      - release-quay-alpine-arm
+      - release-quay-alpine-amd64
+
+
   - name: release-github-binaries
     image: "golang:1.17"
-    pull: always
+    pull: if-not-exists
     environment:
       GITHUB_TOKEN:
         from_secret: github_token
@@ -414,5 +480,4 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
       - build-binaries
