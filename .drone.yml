@@ -331,7 +331,55 @@ steps:
       - tests
 
 
-  - name: manifest-alpine
+  - name: manifest-docker-latest
+    image: plugins/manifest
+    pull: if-not-exists
+    settings:
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+      target: oliver006/redis_exporter:latest
+      template: oliver006/redis_exporter:latest-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - release-docker-image-scratch
+      - release-docker-image-alpine-arm64
+      - release-docker-image-alpine-arm
+      - release-docker-image-alpine-amd64
+
+
+  - name: manifest-docker-tag
+    image: plugins/manifest
+    pull: if-not-exists
+    settings:
+      username:
+        from_secret: docker_user
+      password:
+        from_secret: docker_pass
+      target: oliver006/redis_exporter:${DRONE_TAG}
+      template: oliver006/redis_exporter:${DRONE_TAG}-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - release-docker-image-scratch
+      - release-docker-image-alpine-arm64
+      - release-docker-image-alpine-arm
+      - release-docker-image-alpine-amd64
+
+
+  - name: manifest-docker-alpine
     image: plugins/manifest
     pull: if-not-exists
     settings:
@@ -352,6 +400,7 @@ steps:
       - release-docker-image-alpine-arm64
       - release-docker-image-alpine-arm
       - release-docker-image-alpine-amd64
+
 
 ###########
 #
@@ -445,6 +494,53 @@ steps:
       - tests
 
 
+  - name: manifest-quay-latest
+    image: plugins/manifest
+    pull: if-not-exists
+    settings:
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
+      target: quay.io/oliver006/redis_exporter:latest
+      template: quay.io/oliver006/redis_exporter:latest-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - release-quay-alpine-arm64
+      - release-quay-alpine-arm
+      - release-quay-alpine-amd64
+
+
+  - name: manifest-quay-tag
+    image: plugins/manifest
+    pull: if-not-exists
+    settings:
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
+      target: quay.io/oliver006/redis_exporter:${DRONE_TAG}
+      template: quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH
+      platforms:
+        - linux/amd64
+        - linux/arm
+        - linux/arm64
+    when:
+      event:
+        - tag
+    depends_on:
+      - release-quay-scratch
+      - release-quay-alpine-arm64
+      - release-quay-alpine-arm
+      - release-quay-alpine-amd64
+
+
   - name: manifest-quay-alpine
     image: plugins/manifest
     pull: if-not-exists
@@ -463,6 +559,7 @@ steps:
       event:
         - tag
     depends_on:
+      - release-quay-scratch
       - release-quay-alpine-arm64
       - release-quay-alpine-arm
       - release-quay-alpine-amd64
