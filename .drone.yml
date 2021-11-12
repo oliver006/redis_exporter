@@ -340,7 +340,7 @@ steps:
       password:
         from_secret: docker_pass
       target: oliver006/redis_exporter:latest
-      template: oliver006/redis_exporter:latest-ARCH
+      template: "oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
@@ -364,7 +364,7 @@ steps:
       password:
         from_secret: docker_pass
       target: "oliver006/redis_exporter:${DRONE_TAG}"
-      template: oliver006/redis_exporter:${DRONE_TAG}-ARCH
+      template: "oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
@@ -503,7 +503,7 @@ steps:
       password:
         from_secret: quay_pass
       target: quay.io/oliver006/redis_exporter:latest
-      template: quay.io/oliver006/redis_exporter:latest-ARCH
+      template: "quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
@@ -526,7 +526,7 @@ steps:
       password:
         from_secret: quay_pass
       target: "quay.io/oliver006/redis_exporter:${DRONE_TAG}"
-      template: quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH
+      template: "quay.io/oliver006/redis_exporter:${DRONE_TAG}-ARCH"
       platforms:
         - linux/amd64
         - linux/arm
