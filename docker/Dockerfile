@@ -2,7 +2,7 @@ ARG GOARCH="amd64"
 #
 # build container
 #
-FROM --platform=linux/${GOARCH} golang:1.17-alpine as builder
+FROM golang:1.17-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
