@@ -39,6 +39,11 @@ var (
 	altDBNumStr     = "12"
 	invalidDBNumStr = "16"
 	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
+
+	TestStreamTimestamps = []string{
+		"1638006862416-0",
+		"1638006862417-2",
+	}
 )
 
 const (
@@ -95,8 +100,8 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 	// Create test streams
 	c.Do("XGROUP", "CREATE", TestStreamName, "test_group_1", "$", "MKSTREAM")
 	c.Do("XGROUP", "CREATE", TestStreamName, "test_group_2", "$", "MKSTREAM")
-	c.Do("XADD", TestStreamName, "*", "field_1", "str_1")
-	c.Do("XADD", TestStreamName, "*", "field_2", "str_2")
+	c.Do("XADD", TestStreamName, TestStreamTimestamps[0], "field_1", "str_1")
+	c.Do("XADD", TestStreamName, TestStreamTimestamps[1], "field_2", "str_2")
 	// Process messages to assign Consumers to their groups
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", TestStreamName, ">")
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestStreamName, ">")

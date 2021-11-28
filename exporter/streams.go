@@ -1,6 +1,9 @@
 package exporter
 
 import (
+	"strconv"
+	"strings"
+
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
@@ -9,10 +12,11 @@ import (
 // All fields of the streamInfo struct must be exported
 // because of redis.ScanStruct (reflect) limitations
 type streamInfo struct {
-	Length           int64 `redis:"length"`
-	RadixTreeKeys    int64 `redis:"radix-tree-keys"`
-	RadixTreeNodes   int64 `redis:"radix-tree-nodes"`
-	Groups           int64 `redis:"groups"`
+	Length           int64  `redis:"length"`
+	RadixTreeKeys    int64  `redis:"radix-tree-keys"`
+	RadixTreeNodes   int64  `redis:"radix-tree-nodes"`
+	LastGeneratedId  string `redis:"last-generated-id"`
+	Groups           int64  `redis:"groups"`
 	StreamGroupsInfo []streamGroupsInfo
 }
 
@@ -20,6 +24,7 @@ type streamGroupsInfo struct {
 	Name                     string `redis:"name"`
 	Consumers                int64  `redis:"consumers"`
 	Pending                  int64  `redis:"pending"`
+	LastDeliveredId          string `redis:"last-delivered-id"`
 	StreamGroupConsumersInfo []streamGroupConsumersInfo
 }
 
@@ -111,6 +116,14 @@ func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]stre
 	return result, nil
 }
 
+func parseStreamItemId(id string) float64 {
+	parsed_id, err := strconv.ParseFloat(strings.Split(id, "-")[0], 64)
+	if err != nil {
+		log.Errorf("Couldn't parse given stream timestamp: %s", err)
+	}
+	return parsed_id
+}
+
 func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	streams, err := parseKeyArg(e.options.CheckStreams)
 	if err != nil {
@@ -143,16 +156,18 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 			log.Errorf("couldn't get info for stream '%s', err: %s", k.key, err)
 			continue
 		}
-
 		dbLabel := "db" + k.db
+
 		e.registerConstMetricGauge(ch, "stream_length", float64(info.Length), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_radix_tree_keys", float64(info.RadixTreeKeys), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_radix_tree_nodes", float64(info.RadixTreeNodes), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_last_generated_id", parseStreamItemId(info.LastGeneratedId), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_groups", float64(info.Groups), dbLabel, k.key)
 
 		for _, g := range info.StreamGroupsInfo {
 			e.registerConstMetricGauge(ch, "stream_group_consumers", float64(g.Consumers), dbLabel, k.key, g.Name)
 			e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(g.Pending), dbLabel, k.key, g.Name)
+			e.registerConstMetricGauge(ch, "stream_group_last_delivered_id", parseStreamItemId(g.LastDeliveredId), dbLabel, k.key, g.Name)
 			for _, c := range g.StreamGroupConsumersInfo {
 				e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(c.Pending), dbLabel, k.key, g.Name, c.Name)
 				e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)
