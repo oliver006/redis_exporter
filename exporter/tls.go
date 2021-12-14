@@ -44,13 +44,14 @@ func (e *Exporter) CreateServerTLSConfig(certFile, keyFile, caCertFile string) (
 	tlsConfig := tls.Config{
 		GetCertificate: GetServerCertificateFunc(certFile, keyFile),
 	}
+
 	if caCertFile != "" {
-		certificates, err := LoadCAFile(caCertFile)
+		// Verify that the initial CA file is accepted when configured
+		_, err := LoadCAFile(caCertFile)
 		if err != nil {
 			return nil, err
 		}
-		tlsConfig.ClientCAs = certificates
-		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConfig.GetConfigForClient = GetConfigForClientFunc(certFile, keyFile, caCertFile)
 	}
 
 	return &tlsConfig, nil
@@ -60,6 +61,23 @@ func (e *Exporter) CreateServerTLSConfig(certFile, keyFile, caCertFile string) (
 func GetServerCertificateFunc(certFile, keyFile string) func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 	return func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return LoadKeyPair(certFile, keyFile)
+	}
+}
+
+// GetConfigForClientFunc returns a function for tls.Config.GetConfigForClient
+func GetConfigForClientFunc(certFile, keyFile, caCertFile string) func(*tls.ClientHelloInfo) (*tls.Config, error) {
+	return func(*tls.ClientHelloInfo) (*tls.Config, error) {
+		certificates, err := LoadCAFile(caCertFile)
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConfig := tls.Config{
+			ClientAuth:     tls.RequireAndVerifyClientCert,
+			ClientCAs:      certificates,
+			GetCertificate: GetServerCertificateFunc(certFile, keyFile),
+		}
+		return &tlsConfig, nil
 	}
 }
 

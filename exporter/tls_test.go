@@ -80,3 +80,17 @@ func TestGetServerCertificateFunc(t *testing.T) {
 		t.Errorf("Expected GetServerCertificateFunc() to fail")
 	}
 }
+
+func TestGetConfigForClientFunc(t *testing.T) {
+	// positive test
+	_, err := GetConfigForClientFunc("../contrib/tls/redis.crt", "../contrib/tls/redis.key", "../contrib/tls/ca.crt")(nil)
+	if err != nil {
+		t.Errorf("GetConfigForClientFunc() err: %s", err)
+	}
+
+	// negative test
+	_, err = GetConfigForClientFunc("/nonexisting/file", "/nonexisting/file", "/nonexisting/file")(nil)
+	if err == nil {
+		t.Errorf("Expected GetConfigForClientFunc() to fail")
+	}
+}
