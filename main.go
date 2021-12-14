@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"flag"
 	"io/ioutil"
 	"net/http"
@@ -77,6 +76,7 @@ func main() {
 		tlsCaCertFile        = flag.String("tls-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the server requires TLS client authentication")
 		tlsServerKeyFile     = flag.String("tls-server-key-file", getEnv("REDIS_EXPORTER_TLS_SERVER_KEY_FILE", ""), "Name of the server key file (including full path) if the web interface and telemetry should use TLS")
 		tlsServerCertFile    = flag.String("tls-server-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CERT_FILE", ""), "Name of the server certificate file (including full path) if the web interface and telemetry should use TLS")
+		tlsServerCaCertFile  = flag.String("tls-server-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the web interface and telemetry should require TLS client authentication")
 		maxDistinctKeyGroups = flag.Int64("max-distinct-key-groups", getEnvInt64("REDIS_EXPORTER_MAX_DISTINCT_KEY_GROUPS", 100), "The maximum number of distinct key groups with the most memory utilization to present as distinct metrics per database, the leftover key groups will be aggregated in the 'overflow' bucket")
 		isDebug              = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information")
 		setClientName        = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
@@ -197,14 +197,14 @@ func main() {
 	if *tlsServerCertFile != "" && *tlsServerKeyFile != "" {
 		log.Debugf("Bind as TLS using cert %s and key %s", *tlsServerCertFile, *tlsServerKeyFile)
 
-		// Verify that the initial key pair is accepted
-		_, err := exporter.LoadKeyPair(*tlsServerCertFile, *tlsServerKeyFile)
+		tlsConfig, err := exp.CreateServerTLSConfig(*tlsServerCertFile, *tlsServerKeyFile, *tlsServerCaCertFile)
 		if err != nil {
-			log.Fatalf("Couldn't load TLS server key pair, err: %s", err)
+			log.Fatal(err)
 		}
+
 		server := &http.Server{
 			Addr:      *listenAddress,
-			TLSConfig: &tls.Config{GetCertificate: exporter.GetServerCertificateFunc(*tlsServerCertFile, *tlsServerKeyFile)},
+			TLSConfig: tlsConfig,
 			Handler:   exp}
 		log.Fatal(server.ListenAndServeTLS("", ""))
 	} else {
