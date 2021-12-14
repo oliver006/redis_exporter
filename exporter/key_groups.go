@@ -31,7 +31,10 @@ type keyGroupsScrapeResult struct {
 }
 
 func (e *Exporter) extractKeyGroupMetrics(ch chan<- prometheus.Metric, c redis.Conn, dbCount int) {
-	allDbKeyGroupMetrics := e.gatherKeyGroupsMetricsForAllDatabases(c, dbCount)
+
+	e.keepGatheringKeyGroupsMetricsForAllDatabases(c, dbCount)
+
+	allDbKeyGroupMetrics := e.keyGroupsScrapeResult
 	if allDbKeyGroupMetrics == nil {
 		return
 	}
@@ -70,6 +73,19 @@ func (e *Exporter) extractKeyGroupMetrics(ch chan<- prometheus.Metric, c redis.C
 	e.registerConstMetricGauge(ch, "last_key_groups_scrape_duration_milliseconds", float64(allDbKeyGroupMetrics.duration.Milliseconds()))
 }
 
+func (e *Exporter) keepGatheringKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount int) {
+	e.keyGroupsScrapeResultOnce.Do(func() {
+		timeperiod := time.Duration(e.options.CheckKeyGroupsRunIntervalSecs)
+		var timer *time.Timer
+		for {
+			timer = time.NewTimer(timeperiod * time.Second)
+			e.gatherKeyGroupsMetricsForAllDatabases(c, dbCount)
+			<-timer.C
+			timer.Stop()
+		}
+	})
+}
+
 func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount int) *keyGroupsScrapeResult {
 	start := time.Now()
 	allMetrics := &keyGroupsScrapeResult{
@@ -78,6 +94,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 	}
 	defer func() {
 		allMetrics.duration = time.Since(start)
+		e.keyGroupsScrapeResult = allMetrics
 	}()
 	if strings.TrimSpace(e.options.CheckKeyGroups) == "" {
 		return allMetrics
@@ -143,6 +160,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 			}
 		}
 	}
+
 	return allMetrics
 }
 

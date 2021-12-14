@@ -42,39 +42,43 @@ type Exporter struct {
 	mux *http.ServeMux
 
 	buildInfo BuildInfo
+
+	keyGroupsScrapeResult     *keyGroupsScrapeResult
+	keyGroupsScrapeResultOnce sync.Once
 }
 
 type Options struct {
-	User                  string
-	Password              string
-	Namespace             string
-	PasswordMap           map[string]string
-	ConfigCommandName     string
-	CheckKeys             string
-	CheckSingleKeys       string
-	CheckStreams          string
-	CheckSingleStreams    string
-	CheckKeysBatchSize    int64
-	CheckKeyGroups        string
-	MaxDistinctKeyGroups  int64
-	CountKeys             string
-	LuaScript             []byte
-	ClientCertFile        string
-	ClientKeyFile         string
-	CaCertFile            string
-	InclSystemMetrics     bool
-	SkipTLSVerification   bool
-	SetClientName         bool
-	IsTile38              bool
-	IsCluster             bool
-	ExportClientList      bool
-	ExportClientsInclPort bool
-	ConnectionTimeouts    time.Duration
-	MetricsPath           string
-	RedisMetricsOnly      bool
-	PingOnConnect         bool
-	Registry              *prometheus.Registry
-	BuildInfo             BuildInfo
+	User                          string
+	Password                      string
+	Namespace                     string
+	PasswordMap                   map[string]string
+	ConfigCommandName             string
+	CheckKeys                     string
+	CheckSingleKeys               string
+	CheckStreams                  string
+	CheckSingleStreams            string
+	CheckKeysBatchSize            int64
+	CheckKeyGroups                string
+	CheckKeyGroupsRunIntervalSecs int64
+	MaxDistinctKeyGroups          int64
+	CountKeys                     string
+	LuaScript                     []byte
+	ClientCertFile                string
+	ClientKeyFile                 string
+	CaCertFile                    string
+	InclSystemMetrics             bool
+	SkipTLSVerification           bool
+	SetClientName                 bool
+	IsTile38                      bool
+	IsCluster                     bool
+	ExportClientList              bool
+	ExportClientsInclPort         bool
+	ConnectionTimeouts            time.Duration
+	MetricsPath                   string
+	RedisMetricsOnly              bool
+	PingOnConnect                 bool
+	Registry                      *prometheus.Registry
+	BuildInfo                     BuildInfo
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
