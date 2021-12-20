@@ -23,14 +23,35 @@ func (e *Exporter) CreateClientTLSConfig() (*tls.Config, error) {
 	}
 
 	if e.options.CaCertFile != "" {
-		log.Debugf("Load CA cert: %s", e.options.CaCertFile)
-		caCert, err := ioutil.ReadFile(e.options.CaCertFile)
+		certificates, err := LoadCAFile(e.options.CaCertFile)
 		if err != nil {
 			return nil, err
 		}
-		certificates := x509.NewCertPool()
-		certificates.AppendCertsFromPEM(caCert)
 		tlsConfig.RootCAs = certificates
+	}
+
+	return &tlsConfig, nil
+}
+
+// CreateServerTLSConfig verifies configured files and return a prepared tls.Config
+func (e *Exporter) CreateServerTLSConfig(certFile, keyFile, caCertFile string) (*tls.Config, error) {
+	// Verify that the initial key pair is accepted
+	_, err := LoadKeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, err
+	}
+
+	tlsConfig := tls.Config{
+		GetCertificate: GetServerCertificateFunc(certFile, keyFile),
+	}
+
+	if caCertFile != "" {
+		// Verify that the initial CA file is accepted when configured
+		_, err := LoadCAFile(caCertFile)
+		if err != nil {
+			return nil, err
+		}
+		tlsConfig.GetConfigForClient = GetConfigForClientFunc(certFile, keyFile, caCertFile)
 	}
 
 	return &tlsConfig, nil
@@ -43,6 +64,23 @@ func GetServerCertificateFunc(certFile, keyFile string) func(*tls.ClientHelloInf
 	}
 }
 
+// GetConfigForClientFunc returns a function for tls.Config.GetConfigForClient
+func GetConfigForClientFunc(certFile, keyFile, caCertFile string) func(*tls.ClientHelloInfo) (*tls.Config, error) {
+	return func(*tls.ClientHelloInfo) (*tls.Config, error) {
+		certificates, err := LoadCAFile(caCertFile)
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConfig := tls.Config{
+			ClientAuth:     tls.RequireAndVerifyClientCert,
+			ClientCAs:      certificates,
+			GetCertificate: GetServerCertificateFunc(certFile, keyFile),
+		}
+		return &tlsConfig, nil
+	}
+}
+
 // LoadKeyPair reads and parses a public/private key pair from a pair of files.
 // The files must contain PEM encoded data.
 func LoadKeyPair(certFile, keyFile string) (*tls.Certificate, error) {
@@ -52,4 +90,17 @@ func LoadKeyPair(certFile, keyFile string) (*tls.Certificate, error) {
 		return nil, err
 	}
 	return &cert, nil
+}
+
+// LoadCAFile reads and parses CA certificates from a file into a pool.
+// The file must contain PEM encoded data.
+func LoadCAFile(caFile string) (*x509.CertPool, error) {
+	log.Debugf("Load CA cert file: %s", caFile)
+	pemCerts, err := ioutil.ReadFile(caFile)
+	if err != nil {
+		return nil, err
+	}
+	pool := x509.NewCertPool()
+	pool.AppendCertsFromPEM(pemCerts)
+	return pool, nil
 }
