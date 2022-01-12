@@ -321,6 +321,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	}{
 		"commands_duration_seconds_total":              {txt: `Total amount of time in seconds spent per command`, lbls: []string{"cmd"}},
 		"commands_total":                               {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"commands_failed_calls_total":                  {txt: `Total number of errors prior command execution per command`, lbls: []string{"cmd"}},
+		"commands_rejected_calls_total":                {txt: `Total number of errors within command execution per command`, lbls: []string{"cmd"}},
+		"errors_total":                                 {txt: `Total number of errors per error type`, lbls: []string{"err"}},
 		"connected_slave_lag_seconds":                  {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"connected_slave_offset_bytes":                 {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"db_avg_ttl_seconds":                           {txt: "Avg TTL in seconds", lbls: []string{"db"}},

@@ -59,6 +59,11 @@ func getTestExporterWithOptions(opt Options) *Exporter {
 	return e
 }
 
+func getTestExporterWithAddr(addr string) *Exporter {
+	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	return e
+}
+
 func setupDBKeys(t *testing.T, uri string) error {
 	c, err := redis.DialURL(uri)
 	if err != nil {

@@ -73,6 +73,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			e.handleMetricsCommandStats(ch, fieldKey, fieldValue)
 			continue
 
+		case "Errorstats":
+			e.handleMetricsErrorStats(ch, fieldKey, fieldValue)
+			continue
+
 		case "Keyspace":
 			if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
 				dbName := fieldKey
@@ -274,13 +278,19 @@ func (e *Exporter) handleMetricsServer(ch chan<- prometheus.Metric, fieldKey str
 	}
 }
 
-func parseMetricsCommandStats(fieldKey string, fieldValue string) (string, float64, float64, error) {
+func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, calls float64, rejectedCalls float64, failedCalls float64, usecTotal float64, extendedStats bool, errorOut error) {
 	/*
-		Format:
-		cmdstat_get:calls=21,usec=175,usec_per_call=8.33
-		cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
-		cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
-		cmdstat_georadius_ro:calls=75,usec=1260,usec_per_call=16.80
+		There are 2 formats. (One before Redis 6.2 and one after it)
+		Format before v6.2:
+			cmdstat_get:calls=21,usec=175,usec_per_call=8.33
+			cmdstat_set:calls=61,usec=3139,usec_per_call=51.46
+			cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80
+			cmdstat_georadius_ro:calls=75,usec=1260,usec_per_call=16.80
+		Format from v6.2 forward:
+			cmdstat_get:calls=21,usec=175,usec_per_call=8.33,rejected_calls=0,failed_calls=0
+			cmdstat_set:calls=61,usec=3139,usec_per_call=51.46,rejected_calls=0,failed_calls=0
+			cmdstat_setex:calls=75,usec=1260,usec_per_call=16.80,rejected_calls=0,failed_calls=0
+			cmdstat_georadius_ro:calls=75,usec=1260,usec_per_call=16.80,rejected_calls=0,failed_calls=0
 
 		broken up like this:
 			fieldKey  = cmdstat_get
@@ -288,33 +298,91 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (string, float
 	*/
 
 	const cmdPrefix = "cmdstat_"
+	extendedStats = false
 
 	if !strings.HasPrefix(fieldKey, cmdPrefix) {
-		return "", 0.0, 0.0, errors.New("Invalid fieldKey")
+		errorOut = errors.New("Invalid fieldKey")
+		return
 	}
-	cmd := strings.TrimPrefix(fieldKey, cmdPrefix)
+	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
 
 	splitValue := strings.Split(fieldValue, ",")
-	if len(splitValue) < 3 {
-		return "", 0.0, 0.0, errors.New("Invalid fieldValue")
+	splitLen := len(splitValue)
+	if splitLen < 3 {
+		errorOut = errors.New("Invalid fieldValue")
+		return
 	}
 
 	calls, err := extractVal(splitValue[0])
 	if err != nil {
-		return "", 0.0, 0.0, errors.New("Invalid splitValue[0]")
+		errorOut = errors.New("Invalid splitValue[0]")
+		return
 	}
 
-	usecTotal, err := extractVal(splitValue[1])
+	usecTotal, err = extractVal(splitValue[1])
 	if err != nil {
-		return "", 0.0, 0.0, errors.New("Invalid splitValue[1]")
+		errorOut = errors.New("Invalid splitValue[1]")
+		return
 	}
 
-	return cmd, calls, usecTotal, nil
+	// If we're parsing pre v6.2 output
+	if splitLen < 5 {
+		return
+	}
+
+	rejectedCalls, err = extractVal(splitValue[3])
+	if err != nil {
+		errorOut = errors.New("Invalid splitValue[3]")
+		return
+	}
+
+	failedCalls, err = extractVal(splitValue[4])
+	if err != nil {
+		errorOut = errors.New("Invalid splitValue[4]")
+		return
+	}
+	extendedStats = true
+	return
+}
+func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorPrefix string, count float64, errorOut error) {
+	/*
+		Format:
+			errorstat_ERR:count=4
+			errorstat_NOAUTH:count=3
+
+		broken up like this:
+			fieldKey  = errorstat_ERR
+			fieldValue= count=3
+	*/
+
+	const prefix = "errorstat_"
+
+	if !strings.HasPrefix(fieldKey, prefix) {
+		errorOut = errors.New("Invalid fieldKey")
+		return
+	}
+	errorPrefix = strings.TrimPrefix(fieldKey, prefix)
+	count, err := extractVal(fieldValue)
+	if err != nil {
+		errorOut = errors.New("Invalid splitValue[0]")
+		return
+	}
+	return
 }
 
 func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
-	if cmd, calls, usecTotal, err := parseMetricsCommandStats(fieldKey, fieldValue); err == nil {
+	if cmd, calls, rejectedCalls, failedCalls, usecTotal, extendedStats, err := parseMetricsCommandStats(fieldKey, fieldValue); err == nil {
 		e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
 		e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
+		if extendedStats {
+			e.registerConstMetric(ch, "commands_rejected_calls_total", rejectedCalls, prometheus.CounterValue, cmd)
+			e.registerConstMetric(ch, "commands_failed_calls_total", failedCalls, prometheus.CounterValue, cmd)
+		}
+	}
+}
+
+func (e *Exporter) handleMetricsErrorStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
+	if errorPrefix, count, err := parseMetricsErrorStats(fieldKey, fieldValue); err == nil {
+		e.registerConstMetric(ch, "errors_total", count, prometheus.CounterValue, errorPrefix)
 	}
 }
