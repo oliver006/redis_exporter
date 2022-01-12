@@ -35,11 +35,18 @@ func TestLuaScript(t *testing.T) {
 			ExpectedKeys: 0,
 		},
 		{
-			Name:          "borked",
+			Name:          "borked1",
 			Script:        `return {"key1"   BROKEN `,
 			ExpectedKeys:  0,
 			ExpectedError: true,
 			Wants:         []string{`test_exporter_last_scrape_error{err="ERR Error compiling script`},
+		},
+		{
+			Name:          "borked2",
+			Script:        `return {"key1", "abc"}`,
+			ExpectedKeys:  0,
+			ExpectedError: true,
+			Wants:         []string{`test_exporter_last_scrape_error{err="strconv.ParseFloat: parsing \"abc\": invalid syntax"} 1`},
 		},
 	} {
 		t.Run(tst.Name, func(t *testing.T) {

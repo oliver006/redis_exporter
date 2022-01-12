@@ -18,6 +18,15 @@ type scanStreamFixture struct {
 	consumers  []streamGroupConsumersInfo
 }
 
+func isNotTestTimestamp(returned string) bool {
+	for _, expected := range TestStreamTimestamps {
+		if parseStreamItemId(expected) == parseStreamItemId(returned) {
+			return false
+		}
+	}
+	return true
+}
+
 func TestGetStreamInfo(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
@@ -68,6 +77,9 @@ func TestGetStreamInfo(t *testing.T) {
 			if info.Groups != tst.streamInfo.Groups {
 				t.Errorf("Stream Groups mismatch.\nActual: %#v;\nExpected: %#v\n", info.Groups, tst.streamInfo.Groups)
 			}
+			if isNotTestTimestamp(info.LastGeneratedId) {
+				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastGeneratedId, TestStreamTimestamps)
+			}
 		})
 	}
 }
@@ -89,8 +101,8 @@ func TestScanStreamGroups(t *testing.T) {
 	}
 
 	fixtures := []keyFixture{
-		{"XADD", "test_stream_1", []interface{}{"*", "field_1", "str_1"}},
-		{"XADD", "test_stream_2", []interface{}{"*", "field_pattern_1", "str_pattern_1"}},
+		{"XADD", "test_stream_1", []interface{}{"1638006862521-0", "field_1", "str_1"}},
+		{"XADD", "test_stream_2", []interface{}{"1638006862522-0", "field_pattern_1", "str_pattern_1"}},
 	}
 	// Create test streams
 	c.Do("XGROUP", "CREATE", "test_stream_1", "test_group_1", "$", "MKSTREAM")
@@ -113,9 +125,10 @@ func TestScanStreamGroups(t *testing.T) {
 			stream: "test_stream_1",
 			groups: []streamGroupsInfo{
 				{
-					Name:      "test_group_1",
-					Consumers: 1,
-					Pending:   1,
+					Name:            "test_group_1",
+					Consumers:       1,
+					Pending:         1,
+					LastDeliveredId: "1638006862521-0",
 					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
 						{
 							Name:    "test_consumer_1",
@@ -129,9 +142,10 @@ func TestScanStreamGroups(t *testing.T) {
 			stream: "test_stream_2",
 			groups: []streamGroupsInfo{
 				{
-					Name:      "test_group_1",
-					Consumers: 2,
-					Pending:   1,
+					Name:            "test_group_1",
+					Consumers:       2,
+					Pending:         1,
+					LastDeliveredId: "1638006862522-0",
 				},
 				{
 					Name:      "test_group_2",
@@ -158,7 +172,9 @@ func TestScanStreamGroups(t *testing.T) {
 					if scannedGroup[i].Pending != tst.groups[i].Pending {
 						t.Errorf("Pending items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Pending, scannedGroup[i].Pending)
 					}
-
+					if parseStreamItemId(scannedGroup[i].LastDeliveredId) != parseStreamItemId(tst.groups[i].LastDeliveredId) {
+						t.Errorf("LastDeliveredId items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
+					}
 				}
 			} else {
 				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d\n", len(tst.consumers), len(scannedGroup))
@@ -284,9 +300,11 @@ func TestExtractStreamMetrics(t *testing.T) {
 		"stream_length":                          false,
 		"stream_radix_tree_keys":                 false,
 		"stream_radix_tree_nodes":                false,
+		"stream_last_generated_id":               false,
 		"stream_groups":                          false,
 		"stream_group_consumers":                 false,
 		"stream_group_messages_pending":          false,
+		"stream_group_last_delivered_id":         false,
 		"stream_group_consumer_messages_pending": false,
 		"stream_group_consumer_idle_seconds":     false,
 	}
