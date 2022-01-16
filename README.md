@@ -14,7 +14,7 @@ Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
 ```sh
 git clone https://github.com/oliver006/redis_exporter.git
 cd redis_exporter
-go build .
+make build
 ./redis_exporter --version
 ```
 
