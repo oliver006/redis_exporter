@@ -86,7 +86,7 @@ func TestParseConnectedSlaveString(t *testing.T) {
 
 func TestCommandStats(t *testing.T) {
 	defaultAddr := os.Getenv("TEST_REDIS_URI")
-	redisSixTwoAddr := os.Getenv("TEST_REDIS6_2_URI")
+	redisSixTwoAddr := os.Getenv("TEST_REDIS6_URI")
 	e := getTestExporterWithAddr(defaultAddr)
 	setupDBKeys(t, defaultAddr)
 

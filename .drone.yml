@@ -16,20 +16,12 @@ services:
       - 6383
 
   - name: redis6
-    image: redis:6
+    image: redis:6.2
     pull: if-not-exists
     commands:
       - "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
       - 6379
-
-  - name: redis6-2
-    image: redis:6.2
-    pull: if-not-exists
-    commands:
-      - "redis-server --port 6399 --protected-mode no --dbfilename dump6.2.rdb"
-    ports:
-      - 6399
 
   - name: pwd-redis5
     image: redis:5

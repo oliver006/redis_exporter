@@ -313,7 +313,9 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 		return
 	}
 
-	calls, err := extractVal(splitValue[0])
+	// internal error variable
+	var err error = nil
+	calls, err = extractVal(splitValue[0])
 	if err != nil {
 		errorOut = errors.New("Invalid splitValue[0]")
 		return
@@ -325,26 +327,27 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 		return
 	}
 
-	// If we're parsing pre v6.2 output
+	// pre 6.2 did not include rejected/failed calls stats so if we have less than 5 tokens we're done here
 	if splitLen < 5 {
 		return
 	}
 
 	rejectedCalls, err = extractVal(splitValue[3])
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[3]")
+		errorOut = errors.New("Invalid rejected_calls while parsing splitValue[3]")
 		return
 	}
 
 	failedCalls, err = extractVal(splitValue[4])
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[4]")
+		errorOut = errors.New("Invalid failed_calls while parsing splitValue[4]")
 		return
 	}
 	extendedStats = true
 	return
 }
-func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorPrefix string, count float64, errorOut error) {
+
+func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorType string, count float64, errorOut error) {
 	/*
 		Format:
 			errorstat_ERR:count=4
@@ -358,13 +361,13 @@ func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorPrefix str
 	const prefix = "errorstat_"
 
 	if !strings.HasPrefix(fieldKey, prefix) {
-		errorOut = errors.New("Invalid fieldKey")
+		errorOut = errors.New("Invalid fieldKey. errorstat_ prefix not present")
 		return
 	}
-	errorPrefix = strings.TrimPrefix(fieldKey, prefix)
+	errorType = strings.TrimPrefix(fieldKey, prefix)
 	count, err := extractVal(fieldValue)
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[0]")
+		errorOut = errors.New("Invalid error type on splitValue[0]")
 		return
 	}
 	return

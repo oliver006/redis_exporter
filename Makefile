@@ -26,7 +26,6 @@ test:
 	TEST_REDIS_URI="redis://redis6:6379" \
 	TEST_REDIS5_URI="redis://redis5:6383" \
 	TEST_REDIS6_URI="redis://redis6:6379" \
-	TEST_REDIS6_2_URI="redis://redis6-2:6399" \
 	TEST_REDIS_2_8_URI="redis://redis-2-8:6381" \
 	TEST_KEYDB01_URI="redis://keydb-01:6401" \
 	TEST_KEYDB02_URI="redis://keydb-02:6402" \
@@ -36,7 +35,7 @@ test:
 	TEST_REDIS_CLUSTER_SLAVE_URI="redis://redis-cluster:7005" \
 	TEST_TILE38_URI="redis://tile38:9851" \
 	TEST_REDIS_SENTINEL_URI="redis://redis-sentinel:26379" \
-	go test -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
+	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
 
 .PHONY: lint
 lint:
