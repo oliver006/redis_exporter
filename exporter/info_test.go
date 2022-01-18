@@ -261,14 +261,14 @@ func TestParseCommandStats(t *testing.T) {
 			wantRejectedCalls: 5,
 		},
 		{
-			fieldKey:          "cmdstat_georadius_ro",
-			fieldValue:        "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=ABC,failed_calls=10",
-			wantSuccess:       false,
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=ABC,failed_calls=10",
+			wantSuccess: false,
 		},
 		{
-			fieldKey:          "cmdstat_georadius_ro",
-			fieldValue:        "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=5,failed_calls=ABC",
-			wantSuccess:       false,
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=5,failed_calls=ABC",
+			wantSuccess: false,
 		},
 	} {
 		t.Run(tst.fieldKey+tst.fieldValue, func(t *testing.T) {

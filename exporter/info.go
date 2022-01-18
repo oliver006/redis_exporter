@@ -314,7 +314,7 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	}
 
 	// internal error variable
-	var err error = nil
+	var err error
 	calls, err = extractVal(splitValue[0])
 	if err != nil {
 		errorOut = errors.New("Invalid splitValue[0]")
