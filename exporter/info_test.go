@@ -85,18 +85,30 @@ func TestParseConnectedSlaveString(t *testing.T) {
 }
 
 func TestCommandStats(t *testing.T) {
-	e := getTestExporter()
+	defaultAddr := os.Getenv("TEST_REDIS_URI")
+	redisSixTwoAddr := os.Getenv("TEST_REDIS6_URI")
+	e := getTestExporterWithAddr(defaultAddr)
+	setupDBKeys(t, defaultAddr)
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	want := map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false}
+	commandStatsCheck(t, e, want)
+	deleteKeysFromDB(t, defaultAddr)
 
+	// Since Redis v6.2 we should expect extra failed calls and rejected calls
+	e = getTestExporterWithAddr(redisSixTwoAddr)
+	setupDBKeys(t, redisSixTwoAddr)
+
+	want = map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false, "commands_failed_calls_total": false, "commands_rejected_calls_total": false, "errors_total": false}
+	commandStatsCheck(t, e, want)
+	deleteKeysFromDB(t, redisSixTwoAddr)
+}
+
+func commandStatsCheck(t *testing.T, e *Exporter, want map[string]bool) {
 	chM := make(chan prometheus.Metric)
 	go func() {
 		e.Collect(chM)
 		close(chM)
 	}()
-
-	want := map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false}
 
 	for m := range chM {
 		for k := range want {
@@ -187,10 +199,13 @@ func TestParseCommandStats(t *testing.T) {
 		fieldKey   string
 		fieldValue string
 
-		wantSuccess   bool
-		wantCmd       string
-		wantCalls     float64
-		wantUsecTotal float64
+		wantSuccess       bool
+		wantExtraStats    bool
+		wantCmd           string
+		wantCalls         float64
+		wantRejectedCalls float64
+		wantFailedCalls   float64
+		wantUsecTotal     float64
 	}{
 		{
 			fieldKey:      "cmdstat_get",
@@ -234,10 +249,31 @@ func TestParseCommandStats(t *testing.T) {
 			fieldValue:  "calls=75,usec=DEF,usec_per_call=16.80",
 			wantSuccess: false,
 		},
+		{
+			fieldKey:          "cmdstat_georadius_ro",
+			fieldValue:        "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=5,failed_calls=10",
+			wantCmd:           "georadius_ro",
+			wantCalls:         75,
+			wantUsecTotal:     1024,
+			wantSuccess:       true,
+			wantExtraStats:    true,
+			wantFailedCalls:   10,
+			wantRejectedCalls: 5,
+		},
+		{
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=ABC,failed_calls=10",
+			wantSuccess: false,
+		},
+		{
+			fieldKey:    "cmdstat_georadius_ro",
+			fieldValue:  "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=5,failed_calls=ABC",
+			wantSuccess: false,
+		},
 	} {
 		t.Run(tst.fieldKey+tst.fieldValue, func(t *testing.T) {
 
-			cmd, calls, usecTotal, err := parseMetricsCommandStats(tst.fieldKey, tst.fieldValue)
+			cmd, calls, rejectedCalls, failedCalls, usecTotal, _, err := parseMetricsCommandStats(tst.fieldKey, tst.fieldValue)
 
 			if tst.wantSuccess && err != nil {
 				t.Fatalf("err: %s", err)
@@ -260,8 +296,78 @@ func TestParseCommandStats(t *testing.T) {
 			if calls != tst.wantCalls {
 				t.Fatalf("cmd not matching, got: %f, wanted: %f", calls, tst.wantCalls)
 			}
+			if rejectedCalls != tst.wantRejectedCalls {
+				t.Fatalf("cmd not matching, got: %f, wanted: %f", rejectedCalls, tst.wantRejectedCalls)
+			}
+			if failedCalls != tst.wantFailedCalls {
+				t.Fatalf("cmd not matching, got: %f, wanted: %f", failedCalls, tst.wantFailedCalls)
+			}
 			if usecTotal != tst.wantUsecTotal {
 				t.Fatalf("cmd not matching, got: %f, wanted: %f", usecTotal, tst.wantUsecTotal)
+			}
+		})
+	}
+
+}
+
+func TestParseErrorStats(t *testing.T) {
+
+	for _, tst := range []struct {
+		fieldKey   string
+		fieldValue string
+
+		wantSuccess     bool
+		wantErrorPrefix string
+		wantCount       float64
+	}{
+		{
+			fieldKey:        "errorstat_ERR",
+			fieldValue:      "count=4",
+			wantSuccess:     true,
+			wantErrorPrefix: "ERR",
+			wantCount:       4,
+		},
+		{
+			fieldKey:    "borked_stats",
+			fieldValue:  "count=4",
+			wantSuccess: false,
+		},
+		{
+			fieldKey:    "errorstat_ERR",
+			fieldValue:  "borked_values",
+			wantSuccess: false,
+		},
+
+		{
+			fieldKey:    "errorstat_ERR",
+			fieldValue:  "count=ABC",
+			wantSuccess: false,
+		},
+	} {
+		t.Run(tst.fieldKey+tst.fieldValue, func(t *testing.T) {
+
+			errorPrefix, count, err := parseMetricsErrorStats(tst.fieldKey, tst.fieldValue)
+
+			if tst.wantSuccess && err != nil {
+				t.Fatalf("err: %s", err)
+				return
+			}
+
+			if !tst.wantSuccess && err == nil {
+				t.Fatalf("expected err!")
+				return
+			}
+
+			if !tst.wantSuccess {
+				return
+			}
+
+			if errorPrefix != tst.wantErrorPrefix {
+				t.Fatalf("cmd not matching, got: %s, wanted: %s", errorPrefix, tst.wantErrorPrefix)
+			}
+
+			if count != tst.wantCount {
+				t.Fatalf("cmd not matching, got: %f, wanted: %f", count, tst.wantCount)
 			}
 		})
 	}

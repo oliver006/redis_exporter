@@ -8,7 +8,7 @@ services:
       - 6383
 
   redis6:
-    image: redis:6
+    image: redis:6.2
     command: "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
       - 6379

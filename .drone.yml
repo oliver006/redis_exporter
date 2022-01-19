@@ -16,7 +16,7 @@ services:
       - 6383
 
   - name: redis6
-    image: redis:6
+    image: redis:6.2
     pull: if-not-exists
     commands:
       - "redis-server --protected-mode no --dbfilename dump6.rdb"
