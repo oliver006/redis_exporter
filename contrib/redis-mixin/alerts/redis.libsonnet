@@ -30,7 +30,7 @@
           },
           {
             alert: 'RedisTooManyConnections',
-            expr: 'redis_connected_clients > %(redisConnectionsThreshold)' % $._config,
+            expr: 'redis_connected_clients > %(redisConnectionsThreshold)s' % $._config,
             'for': '5m',
             labels: {
               severity: 'warning',
