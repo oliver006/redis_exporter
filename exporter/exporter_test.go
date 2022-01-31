@@ -221,6 +221,26 @@ func TestIncludeSystemMemoryMetric(t *testing.T) {
 	}
 }
 
+func TestIncludeConfigMetrics(t *testing.T) {
+	for _, inc := range []bool{false, true} {
+		r := prometheus.NewRegistry()
+		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", InclConfigMetrics: inc})
+		r.Register(e)
+
+		what := `test_config_key_value{key="appendonly",value="no"}`
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		if inc && !strings.Contains(body, what) {
+			t.Errorf("want metrics to include test_config_key_value, have:\n%s", body)
+		} else if !inc && strings.Contains(body, what) {
+			t.Errorf("did NOT want metrics to include test_config_key_value, have:\n%s", body)
+		}
+
+		ts.Close()
+	}
+}
+
 func TestNonExistingHost(t *testing.T) {
 	e, _ := NewRedisExporter("unix:///tmp/doesnt.exist", Options{Namespace: "test"})
 
