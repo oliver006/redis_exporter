@@ -340,6 +340,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"key_group_memory_usage_bytes":                 {txt: `Total memory usage of key group in bytes`, lbls: []string{"db", "key_group"}},
 		"key_size":                                     {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
 		"key_value":                                    {txt: `The value of "key"`, lbls: []string{"db", "key"}},
+		"key_value_as_string":                          {txt: `The value of "key" as a string`, lbls: []string{"db", "key", "val"}},
 		"keys_count":                                   {txt: `Count of keys`, lbls: []string{"db", "key"}},
 		"last_key_groups_scrape_duration_milliseconds": {txt: `Duration of the last key group metrics scrape in milliseconds`},
 		"last_slow_execution_duration_seconds":         {txt: `The amount of time needed for last slow execution, in seconds`},

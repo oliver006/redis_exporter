@@ -244,7 +244,9 @@ To enable Tile38 support, run the exporter with `--is-tile38=true`.
 Most items from the INFO command are exported,
 see [Redis documentation](https://redis.io/commands/info) for details.\
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.\
-You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
+You can also export values of keys by using the `-check-keys` (or related) flag. The exporter will also export the size (or, depending on the data type, the length) of the key.
+This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
+If a key is in string format and matches with `--check-keys` (or related) then its string value will be exported as a label in the `key_value_as_string` metric.
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 

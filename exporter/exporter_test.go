@@ -30,10 +30,11 @@ const (
 )
 
 var (
-	keys         = []string{}
-	keysExpiring = []string{}
-	listKeys     = []string{}
-	ts           = int32(time.Now().Unix())
+	keys            = []string{}
+	keysExpiring    = []string{}
+	listKeys        = []string{}
+	singleStringKey string
+	ts              = int32(time.Now().Unix())
 
 	dbNumStr        = "11"
 	altDBNumStr     = "12"
@@ -102,6 +103,8 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 	c.Do("SADD", TestSetName, "test-val-1")
 	c.Do("SADD", TestSetName, "test-val-2")
 
+	c.Do("SET", singleStringKey, "this-is-a-string")
+
 	// Create test streams
 	c.Do("XGROUP", "CREATE", TestStreamName, "test_group_1", "$", "MKSTREAM")
 	c.Do("XGROUP", "CREATE", TestStreamName, "test_group_2", "$", "MKSTREAM")
@@ -135,6 +138,7 @@ func deleteKeys(c redis.Conn, dbNumStr string) {
 
 	c.Do("DEL", TestSetName)
 	c.Do("DEL", TestStreamName)
+	c.Do("DEL", singleStringKey)
 }
 
 func setupDBKeys(t *testing.T, uri string) error {
@@ -365,14 +369,14 @@ func init() {
 	}
 
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
-		key := fmt.Sprintf("key_%s_%d", n, ts)
-		keys = append(keys, key)
+		keys = append(keys, fmt.Sprintf("key_%s_%d", n, ts))
 	}
+
+	singleStringKey = fmt.Sprintf("key_string_%d", ts)
 
 	listKeys = append(listKeys, "beatles_list")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
-		key := fmt.Sprintf("key_exp_%s_%d", n, ts)
-		keysExpiring = append(keysExpiring, key)
+		keysExpiring = append(keysExpiring, fmt.Sprintf("key_exp_%s_%d", n, ts))
 	}
 }
