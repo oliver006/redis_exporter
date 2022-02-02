@@ -96,7 +96,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	log.Debugf("allKeys: %#v", allKeys)
 	for _, k := range allKeys {
 		if e.options.IsCluster {
-			//Cluster mode only has one db
+			// Cluster mode only has one db
 			k.db = "0"
 		} else {
 			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
@@ -116,9 +116,14 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 
 			// Only run on single value strings
 			if info.keyType == "string" {
-				// Only record value metric if value is float-y
-				if val, err := redis.Float64(doRedisCmd(c, "GET", k.key)); err == nil {
-					e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
+				if strVal, err := redis.String(doRedisCmd(c, "GET", k.key)); err == nil {
+					if val, err := strconv.ParseFloat(strVal, 64); err == nil {
+						// Only record value metric if value is float-y
+						e.registerConstMetricGauge(ch, "key_value", val, dbLabel, k.key)
+					} else {
+						// if it's not float-y then we'll record the value as a string label
+						e.registerConstMetricGauge(ch, "key_value_as_string", 1.0, dbLabel, k.key, strVal)
+					}
 				}
 			}
 		default:

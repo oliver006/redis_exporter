@@ -62,6 +62,7 @@ type Options struct {
 	ClientCertFile        string
 	ClientKeyFile         string
 	CaCertFile            string
+	InclConfigMetrics     bool
 	InclSystemMetrics     bool
 	SkipTLSVerification   bool
 	SetClientName         bool
@@ -321,58 +322,61 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		lbls []string
 	}{
 		"commands_duration_seconds_total":              {txt: `Total amount of time in seconds spent per command`, lbls: []string{"cmd"}},
-		"commands_total":                               {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
 		"commands_failed_calls_total":                  {txt: `Total number of errors prior command execution per command`, lbls: []string{"cmd"}},
 		"commands_rejected_calls_total":                {txt: `Total number of errors within command execution per command`, lbls: []string{"cmd"}},
-		"errors_total":                                 {txt: `Total number of errors per error type`, lbls: []string{"err"}},
+		"commands_total":                               {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"config_key_value":                             {txt: `Config key and value`, lbls: []string{"key", "value"}},
+		"config_value":                                 {txt: `Config key and value as metric`, lbls: []string{"key"}},
+		"connected_clients_details":                    {txt: "Details about connected clients", lbls: connectedClientsLabels},
 		"connected_slave_lag_seconds":                  {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"connected_slave_offset_bytes":                 {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"db_avg_ttl_seconds":                           {txt: "Avg TTL in seconds", lbls: []string{"db"}},
 		"db_keys":                                      {txt: "Total number of keys by DB", lbls: []string{"db"}},
 		"db_keys_expiring":                             {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
+		"errors_total":                                 {txt: `Total number of errors per error type`, lbls: []string{"err"}},
 		"exporter_last_scrape_error":                   {txt: "The last scrape error status.", lbls: []string{"err"}},
 		"instance_info":                                {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id"}},
 		"key_group_count":                              {txt: `Count of keys in key group`, lbls: []string{"db", "key_group"}},
 		"key_group_memory_usage_bytes":                 {txt: `Total memory usage of key group in bytes`, lbls: []string{"db", "key_group"}},
 		"key_size":                                     {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
 		"key_value":                                    {txt: `The value of "key"`, lbls: []string{"db", "key"}},
+		"key_value_as_string":                          {txt: `The value of "key" as a string`, lbls: []string{"db", "key", "val"}},
 		"keys_count":                                   {txt: `Count of keys`, lbls: []string{"db", "key"}},
-		"number_of_distinct_key_groups":                {txt: `Number of distinct key groups`, lbls: []string{"db"}},
 		"last_key_groups_scrape_duration_milliseconds": {txt: `Duration of the last key group metrics scrape in milliseconds`},
 		"last_slow_execution_duration_seconds":         {txt: `The amount of time needed for last slow execution, in seconds`},
-		"latency_spike_last":                           {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
 		"latency_spike_duration_seconds":               {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
+		"latency_spike_last":                           {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
+		"master_last_io_seconds_ago":                   {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
 		"master_link_up":                               {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
 		"master_sync_in_progress":                      {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
-		"master_last_io_seconds_ago":                   {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
+		"number_of_distinct_key_groups":                {txt: `Number of distinct key groups`, lbls: []string{"db"}},
 		"script_values":                                {txt: "Values returned by the collect script", lbls: []string{"key"}},
-		"sentinel_tilt":                                {txt: "Sentinel is in TILT mode"},
+		"sentinel_master_ok_sentinels":                 {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
+		"sentinel_master_ok_slaves":                    {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},
+		"sentinel_master_sentinels":                    {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
+		"sentinel_master_slaves":                       {txt: "The number of slaves of the master", lbls: []string{"master_name", "master_address"}},
+		"sentinel_master_status":                       {txt: "Master status on Sentinel", lbls: []string{"master_name", "master_address", "master_status"}},
 		"sentinel_masters":                             {txt: "The number of masters this sentinel is watching"},
 		"sentinel_running_scripts":                     {txt: "Number of scripts in execution right now"},
 		"sentinel_scripts_queue_length":                {txt: "Queue of user scripts to execute"},
 		"sentinel_simulate_failure_flags":              {txt: "Failures simulations"},
-		"sentinel_master_status":                       {txt: "Master status on Sentinel", lbls: []string{"master_name", "master_address", "master_status"}},
-		"sentinel_master_slaves":                       {txt: "The number of slaves of the master", lbls: []string{"master_name", "master_address"}},
-		"sentinel_master_ok_slaves":                    {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},
-		"sentinel_master_sentinels":                    {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
-		"sentinel_master_ok_sentinels":                 {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
-		"slave_repl_offset":                            {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
+		"sentinel_tilt":                                {txt: "Sentinel is in TILT mode"},
 		"slave_info":                                   {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
+		"slave_repl_offset":                            {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"slowlog_last_id":                              {txt: `Last id of slowlog`},
 		"slowlog_length":                               {txt: `Total slowlog`},
 		"start_time_seconds":                           {txt: "Start time of the Redis instance since unix epoch in seconds."},
+		"stream_group_consumer_idle_seconds":           {txt: `Consumer idle time in seconds`, lbls: []string{"db", "stream", "group", "consumer"}},
+		"stream_group_consumer_messages_pending":       {txt: `Pending number of messages for this specific consumer`, lbls: []string{"db", "stream", "group", "consumer"}},
+		"stream_group_consumers":                       {txt: `Consumers count of stream group`, lbls: []string{"db", "stream", "group"}},
+		"stream_group_last_delivered_id":               {txt: `The epoch timestamp (ms) of the last delivered message`, lbls: []string{"db", "stream", "group"}},
+		"stream_group_messages_pending":                {txt: `Pending number of messages in that stream group`, lbls: []string{"db", "stream", "group"}},
+		"stream_groups":                                {txt: `Groups count of stream`, lbls: []string{"db", "stream"}},
+		"stream_last_generated_id":                     {txt: `The epoch timestamp (ms) of the latest message on the stream`, lbls: []string{"db", "stream"}},
 		"stream_length":                                {txt: `The number of elements of the stream`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_keys":                       {txt: `Radix tree keys count"`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_nodes":                      {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
-		"stream_last_generated_id":                     {txt: `The epoch timestamp (ms) of the latest message on the stream`, lbls: []string{"db", "stream"}},
-		"stream_groups":                                {txt: `Groups count of stream`, lbls: []string{"db", "stream"}},
-		"stream_group_consumers":                       {txt: `Consumers count of stream group`, lbls: []string{"db", "stream", "group"}},
-		"stream_group_messages_pending":                {txt: `Pending number of messages in that stream group`, lbls: []string{"db", "stream", "group"}},
-		"stream_group_last_delivered_id":               {txt: `The epoch timestamp (ms) of the last delivered message`, lbls: []string{"db", "stream", "group"}},
-		"stream_group_consumer_messages_pending":       {txt: `Pending number of messages for this specific consumer`, lbls: []string{"db", "stream", "group", "consumer"}},
-		"stream_group_consumer_idle_seconds":           {txt: `Consumer idle time in seconds`, lbls: []string{"db", "stream", "group", "consumer"}},
 		"up":                                           {txt: "Information about the Redis instance"},
-		"connected_clients_details":                    {txt: "Details about connected clients", lbls: connectedClientsLabels},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -469,18 +473,22 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []st
 			}
 		}
 
-		// todo: we can add more configs to this map if there's interest
-		if !map[string]bool{
+		if e.options.InclConfigMetrics {
+			e.registerConstMetricGauge(ch, "config_key_value", 1.0, strKey, strVal)
+			if val, err := strconv.ParseFloat(strVal, 64); err == nil {
+				e.registerConstMetricGauge(ch, "config_value", val, strKey)
+			}
+		}
+
+		if map[string]bool{
 			"io-threads": true,
 			"maxclients": true,
 			"maxmemory":  true,
 		}[strKey] {
-			continue
-		}
-
-		if val, err := strconv.ParseFloat(strVal, 64); err == nil {
-			strKey = strings.ReplaceAll(strKey, "-", "_")
-			e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
+			if val, err := strconv.ParseFloat(strVal, 64); err == nil {
+				strKey = strings.ReplaceAll(strKey, "-", "_")
+				e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
+			}
 		}
 	}
 	return

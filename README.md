@@ -151,6 +151,7 @@ connection-timeout          | REDIS_EXPORTER_CONNECTION_TIMEOUT          | Timeo
 web.listen-address          | REDIS_EXPORTER_WEB_LISTEN_ADDRESS          | Address to listen on for web interface and telemetry, defaults to `0.0.0.0:9121`.
 web.telemetry-path          | REDIS_EXPORTER_WEB_TELEMETRY_PATH          | Path under which to expose metrics, defaults to `/metrics`.
 redis-only-metrics          | REDIS_EXPORTER_REDIS_ONLY_METRICS          | Whether to also export go runtime metrics, defaults to false.
+include-config-metrics      | REDIS_EXPORTER_INCL_CONFIG_METRICS         | Whether to include all config settings as metrics, defaults to false.
 include-system-metrics      | REDIS_EXPORTER_INCL_SYSTEM_METRICS         | Whether to include system metrics like `total_system_memory_bytes`, defaults to false.
 ping-on-connect             | REDIS_EXPORTER_PING_ON_CONNECT             | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.
 is-tile38                   | REDIS_EXPORTER_IS_TILE38                   | Whether to scrape Tile38 specific metrics, defaults to false.
@@ -243,7 +244,9 @@ To enable Tile38 support, run the exporter with `--is-tile38=true`.
 Most items from the INFO command are exported,
 see [Redis documentation](https://redis.io/commands/info) for details.\
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.\
-You can also export values of keys if they're in numeric format by using the `-check-keys` flag. The exporter will also export the size (or, depending on the data type, the length) of the key. This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
+You can also export values of keys by using the `-check-keys` (or related) flag. The exporter will also export the size (or, depending on the data type, the length) of the key.
+This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
+If a key is in string format and matches with `--check-keys` (or related) then its string value will be exported as a label in the `key_value_as_string` metric.
 
 If you require custom metric collection, you can provide a [Redis Lua script](https://redis.io/commands/eval) using the `-script` flag. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
 
