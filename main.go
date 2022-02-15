@@ -88,6 +88,7 @@ func main() {
 		redisMetricsOnly     = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to also export go runtime metrics")
 		pingOnConnect        = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclConfigMetrics    = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
+		redactConfigMetrics  = flag.Bool("redact-config-metrics", getEnvBool("REDIS_EXPORTER_REDACT_CONFIG_METRICS", true), "Whether to redact config settings that include potentially sensitive information like passwords")
 		inclSystemMetrics    = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS", false), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
 		skipTLSVerification  = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to to skip TLS verification")
 	)
@@ -160,6 +161,7 @@ func main() {
 			LuaScript:             ls,
 			InclSystemMetrics:     *inclSystemMetrics,
 			InclConfigMetrics:     *inclConfigMetrics,
+			RedactConfigMetrics:   *redactConfigMetrics,
 			SetClientName:         *setClientName,
 			IsTile38:              *isTile38,
 			IsCluster:             *isCluster,
