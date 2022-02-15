@@ -63,6 +63,7 @@ type Options struct {
 	ClientKeyFile         string
 	CaCertFile            string
 	InclConfigMetrics     bool
+	RedactConfigMetrics   bool
 	InclSystemMetrics     bool
 	SkipTLSVerification   bool
 	SetClientName         bool
@@ -474,9 +475,16 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []st
 		}
 
 		if e.options.InclConfigMetrics {
-			e.registerConstMetricGauge(ch, "config_key_value", 1.0, strKey, strVal)
-			if val, err := strconv.ParseFloat(strVal, 64); err == nil {
-				e.registerConstMetricGauge(ch, "config_value", val, strKey)
+			if redact := map[string]bool{
+				"masterauth":               true,
+				"requirepass":              true,
+				"tls-key-file-pass":        true,
+				"tls-client-key-file-pass": true,
+			}[strKey]; !redact || !e.options.RedactConfigMetrics {
+				e.registerConstMetricGauge(ch, "config_key_value", 1.0, strKey, strVal)
+				if val, err := strconv.ParseFloat(strVal, 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_value", val, strKey)
+				}
 			}
 		}
 
