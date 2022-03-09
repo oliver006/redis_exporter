@@ -266,10 +266,12 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"keyspace_hits":   "keyspace_hits_total",
 			"keyspace_misses": "keyspace_misses_total",
 
-			"used_cpu_sys":           "cpu_sys_seconds_total",
-			"used_cpu_user":          "cpu_user_seconds_total",
-			"used_cpu_sys_children":  "cpu_sys_children_seconds_total",
-			"used_cpu_user_children": "cpu_user_children_seconds_total",
+			"used_cpu_sys":              "cpu_sys_seconds_total",
+			"used_cpu_user":             "cpu_user_seconds_total",
+			"used_cpu_sys_children":     "cpu_sys_children_seconds_total",
+			"used_cpu_user_children":    "cpu_user_children_seconds_total",
+			"used_cpu_sys_main_thread":  "cpu_sys_main_thread_seconds_total",
+			"used_cpu_user_main_thread": "cpu_user_main_thread_seconds_total",
 		},
 	}
 
