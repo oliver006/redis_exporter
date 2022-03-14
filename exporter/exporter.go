@@ -328,7 +328,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		connectedClientsLabels = append(connectedClientsLabels, "port")
 	}
 
-	// todo
 	for k, desc := range map[string]struct {
 		txt  string
 		lbls []string
@@ -401,7 +400,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 	if e.options.Registry != nil {
 		e.options.Registry.MustRegister(e)
-		// todo registry HandlerFor
 		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(
 			e.options.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
 		))
