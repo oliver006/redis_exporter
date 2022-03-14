@@ -272,6 +272,14 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"used_cpu_user_children":    "cpu_user_children_seconds_total",
 			"used_cpu_sys_main_thread":  "cpu_sys_main_thread_seconds_total",
 			"used_cpu_user_main_thread": "cpu_user_main_thread_seconds_total",
+
+			"unexpected_error_replies":     "unexpected_error_replies",
+			"total_error_replies":          "total_error_replies",
+			"total_reads_processed":        "total_reads_processed",
+			"total_writes_processed":       "total_writes_processed",
+			"io_threaded_reads_processed":  "io_threaded_reads_processed",
+			"io_threaded_writes_processed": "io_threaded_writes_processed",
+			"dump_payload_sanitizations":   "dump_payload_sanitizations",
 		},
 	}
 
@@ -320,6 +328,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		connectedClientsLabels = append(connectedClientsLabels, "port")
 	}
 
+	// todo
 	for k, desc := range map[string]struct {
 		txt  string
 		lbls []string
@@ -392,6 +401,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 	if e.options.Registry != nil {
 		e.options.Registry.MustRegister(e)
+		// todo registry HandlerFor
 		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(
 			e.options.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
 		))
