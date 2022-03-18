@@ -112,11 +112,13 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			// # Server
 			"uptime_in_seconds": "uptime_in_seconds",
 			"process_id":        "process_id",
+			"io_threads_active": "io_threads_active",
 
 			// # Clients
-			"connected_clients": "connected_clients",
-			"blocked_clients":   "blocked_clients",
-			"tracking_clients":  "tracking_clients",
+			"connected_clients":        "connected_clients",
+			"blocked_clients":          "blocked_clients",
+			"tracking_clients":         "tracking_clients",
+			"clients_in_timeout_table": "clients_in_timeout_table",
 
 			// redis 2,3,4.x
 			"client_longest_output_list": "client_longest_output_list",
@@ -135,15 +137,16 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"allocator_rss_ratio":  "allocator_rss_ratio",
 			"allocator_rss_bytes":  "allocator_rss_bytes",
 
-			"used_memory":          "memory_used_bytes",
-			"used_memory_rss":      "memory_used_rss_bytes",
-			"used_memory_peak":     "memory_used_peak_bytes",
-			"used_memory_lua":      "memory_used_lua_bytes",
-			"used_memory_overhead": "memory_used_overhead_bytes",
-			"used_memory_startup":  "memory_used_startup_bytes",
-			"used_memory_dataset":  "memory_used_dataset_bytes",
-			"used_memory_scripts":  "memory_used_scripts_bytes",
-			"maxmemory":            "memory_max_bytes",
+			"used_memory":              "memory_used_bytes",
+			"used_memory_rss":          "memory_used_rss_bytes",
+			"used_memory_peak":         "memory_used_peak_bytes",
+			"used_memory_lua":          "memory_used_lua_bytes",
+			"used_memory_overhead":     "memory_used_overhead_bytes",
+			"used_memory_startup":      "memory_used_startup_bytes",
+			"used_memory_dataset":      "memory_used_dataset_bytes",
+			"used_memory_scripts":      "memory_used_scripts_bytes",
+			"number_of_cached_scripts": "number_of_cached_scripts",
+			"maxmemory":                "memory_max_bytes",
 
 			"maxmemory_reservation":         "memory_max_reservation_bytes",
 			"maxmemory_desired_reservation": "memory_max_reservation_desired_bytes",
@@ -203,9 +206,12 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
 			// # Stats
-			"pubsub_channels":  "pubsub_channels",
-			"pubsub_patterns":  "pubsub_patterns",
-			"latest_fork_usec": "latest_fork_usec",
+			"pubsub_channels":         "pubsub_channels",
+			"pubsub_patterns":         "pubsub_patterns",
+			"latest_fork_usec":        "latest_fork_usec",
+			"tracking_total_keys":     "tracking_total_keys",
+			"tracking_total_items":    "tracking_total_items",
+			"tracking_total_prefixes": "tracking_total_prefixes",
 
 			// # Replication
 			"connected_slaves":               "connected_slaves",
@@ -272,6 +278,14 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"used_cpu_user_children":    "cpu_user_children_seconds_total",
 			"used_cpu_sys_main_thread":  "cpu_sys_main_thread_seconds_total",
 			"used_cpu_user_main_thread": "cpu_user_main_thread_seconds_total",
+
+			"unexpected_error_replies":     "unexpected_error_replies",
+			"total_error_replies":          "total_error_replies",
+			"total_reads_processed":        "total_reads_processed",
+			"total_writes_processed":       "total_writes_processed",
+			"io_threaded_reads_processed":  "io_threaded_reads_processed",
+			"io_threaded_writes_processed": "io_threaded_writes_processed",
+			"dump_payload_sanitizations":   "dump_payload_sanitizations",
 		},
 	}
 
