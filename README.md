@@ -6,6 +6,9 @@
 Prometheus exporter for Redis metrics.\
 Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
 
+#### Ukraine is currently suffering from Russian aggression, please consider donating to [one of these charities](https://old.reddit.com/r/ukraine/comments/s6g5un/want_to_support_ukraine_heres_a_list_of_charities/).
+
+<img src="https://upload.wikimedia.org/wikipedia/commons/4/49/Flag_of_Ukraine.svg" alt="drawing" width="600"/>
 
 ## Building and running the exporter
 
@@ -183,8 +186,9 @@ If your Redis instance requires authentication then there are several ways how y
 a username (new in Redis 6.x with ACLs) and a password.
 
 You can provide the username and password as part of the address, see [here](https://www.iana.org/assignments/uri-schemes/prov/redis) for the official documentation of the `redis://` scheme.
-You can set `-redis.password-file=sample-pwd-file.json` to specify a password file when using the `/scrape` endpoint, It only takes effect when `redis.password == ""`
-
+You can set `-redis.password-file=sample-pwd-file.json` to specify a password file, it's used whenever the exporter connects to a Redis instance,
+no matter if you're using the `/scrape` endpoint for multiple instances or the normal `/metrics` endpoint when scraping just one instance.
+It only takes effect when `redis.password == ""`.  See the [contrib/sample-pwd-file.json](contrib/sample-pwd-file.json) for a working example, and make sure to always include the `redis://` in your password file entries.
 
 An example for a URI including a password is: `redis://<<username (optional)>>:<<PASSWORD>>@<<HOSTNAME>>:<<PORT>>`
 
