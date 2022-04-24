@@ -77,7 +77,7 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.17"
+    image: "golang:1.18"
     pull: if-not-exists
     commands:
       - sleep 10
@@ -150,7 +150,7 @@ steps:
       - start
 
   - name: tests
-    image: "golang:1.17"
+    image: "golang:1.18"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -169,7 +169,7 @@ steps:
 
 
   - name: mixins
-    image: golang:1.17
+    image: golang:1.18
     pull: if-not-exists
     commands:
       - cd ./contrib/redis-mixin
@@ -186,7 +186,7 @@ steps:
 
 
   - name: coverage-codecov
-    image: golang:1.17
+    image: golang:1.18
     pull: if-not-exists
     environment:
       CODECOV_TOKEN:
@@ -204,7 +204,7 @@ steps:
 
 
   - name: coverage-coveralls
-    image: "golang:1.17"
+    image: "golang:1.18"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -223,7 +223,7 @@ steps:
 
 
   - name: build-binaries
-    image: "golang:1.17"
+    image: "golang:1.18"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -578,7 +578,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.17"
+    image: "golang:1.18"
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:
