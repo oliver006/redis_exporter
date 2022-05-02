@@ -6,7 +6,7 @@
         rules: [
           {
             alert: 'RedisDown',
-            expr: 'redis_up == 0',
+            expr: 'redis_up{%(redisExporterSelector)s} == 0' % $._config,
             'for': '5m',
             labels: {
               severity: 'critical',
@@ -18,7 +18,7 @@
           },
           {
             alert: 'RedisOutOfMemory',
-            expr: 'redis_memory_used_bytes / redis_total_system_memory_bytes * 100 > 90',
+            expr: 'redis_memory_used_bytes{%(redisExporterSelector)s} / redis_total_system_memory_bytes{%(redisExporterSelector)s} * 100 > 90' % $._config,
             'for': '5m',
             labels: {
               severity: 'warning',
@@ -30,7 +30,7 @@
           },
           {
             alert: 'RedisTooManyConnections',
-            expr: 'redis_connected_clients > %(redisConnectionsThreshold)s' % $._config,
+            expr: 'redis_connected_clients{%(redisExporterSelector)s} > %(redisConnectionsThreshold)s' % $._config,
             'for': '5m',
             labels: {
               severity: 'warning',
