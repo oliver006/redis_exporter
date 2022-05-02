@@ -6,7 +6,7 @@
 Prometheus exporter for Redis metrics.\
 Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
 
-#### Ukraine is currently suffering from Russian aggression, please consider donating to [one of these charities](https://old.reddit.com/r/ukraine/comments/s6g5un/want_to_support_ukraine_heres_a_list_of_charities/).
+#### Ukraine is currently suffering from Russian aggression, [please consider supporting Ukraine with a donation](https://www.supportukraine.co/).
 
 <img src="https://upload.wikimedia.org/wikipedia/commons/4/49/Flag_of_Ukraine.svg" alt="drawing" width="600"/>
 
