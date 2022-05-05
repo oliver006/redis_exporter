@@ -70,7 +70,7 @@ GO_LDFLAGS:="-s -w -extldflags \"-static\" -X main.BuildVersion=${DRONE_TAG} -X 
 
 .PHONE: build-binaries
 build-binaries:
-	go get github.com/oliver006/gox@master
+	go install github.com/oliver006/gox@master
 
 	rm -rf .build | true
 

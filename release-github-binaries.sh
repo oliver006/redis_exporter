@@ -8,8 +8,8 @@ if [[ -z "${DRONE_TAG}" ]] ; then
   exit 1
 fi
 
-echo "go get ghr"
-go get github.com/tcnksm/ghr
+echo "go install ghr"
+go install github.com/tcnksm/ghr
 
 mkdir -p dist
 
