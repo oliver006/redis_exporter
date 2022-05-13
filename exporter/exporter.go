@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -27,6 +28,8 @@ type Exporter struct {
 
 	redisAddr string
 	namespace string
+
+	constLabels prometheus.Labels
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -77,16 +80,32 @@ type Options struct {
 	PingOnConnect         bool
 	Registry              *prometheus.Registry
 	BuildInfo             BuildInfo
+	ScrapeMultipleUris    bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	log.Debugf("NewRedisExporter options: %#v", opts)
 
+	constLabels := prometheus.Labels{}
+	if opts.ScrapeMultipleUris {
+		// Already parsed in scrapeAllHandler() and don't need to check for error.
+		u, _ := url.Parse(redisURI)
+		// Add extra labels specified as query args, e.g. ?alias=redisdb1
+		for k, v := range u.Query() {
+			constLabels[k] = v[0]
+		}
+		u.RawQuery = ""
+		// Set "addr" label explicitly so metrics are unique for each redisURI.
+		constLabels["addr"] = u.String()
+	}
+
 	e := &Exporter{
 		redisAddr: redisURI,
 		options:   opts,
 		namespace: opts.Namespace,
+
+		constLabels: constLabels,
 
 		buildInfo: opts.BuildInfo,
 
@@ -94,18 +113,24 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			Namespace: opts.Namespace,
 			Name:      "exporter_scrapes_total",
 			Help:      "Current total redis scrapes.",
+
+			ConstLabels: constLabels,
 		}),
 
 		scrapeDuration: prometheus.NewSummary(prometheus.SummaryOpts{
 			Namespace: opts.Namespace,
 			Name:      "exporter_scrape_duration_seconds",
 			Help:      "Durations of scrapes by the exporter",
+
+			ConstLabels: constLabels,
 		}),
 
 		targetScrapeRequestErrors: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: opts.Namespace,
 			Name:      "target_scrape_request_errors_total",
 			Help:      "Errors in requests to the exporter",
+
+			ConstLabels: constLabels,
 		}),
 
 		metricMapGauges: map[string]string{
@@ -395,7 +420,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_nodes":                      {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                           {txt: "Information about the Redis instance"},
 	} {
-		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
+		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls, constLabels)
 	}
 
 	if e.options.MetricsPath == "" {
@@ -415,6 +440,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 				Namespace: opts.Namespace,
 				Name:      "exporter_build_info",
 				Help:      "redis exporter build_info",
+
+				ConstLabels: constLabels,
 			}, []string{"version", "commit_sha", "build_date", "golang_version"})
 			buildInfoCollector.WithLabelValues(e.buildInfo.Version, e.buildInfo.CommitSha, e.buildInfo.Date, runtime.Version()).Set(1)
 			e.options.Registry.MustRegister(buildInfoCollector)
@@ -423,6 +450,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 	e.mux.HandleFunc("/", e.indexHandler)
 	e.mux.HandleFunc("/scrape", e.scrapeHandler)
+	e.mux.HandleFunc("/scrape-all", e.scrapeAllHandler)
 	e.mux.HandleFunc("/health", e.healthHandler)
 
 	return e, nil
@@ -435,11 +463,11 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	}
 
 	for _, v := range e.metricMapGauges {
-		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
+		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil, e.constLabels)
 	}
 
 	for _, v := range e.metricMapCounters {
-		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
+		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil, e.constLabels)
 	}
 
 	ch <- e.totalScrapes.Desc()
