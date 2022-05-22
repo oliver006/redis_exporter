@@ -95,7 +95,7 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 	uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
 
 	setupDBKeysCluster(t, uri)
-	defer deleteKeysFromDBCluster(t, uri)
+	defer deleteKeysFromDBCluster(uri)
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -287,7 +287,7 @@ func deleteKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 
 func TestScanKeys(t *testing.T) {
 	numKeys := 1000
-	fixtures := []keyFixture{}
+	var fixtures []keyFixture
 
 	// Make 1000 keys that match
 	for i := 0; i < numKeys; i++ {

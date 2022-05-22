@@ -67,11 +67,11 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	uri := e.redisAddr
 	if strings.Contains(uri, "://") {
-		url, _ := url.Parse(uri)
-		if url.Port() == "" {
-			uri = url.Host + ":6379"
+		u, _ := url.Parse(uri)
+		if u.Port() == "" {
+			uri = u.Host + ":6379"
 		} else {
-			uri = url.Host
+			uri = u.Host
 		}
 	} else {
 		if frags := strings.Split(uri, ":"); len(frags) != 2 {

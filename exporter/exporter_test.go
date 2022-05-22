@@ -30,9 +30,9 @@ const (
 )
 
 var (
-	keys            = []string{}
-	keysExpiring    = []string{}
-	listKeys        = []string{}
+	keys            []string
+	keysExpiring    []string
+	listKeys        []string
 	singleStringKey string
 	ts              = int32(time.Now().Unix())
 
@@ -193,7 +193,7 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 	return nil
 }
 
-func deleteKeysFromDBCluster(t *testing.T, addr string) error {
+func deleteKeysFromDBCluster(addr string) error {
 	e := Exporter{redisAddr: addr}
 	c, err := e.connectToRedisCluster()
 	if err != nil {

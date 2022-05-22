@@ -117,11 +117,11 @@ func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]stre
 }
 
 func parseStreamItemId(id string) float64 {
-	parsed_id, err := strconv.ParseFloat(strings.Split(id, "-")[0], 64)
+	parsedId, err := strconv.ParseFloat(strings.Split(id, "-")[0], 64)
 	if err != nil {
 		log.Errorf("Couldn't parse given stream timestamp: %s", err)
 	}
-	return parsed_id
+	return parsedId
 }
 
 func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
