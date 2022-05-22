@@ -61,7 +61,8 @@ Similar approaches can be taken with [other role types](https://prometheus.io/do
 
 ### Prometheus Configuration to Scrape Multiple Redis Hosts
 
-Run the exporter with the command line flag `--redis.addr=` so it won't try to access the local instance every time the `/metrics` endpoint is scraped.
+Run the exporter with the command line flag `--redis.addr=` so it won't try to access the local instance every time the `/metrics` endpoint is scraped. Using below config instead of the /metric endpoint the /scrape endpoint will be used by prometheus. As an example the first target will be queried with this web request:
+http://exporterhost:9121/scrape?target=first-redis-host:6379
 
 ```yaml
 scrape_configs:
