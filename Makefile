@@ -26,6 +26,7 @@ test:
 	TEST_REDIS_URI="redis://redis6:6379" \
 	TEST_REDIS5_URI="redis://redis5:6383" \
 	TEST_REDIS6_URI="redis://redis6:6379" \
+	TEST_REDIS7_URI="redis://redis7:6384" \
 	TEST_REDIS_2_8_URI="redis://redis-2-8:6381" \
 	TEST_KEYDB01_URI="redis://keydb-01:6401" \
 	TEST_KEYDB02_URI="redis://keydb-02:6402" \
