@@ -415,7 +415,7 @@ func parseMetricsLatencyStats(fieldKey string, fieldValue string) (cmd string, p
 	for pos, kv := range splitValue {
 		percentile, value, err := extractPercentileVal(kv)
 		if err != nil {
-			errorOut = errors.New(fmt.Sprintf("Invalid splitValue[%d]", pos))
+			errorOut = fmt.Errorf("Invalid splitValue[%d]", pos)
 			return
 		}
 		percentileMap[percentile] = value
