@@ -23,6 +23,14 @@ services:
     ports:
       - 6379
 
+  - name: redis7
+      image: redis:7
+      pull: if-not-exists
+      commands:
+        - "redis-server --protected-mode no --dbfilename dump7.rdb"
+      ports:
+        - 6384
+
   - name: pwd-redis5
     image: redis:5
     pull: if-not-exists
