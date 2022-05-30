@@ -42,6 +42,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	handledDBs := map[string]bool{}
 	cmdCount := map[string]uint64{}
 	cmdSum := map[string]float64{}
+	cmdLatencyMap := map[string]map[float64]float64{}
 
 	fieldClass := ""
 	lines := strings.Split(info, "\n")
@@ -91,11 +92,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			continue
 
 		case "Latencystats":
-			// To be able to generate the latency summaries we need the count and sum
-			// Within redis we've decide not to duplicate the info given the count and sum
-			// where already present on #Commandstats section.
-			// Therefore, we need Commandstats to be processed before Latencystats.
-			e.handleMetricsLatencyStats(ch, fieldKey, fieldValue, cmdCount, cmdSum)
+			e.handleMetricsLatencyStats(fieldKey, fieldValue, cmdLatencyMap)
 			continue
 
 		case "Errorstats":
@@ -125,6 +122,16 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		}
 
 		e.parseAndRegisterConstMetric(ch, fieldKey, fieldValue)
+	}
+
+	// To be able to generate the latency summaries we need the count and sum that we get
+	// from #Commandstats processing and the percentile info that we get from the #Latencystats processing
+	for cmd, latencyMap := range cmdLatencyMap {
+		count, okCount := cmdCount[cmd]
+		sum, okSum := cmdSum[cmd]
+		if okCount && okSum {
+			e.registerConstSummary(ch, "latency_percentiles_usec", []string{"cmd"}, count, sum, latencyMap, cmd)
+		}
 	}
 
 	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
@@ -462,13 +469,10 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 	return
 }
 
-func (e *Exporter) handleMetricsLatencyStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string, cmdCount map[string]uint64, cmdSum map[string]float64) {
-	if cmd, latencyMap, err := parseMetricsLatencyStats(fieldKey, fieldValue); err == nil {
-		count, okCount := cmdCount[cmd]
-		sum, okSum := cmdSum[cmd]
-		if okCount && okSum {
-			e.registerConstSummary(ch, "latency_percentiles_usec", []string{"cmd"}, count, sum, latencyMap, cmd)
-		}
+func (e *Exporter) handleMetricsLatencyStats(fieldKey string, fieldValue string, cmdLatencyMap map[string]map[float64]float64) {
+	cmd, latencyMap, err := parseMetricsLatencyStats(fieldKey, fieldValue)
+	if err == nil {
+		cmdLatencyMap[cmd] = latencyMap
 	}
 }
 
