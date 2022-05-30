@@ -27,7 +27,7 @@ services:
     image: redis:7.0
     pull: if-not-exists
     commands:
-      - "redis-server --protected-mode no --dbfilename dump7.rdb"
+      - "redis-server --port 6384 --protected-mode no --dbfilename dump7.rdb"
     ports:
       - 6384
 
@@ -88,7 +88,7 @@ steps:
     image: "golang:1.18"
     pull: if-not-exists
     commands:
-      - sleep 10
+      - sleep 20
       - 'echo "start"'
     when:
       event:
