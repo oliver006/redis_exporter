@@ -111,7 +111,7 @@ func TestLatencyStats(t *testing.T) {
 	e := getTestExporterWithAddr(redisSevenAddr)
 	setupDBKeys(t, redisSevenAddr)
 
-	want := map[string]bool{"redis_latency_percentiles_usec": false}
+	want := map[string]bool{"latency_percentiles_usec": false}
 	commandStatsCheck(t, e, want)
 	deleteKeysFromDB(t, redisSevenAddr)
 }
