@@ -126,13 +126,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 	// To be able to generate the latency summaries we need the count and sum that we get
 	// from #Commandstats processing and the percentile info that we get from the #Latencystats processing
-	for cmd, latencyMap := range cmdLatencyMap {
-		count, okCount := cmdCount[cmd]
-		sum, okSum := cmdSum[cmd]
-		if okCount && okSum {
-			e.registerConstSummary(ch, "latency_percentiles_usec", []string{"cmd"}, count, sum, latencyMap, cmd)
-		}
-	}
+	e.generateCommandLatencySummaries(ch, cmdLatencyMap, cmdCount, cmdSum)
 
 	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
 		dbName := "db" + strconv.Itoa(dbIndex)
@@ -157,6 +151,16 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			keyValues["master_host"],
 			keyValues["master_port"],
 			keyValues["slave_read_only"])
+	}
+}
+
+func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, cmdLatencyMap map[string]map[float64]float64, cmdCount map[string]uint64, cmdSum map[string]float64) {
+	for cmd, latencyMap := range cmdLatencyMap {
+		count, okCount := cmdCount[cmd]
+		sum, okSum := cmdSum[cmd]
+		if okCount && okSum {
+			e.registerConstSummary(ch, "latency_percentiles_usec", []string{"cmd"}, count, sum, latencyMap, cmd)
+		}
 	}
 }
 
