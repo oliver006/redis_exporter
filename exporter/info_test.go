@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http/httptest"
 	"os"
+	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -101,6 +102,18 @@ func TestCommandStats(t *testing.T) {
 	want = map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false, "commands_failed_calls_total": false, "commands_rejected_calls_total": false, "errors_total": false}
 	commandStatsCheck(t, e, want)
 	deleteKeysFromDB(t, redisSixTwoAddr)
+}
+
+func TestLatencyStats(t *testing.T) {
+	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+
+	// Since Redis v7 we should have extended latency stats (summary of command latencies)
+	e := getTestExporterWithAddr(redisSevenAddr)
+	setupDBKeys(t, redisSevenAddr)
+
+	want := map[string]bool{"redis_latency_percentiles_usec": false}
+	commandStatsCheck(t, e, want)
+	deleteKeysFromDB(t, redisSevenAddr)
 }
 
 func commandStatsCheck(t *testing.T, e *Exporter, want map[string]bool) {
@@ -372,4 +385,69 @@ func TestParseErrorStats(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_parseMetricsLatencyStats(t *testing.T) {
+	type args struct {
+		fieldKey   string
+		fieldValue string
+	}
+	tests := []struct {
+		name              string
+		args              args
+		wantCmd           string
+		wantPercentileMap map[float64]float64
+		wantErr           bool
+	}{
+		{
+			name:              "simple",
+			args:              args{fieldKey: "latency_percentiles_usec_ping", fieldValue: "p50=0.001,p99=1.003,p99.9=3.007"},
+			wantCmd:           "ping",
+			wantPercentileMap: map[float64]float64{50.0: 0.001, 99.0: 1.003, 99.9: 3.007},
+			wantErr:           false,
+		},
+		{
+			name:              "single-percentile",
+			args:              args{fieldKey: "latency_percentiles_usec_ping", fieldValue: "p50=0.001"},
+			wantCmd:           "ping",
+			wantPercentileMap: map[float64]float64{50.0: 0.001},
+			wantErr:           false,
+		},
+		{
+			name:              "empty",
+			args:              args{fieldKey: "latency_percentiles_usec_ping", fieldValue: ""},
+			wantCmd:           "ping",
+			wantPercentileMap: map[float64]float64{0: 0},
+			wantErr:           false,
+		},
+		{
+			name:              "invalid-percentile",
+			args:              args{fieldKey: "latency_percentiles_usec_ping", fieldValue: "p50=a"},
+			wantCmd:           "ping",
+			wantPercentileMap: map[float64]float64{},
+			wantErr:           true,
+		},
+		{
+			name:              "invalid prefix",
+			args:              args{fieldKey: "wrong_prefix_", fieldValue: "p50=0.001,p99=1.003,p99.9=3.007"},
+			wantCmd:           "",
+			wantPercentileMap: map[float64]float64{},
+			wantErr:           true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotCmd, gotPercentileMap, err := parseMetricsLatencyStats(tt.args.fieldKey, tt.args.fieldValue)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("test %s. parseMetricsLatencyStats() error = %v, wantErr %v", tt.name, err, tt.wantErr)
+				return
+			}
+			if gotCmd != tt.wantCmd {
+				t.Errorf("parseMetricsLatencyStats() gotCmd = %v, want %v", gotCmd, tt.wantCmd)
+			}
+			if !reflect.DeepEqual(gotPercentileMap, tt.wantPercentileMap) {
+				t.Errorf("parseMetricsLatencyStats() gotPercentileMap = %v, want %v", gotPercentileMap, tt.wantPercentileMap)
+			}
+		})
+	}
 }

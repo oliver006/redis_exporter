@@ -13,6 +13,12 @@ services:
     ports:
       - "6379"
 
+  redis7:
+    image: redis:7.0
+    command: "redis-server --protected-mode no --dbfilename dump7.rdb"
+    ports:
+      - "6384"
+
   pwd-redis5:
     image: redis:5
     command: "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"

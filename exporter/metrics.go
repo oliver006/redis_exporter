@@ -89,3 +89,18 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 		ch <- m
 	}
 }
+
+func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric string, labelValues []string, count uint64, sum float64, latencyMap map[float64]float64, cmd string) {
+	descr := e.metricDescriptions[metric]
+	if descr == nil {
+		descr = newMetricDescr(e.options.Namespace, metric, metric+" metric", labelValues)
+	}
+	// Create a constant summary from values we got from a 3rd party telemetry system.
+	s := prometheus.MustNewConstSummary(
+		descr,
+		count, sum,
+		latencyMap,
+		cmd,
+	)
+	ch <- s
+}
