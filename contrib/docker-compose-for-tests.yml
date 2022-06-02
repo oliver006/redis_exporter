@@ -1,57 +1,73 @@
 version: '3'
 services:
-  redis:
-    image: 'redis:5-alpine'
+
+  redis5:
+    image: redis:5
+    command: "redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
-      - '6379:6379'
+      - "6383"
+
+  redis6:
+    image: redis:6.2
+    command: "redis-server --protected-mode no --dbfilename dump6.rdb"
+    ports:
+      - "6379"
+
+  redis7:
+    image: redis:7.0
+    command: "redis-server --protected-mode no --dbfilename dump7.rdb"
+    ports:
+      - "6384"
+
+  pwd-redis5:
+    image: redis:5
+    command: "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
+    ports:
+      - "6380"
+
+  pwd-redis6:
+    image: redis:6
+    command: "redis-server --port 6390 --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
+    ports:
+      - "6390"
 
   redis-2-8:
-    image: 'redis:2.8'
+    image: redis:2.8
+    command: "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
-      - '6381:6379'
-
-  pwd-redis:
-    image: 'redis:5-alpine'
-    command: '/usr/local/bin/redis-server --port 6380 --requirepass redis-password'
-    ports:
-      - '6380:6380'
-
-  redis-cluster:
-    image: 'grokzen/redis-cluster'
-    ports:
-      - 7000:7000
-      - 7001:7001
-      - 7002:7002
-      - 7003:7003
-      - 7004:7004
-      - 7005:7005
-
-  tile38:
-    image: "tile38/tile38:latest"
-    ports:
-      - 9851
-
+      - "6381"
 
   keydb-01:
     image: "eqalpha/keydb:x86_64_v5.3.0"
-    command: 'keydb-server  --protected-mode no --port 6401'
+    command: "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
     ports:
-      - '6401:6401'
+      - "6401"
 
   keydb-02:
     image: "eqalpha/keydb:x86_64_v5.3.0"
-    command: 'keydb-server  --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401'
+    command: "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
     ports:
-      - '6402:6402'
+      - "6402"
 
-  keydb-03:
-    image: "eqalpha/keydb:x86_64_v5.3.0"
-    command: 'keydb-server  --protected-mode no --port 6403 --active-replica yes --replicaof keydb-01 6401'
-    ports:
-      - '6403:6403'
+  redis-cluster:
+    image: grokzen/redis-cluster
+    ports: [ "7000", "7001", "7002", "7003", "7004", "7005" ]
 
-  keydb-04:
-    image: "eqalpha/keydb:x86_64_v5.3.0"
-    command: 'keydb-server  --protected-mode no --port 6404 --active-replica yes --replicaof keydb-01 6401'
+  redis-sentinel:
+    image: docker.io/bitnami/redis-sentinel:6.2-debian-10
+    environment:
+      - REDIS_MASTER_HOST=redis6
     ports:
-      - '6404:6404'
+      - "26379"
+
+  tile38:
+    image: tile38/tile38:latest
+    ports:
+      - "9851"
+
+
+  tests:
+    image: golang:1.18
+    working_dir: /go/src/github.com/oliver006/redis_exporter
+    volumes:
+      - ..:/go/src/github.com/oliver006/redis_exporter
