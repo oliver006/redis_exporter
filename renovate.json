@@ -1,0 +1,9 @@
+{
+  "extends": [
+    "config:base",
+    "helpers:pinGitHubActionDigests"
+  ],
+  "ignorePaths": [
+    ".drone.yml"
+  ]  
+}
