@@ -11,6 +11,12 @@ for Grafana.
 To use them, you need to have `mixtool` and `jsonnetfmt` installed. If you
 have a working Go development environment, it's easiest to run the following:
 ```bash
+# go >= 1.17
+# Using `go get` to install binaries is deprecated.
+$ go install github.com/monitoring-mixins/mixtool/cmd/mixtool@latest
+$ go install github.com/google/go-jsonnet/cmd/jsonnet@latest
+
+# go < 1.17
 $ go get github.com/monitoring-mixins/mixtool/cmd/mixtool
 $ go get github.com/google/go-jsonnet/cmd/jsonnetfmt
 ```
