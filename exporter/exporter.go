@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"runtime"
 	"strconv"
 	"strings"
@@ -528,7 +529,14 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.registerConstMetricGauge(ch, "exporter_last_scrape_connect_time_seconds", connectTookSeconds)
 
 	if err != nil {
-		log.Errorf("Couldn't connect to redis instance")
+		var redactedAddr string
+		if redisURL, err2 := url.Parse(e.redisAddr); err2 != nil {
+			log.Debugf("url.Parse( %s ) err: %s", e.redisAddr, err2)
+			redactedAddr = "<redacted>"
+		} else {
+			redactedAddr = redisURL.Redacted()
+		}
+		log.Errorf("Couldn't connect to redis instance (%s)", redactedAddr)
 		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
 		return err
 	}
