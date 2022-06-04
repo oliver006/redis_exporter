@@ -32,7 +32,7 @@ func TestKeyspaceStringParser(t *testing.T) {
 		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=zzz", ok: false},
 		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0,extra=0", ok: false},
 
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, ok: true},
 		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, ok: true},
 		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
 		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=1", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 1, ok: true},
