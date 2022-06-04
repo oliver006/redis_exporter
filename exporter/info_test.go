@@ -15,10 +15,10 @@ import (
 
 func TestKeyspaceStringParser(t *testing.T) {
 	tsts := []struct {
-		db                        string
-		stats                     string
+		db                                    string
+		stats                                 string
 		keysTotal, keysEx, keysCached, avgTTL float64
-		ok                        bool
+		ok                                    bool
 	}{
 		{db: "xxx", stats: "", ok: false},
 		{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
@@ -30,8 +30,8 @@ func TestKeyspaceStringParser(t *testing.T) {
 		{db: "db3", stats: "keys=213,expires=xxx", ok: false},
 		{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
 
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached:0, ok: true},
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached:0, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
 	}
 
 	for _, tst := range tsts {
