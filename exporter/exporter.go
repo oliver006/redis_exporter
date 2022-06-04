@@ -268,6 +268,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"total_net_output_bytes": "net_output_bytes_total",
 
 			"expired_keys":    "expired_keys_total",
+			"cached_keys":     "cached_keys_total",
 			"evicted_keys":    "evicted_keys_total",
 			"keyspace_hits":   "keyspace_hits_total",
 			"keyspace_misses": "keyspace_misses_total",
