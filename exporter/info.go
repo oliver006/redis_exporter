@@ -105,8 +105,9 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 				e.registerConstMetricGauge(ch, "db_keys", keysTotal, dbName)
 				e.registerConstMetricGauge(ch, "db_keys_expiring", keysEx, dbName)
-				e.registerConstMetricGauge(ch, "db_keys_cached", keysCached, dbName)
-
+				if keysCached > -1 {
+					e.registerConstMetricGauge(ch, "db_keys_cached", keysCached, dbName)
+				}
 				if avgTTL > -1 {
 					e.registerConstMetricGauge(ch, "db_avg_ttl_seconds", avgTTL, dbName)
 				}
@@ -221,7 +222,7 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 		avgTTL /= 1000
 	}
 
-	keysCachedTotal = 0
+	keysCachedTotal = -1
 	if len(split) > 3 {
 		if keysCachedTotal, err = extractVal(split[3]); err != nil {
 			log.Debugf("parseDBKeyspaceString extractVal(split[3]) invalid, err: %s", err)
