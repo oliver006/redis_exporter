@@ -164,7 +164,6 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 				`test_db_keys{db="db11"} `,
 				`test_db_keys_expiring{db="db11"} `,
-				`test_db_keys_cached{db="db11"} `,
 				// streams
 				`stream_length`,
 				`stream_groups`,
