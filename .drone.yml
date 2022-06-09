@@ -56,7 +56,7 @@ services:
       - 6381
 
   - name: keydb-01
-    image: "eqalpha/keydb:x86_64_v5.3.0"
+    image: "eqalpha/keydb:x86_64_v6.3.1"
     pull: if-not-exists
     commands:
       - "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
@@ -64,7 +64,7 @@ services:
       - 6401
 
   - name: keydb-02
-    image: "eqalpha/keydb:x86_64_v5.3.0"
+    image: "eqalpha/keydb:x86_64_v6.3.1"
     pull: if-not-exists
     commands:
       - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
