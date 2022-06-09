@@ -100,12 +100,14 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			continue
 
 		case "Keyspace":
-			if keysTotal, keysEx, avgTTL, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
+			if keysTotal, keysEx, avgTTL, keysCached, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
 				dbName := fieldKey
 
 				e.registerConstMetricGauge(ch, "db_keys", keysTotal, dbName)
 				e.registerConstMetricGauge(ch, "db_keys_expiring", keysEx, dbName)
-
+				if keysCached > -1 {
+					e.registerConstMetricGauge(ch, "db_keys_cached", keysCached, dbName)
+				}
 				if avgTTL > -1 {
 					e.registerConstMetricGauge(ch, "db_avg_ttl_seconds", avgTTL, dbName)
 				}
@@ -185,9 +187,9 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 }
 
 /*
-	valid example: db0:keys=1,expires=0,avg_ttl=0
+	valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
 */
-func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, ok bool) {
+func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, keysCachedTotal float64, ok bool) {
 	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
 
 	if !strings.HasPrefix(inputKey, "db") {
@@ -196,7 +198,7 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 	}
 
 	split := strings.Split(inputVal, ",")
-	if len(split) != 3 && len(split) != 2 {
+	if len(split) < 2 || len(split) > 4 {
 		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
 		return
 	}
@@ -218,6 +220,14 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 			return
 		}
 		avgTTL /= 1000
+	}
+
+	keysCachedTotal = -1
+	if len(split) > 3 {
+		if keysCachedTotal, err = extractVal(split[3]); err != nil {
+			log.Debugf("parseDBKeyspaceString extractVal(split[3]) invalid, err: %s", err)
+			return
+		}
 	}
 
 	ok = true

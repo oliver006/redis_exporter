@@ -15,10 +15,10 @@ import (
 
 func TestKeyspaceStringParser(t *testing.T) {
 	tsts := []struct {
-		db                        string
-		stats                     string
-		keysTotal, keysEx, avgTTL float64
-		ok                        bool
+		db                                    string
+		stats                                 string
+		keysTotal, keysEx, keysCached, avgTTL float64
+		ok                                    bool
 	}{
 		{db: "xxx", stats: "", ok: false},
 		{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
@@ -29,20 +29,24 @@ func TestKeyspaceStringParser(t *testing.T) {
 		{db: "db3", stats: "keys=abcde,expires=0", ok: false},
 		{db: "db3", stats: "keys=213,expires=xxx", ok: false},
 		{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
+		{db: "db3", stats: "keys=1,expires=0,avg_ttl=zzz,cached_keys=0", ok: false},
+		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=zzz", ok: false},
+		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0,extra=0", ok: false},
 
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
 	}
 
 	for _, tst := range tsts {
-		if kt, kx, ttl, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
+		if kt, kx, ttl, kc, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
 
 			if ok != tst.ok {
 				t.Errorf("failed for: db:%s stats:%s", tst.db, tst.stats)
 				continue
 			}
 
-			if ok && (kt != tst.keysTotal || kx != tst.keysEx || ttl != tst.avgTTL) {
-				t.Errorf("values not matching, db:%s stats:%s   %f %f %f", tst.db, tst.stats, kt, kx, ttl)
+			if ok && (kt != tst.keysTotal || kx != tst.keysEx || kc != tst.keysCached || ttl != tst.avgTTL) {
+				t.Errorf("values not matching, db:%s stats:%s   %f %f %f %f", tst.db, tst.stats, kt, kx, kc, ttl)
 			}
 		}
 	}
