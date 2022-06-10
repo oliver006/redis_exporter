@@ -288,6 +288,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"io_threaded_reads_processed":  "io_threaded_reads_processed",
 			"io_threaded_writes_processed": "io_threaded_writes_processed",
 			"dump_payload_sanitizations":   "dump_payload_sanitizations",
+
+			"storage_provider_read_hits":   "storage_provider_read_hits",
+			"storage_provider_read_misses": "storage_provider_read_misses",
 		},
 	}
 

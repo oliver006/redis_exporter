@@ -357,6 +357,28 @@ func TestConnectionDurations(t *testing.T) {
 	}
 }
 
+func TestKeyDbMetrics(t *testing.T) {
+	setupDBKeys(t, os.Getenv("TEST_KEYDB01_URI"))
+	defer deleteKeysFromDB(t, os.Getenv("TEST_KEYDB01_URI"))
+
+	for _, want := range []string{
+		`test_db_keys_cached`,
+		`test_storage_provider_read_hits`,
+	} {
+		r := prometheus.NewRegistry()
+		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+		e, _ := NewRedisExporter(os.Getenv("TEST_KEYDB01_URI"), Options{Namespace: "test"})
+		r.Register(e)
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		if !strings.Contains(body, want) {
+			t.Errorf("want metrics to include %s, have:\n%s", want, body)
+		}
+
+		ts.Close()
+	}
+}
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 

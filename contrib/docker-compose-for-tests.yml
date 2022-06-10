@@ -5,49 +5,49 @@ services:
     image: redis:5
     command: "redis-server --port 6383  --dbfilename dump5.rdb"
     ports:
-      - "6383"
+      - "16383:6383"
 
   redis6:
     image: redis:6.2
     command: "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
-      - "6379"
+      - "16379:6379"
 
   redis7:
     image: redis:7.0
     command: "redis-server --protected-mode no --dbfilename dump7.rdb"
     ports:
-      - "6384"
+      - "16384:6384"
 
   pwd-redis5:
     image: redis:5
     command: "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
     ports:
-      - "6380"
+      - "16380:6380"
 
   pwd-redis6:
     image: redis:6
     command: "redis-server --port 6390 --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
     ports:
-      - "6390"
+      - "16390:6390"
 
   redis-2-8:
     image: redis:2.8
     command: "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
-      - "6381"
+      - "16381:6381"
 
   keydb-01:
     image: "eqalpha/keydb:x86_64_v6.3.1"
     command: "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
     ports:
-      - "6401"
+      - "16401:6401"
 
   keydb-02:
     image: "eqalpha/keydb:x86_64_v6.3.1"
     command: "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
     ports:
-      - "6402"
+      - "16402:6402"
 
   redis-cluster:
     image: grokzen/redis-cluster
@@ -63,7 +63,7 @@ services:
   tile38:
     image: tile38/tile38:latest
     ports:
-      - "9851"
+      - "19851:9851"
 
 
   tests:
