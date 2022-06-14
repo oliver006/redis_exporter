@@ -4,7 +4,7 @@
  [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)
 
 Prometheus exporter for Redis metrics.\
-Supports Redis 2.x, 3.x, 4.x, 5.x, and 6.x
+Supports Redis 2.x, 3.x, 4.x, 5.x, 6.x, and 7.x
 
 #### Ukraine is currently suffering from Russian aggression, [please consider supporting Ukraine with a donation](https://www.supportukraine.co/).
 
