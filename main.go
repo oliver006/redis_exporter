@@ -100,21 +100,23 @@ func main() {
 	default:
 		log.SetFormatter(&log.TextFormatter{})
 	}
+	if *showVersion {
+		log.SetOutput(os.Stdout)
+	}
 	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s    GOOS: %s    GOARCH: %s",
 		BuildVersion, BuildDate, BuildCommitSha,
 		runtime.Version(),
 		runtime.GOOS,
 		runtime.GOARCH,
 	)
+	if *showVersion {
+		return
+	}
 	if *isDebug {
 		log.SetLevel(log.DebugLevel)
 		log.Debugln("Enabling debug output")
 	} else {
 		log.SetLevel(log.InfoLevel)
-	}
-
-	if *showVersion {
-		return
 	}
 
 	to, err := time.ParseDuration(*connectionTimeout)
