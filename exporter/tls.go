@@ -3,6 +3,7 @@ package exporter
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"fmt"
 	"io/ioutil"
 
 	log "github.com/sirupsen/logrus"
@@ -33,15 +34,29 @@ func (e *Exporter) CreateClientTLSConfig() (*tls.Config, error) {
 	return &tlsConfig, nil
 }
 
-// CreateServerTLSConfig verifies configured files and return a prepared tls.Config
-func (e *Exporter) CreateServerTLSConfig(certFile, keyFile, caCertFile string) (*tls.Config, error) {
+var tlsVersions = map[string]uint16{
+	"TLS1.3": tls.VersionTLS13,
+	"TLS1.2": tls.VersionTLS12,
+	"TLS1.1": tls.VersionTLS11,
+	"TLS1.0": tls.VersionTLS10,
+}
+
+// CreateServerTLSConfig verifies configuration and return a prepared tls.Config
+func (e *Exporter) CreateServerTLSConfig(certFile, keyFile, caCertFile, minVersionString string) (*tls.Config, error) {
 	// Verify that the initial key pair is accepted
 	_, err := LoadKeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
 	}
 
+	// Get minimum acceptable TLS version from the config string
+	minVersion, ok := tlsVersions[minVersionString]
+	if !ok {
+		return nil, fmt.Errorf("configured minimum TLS version unknown: '%s'", minVersionString)
+	}
+
 	tlsConfig := tls.Config{
+		MinVersion:     minVersion,
 		GetCertificate: GetServerCertificateFunc(certFile, keyFile),
 	}
 
