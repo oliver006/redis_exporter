@@ -15,7 +15,7 @@ services:
 
   redis7:
     image: redis:7.0
-    command: "redis-server --protected-mode no --dbfilename dump7.rdb"
+    command: "redis-server --port 6384 --protected-mode no --dbfilename dump7.rdb"
     ports:
       - "16384:6384"
 
