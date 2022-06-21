@@ -1,0 +1,11 @@
+{
+  "ignorePaths": [
+    ".drone.yml"
+  ],
+  "packageRules": [
+  {
+    "matchPackageNames": ["redis"],
+    "enabled": false
+  }
+]  
+}
