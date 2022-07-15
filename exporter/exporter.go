@@ -207,12 +207,13 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
 			// # Stats
-			"pubsub_channels":         "pubsub_channels",
-			"pubsub_patterns":         "pubsub_patterns",
-			"latest_fork_usec":        "latest_fork_usec",
-			"tracking_total_keys":     "tracking_total_keys",
-			"tracking_total_items":    "tracking_total_items",
-			"tracking_total_prefixes": "tracking_total_prefixes",
+			"instantaneous_ops_per_sec": "instantaneous_ops_per_sec",
+			"pubsub_channels":           "pubsub_channels",
+			"pubsub_patterns":           "pubsub_patterns",
+			"latest_fork_usec":          "latest_fork_usec",
+			"tracking_total_keys":       "tracking_total_keys",
+			"tracking_total_items":      "tracking_total_items",
+			"tracking_total_prefixes":   "tracking_total_prefixes",
 
 			// # Replication
 			"connected_slaves":               "connected_slaves",
