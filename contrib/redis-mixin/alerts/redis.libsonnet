@@ -40,6 +40,42 @@
               description: 'Redis instance has too many connections\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
             },
           },
+          {
+            alert: 'RedisClusterSlotFail',
+            expr: 'redis_cluster_slots_fail{%(redisExporterSelector)s} > 0' % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'Number of hash slots mapping to a node in FAIL state (instance {{ $labels.instance }})',
+              description: 'Redis cluste has slots fail\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
+            },
+          },
+          {
+            alert: 'RedisClusterSlotPfail',
+            expr: 'redis_cluster_slots_pfail{%(redisExporterSelector)s} > 0' % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'warning',
+            },
+            annotations: {
+              summary: 'Number of hash slots mapping to a node in PFAIL state (instance {{ $labels.instance }})',
+              description: 'Redis cluste has slots pfail\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
+            },
+          },
+          {
+            alert: 'RedisClusterStateNotOk',
+            expr: 'redis_cluster_state{%(redisExporterSelector)s} == 0' % $._config,
+            'for': '5m',
+            labels: {
+              severity: 'critical',
+            },
+            annotations: {
+              summary: 'Redis cluster state is not ok (instance {{ $labels.instance }})',
+              description: 'Redis cluster is not ok\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
+            },
+          },
         ],
       },
     ],
