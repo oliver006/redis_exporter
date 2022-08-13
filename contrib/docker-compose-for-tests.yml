@@ -67,7 +67,7 @@ services:
 
 
   tests:
-    image: golang:1.18
+    image: golang:1.19
     working_dir: /go/src/github.com/oliver006/redis_exporter
     volumes:
       - ..:/go/src/github.com/oliver006/redis_exporter
