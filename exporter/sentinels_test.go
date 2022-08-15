@@ -140,6 +140,7 @@ func TestExtractSentinelMetricsForRedis(t *testing.T) {
 }
 
 func TestExtractSentinelMetricsForSentinel(t *testing.T) {
+	os.Setenv("TEST_REDIS_SENTINEL_URI", "redis://localhost:36379")
 	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
 		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
 	}
@@ -174,8 +175,9 @@ func TestExtractSentinelMetricsForSentinel(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"sentinel_master_ok_sentinels": false,
-		"sentinel_master_ok_slaves":    false,
+		"sentinel_master_ok_sentinels":    false,
+		"sentinel_master_ok_slaves":       false,
+		"sentinel_master_ckquorum_status": false,
 	}
 
 	for m := range chM {

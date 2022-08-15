@@ -66,6 +66,14 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		}
 		masterAddr := masterIp + ":" + masterPort
 
+		masterCkquorum, err := redis.String(doRedisCmd(c, "SENTINEL", "CKQUORUM", masterName))
+		log.Debugf("Sentinel ckquorum status for master %s", masterName)
+		if err != nil {
+			e.registerConstMetricGauge(ch, "sentinel_master_ckquorum_status", 0, masterName, err.Error())
+		} else {
+			e.registerConstMetricGauge(ch, "sentinel_master_ckquorum_status", 1, masterName, masterCkquorum)
+		}
+
 		sentinelDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
 		log.Debugf("Sentinel details for master %s: %s", masterName, sentinelDetails)
 		e.processSentinelSentinels(ch, sentinelDetails, masterName, masterAddr)

@@ -380,6 +380,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"sentinel_master_sentinels":                    {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_slaves":                       {txt: "The number of slaves of the master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_status":                       {txt: "Master status on Sentinel", lbls: []string{"master_name", "master_address", "master_status"}},
+		"sentinel_master_ckquorum_status":              {txt: "Master ckquorum status", lbls: []string{"master_name", "message"}},
 		"sentinel_masters":                             {txt: "The number of masters this sentinel is watching"},
 		"sentinel_running_scripts":                     {txt: "Number of scripts in execution right now"},
 		"sentinel_scripts_queue_length":                {txt: "Queue of user scripts to execute"},
