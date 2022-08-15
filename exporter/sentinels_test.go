@@ -140,7 +140,6 @@ func TestExtractSentinelMetricsForRedis(t *testing.T) {
 }
 
 func TestExtractSentinelMetricsForSentinel(t *testing.T) {
-	os.Setenv("TEST_REDIS_SENTINEL_URI", "redis://localhost:36379")
 	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
 		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
 	}
