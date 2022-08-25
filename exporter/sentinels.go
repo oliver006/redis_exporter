@@ -68,10 +68,10 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 
 		masterCkquorum, err := redis.String(doRedisCmd(c, "SENTINEL", "CKQUORUM", masterName))
 		log.Debugf("Sentinel ckquorum status for master %s: %s %s", masterName, masterCkquorum, err)
-		masterCkquorumStatus := 0
+		masterCkquorumStatus := 1
 		masterCkquorumMsg := masterCkquorum
 		if err != nil {
-			masterCkquorumStatus = 1
+			masterCkquorumStatus = 0
 			masterCkquorumMsg = err.Error()
 		}
 		e.registerConstMetricGauge(ch, "sentinel_master_ckquorum_status", float64(masterCkquorumStatus), masterName, masterCkquorumMsg)
