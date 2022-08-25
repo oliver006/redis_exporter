@@ -174,8 +174,9 @@ func TestExtractSentinelMetricsForSentinel(t *testing.T) {
 	}
 
 	want := map[string]bool{
-		"sentinel_master_ok_sentinels": false,
-		"sentinel_master_ok_slaves":    false,
+		"sentinel_master_ok_sentinels":    false,
+		"sentinel_master_ok_slaves":       false,
+		"sentinel_master_ckquorum_status": false,
 	}
 
 	for m := range chM {
