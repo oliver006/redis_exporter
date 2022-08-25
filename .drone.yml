@@ -180,10 +180,6 @@ steps:
     image: golang:1.19
     pull: if-not-exists
     commands:
-      - cd ./contrib/redis-mixin
-      - go install github.com/monitoring-mixins/mixtool/cmd/mixtool
-      - go install github.com/google/go-jsonnet/cmd/jsonnetfmt
-      - cd ../../
       - make mixin
     when:
       event:
