@@ -59,7 +59,7 @@ type Options struct {
 	CheckKeyGroups        string
 	MaxDistinctKeyGroups  int64
 	CountKeys             string
-	LuaScript             []byte
+	LuaScript             [][]byte
 	ClientCertFile        string
 	ClientKeyFile         string
 	CaCertFile            string
@@ -648,8 +648,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	if len(e.options.LuaScript) > 0 {
-		if err := e.extractLuaScriptMetrics(ch, c); err != nil {
-			return err
+		for _, script := range e.options.LuaScript {
+			if err := e.extractLuaScriptMetrics(ch, c, script); err != nil {
+				return err
+			}
 		}
 	}
 

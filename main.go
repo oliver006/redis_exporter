@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -65,7 +66,7 @@ func main() {
 		checkSingleStreams   = flag.String("check-single-streams", getEnv("REDIS_EXPORTER_CHECK_SINGLE_STREAMS", ""), "Comma separated list of single streams to export info about streams, groups and consumers")
 		countKeys            = flag.String("count-keys", getEnv("REDIS_EXPORTER_COUNT_KEYS", ""), "Comma separated list of patterns to count (eg: 'db0=production_*,db3=sessions:*'), searched for with SCAN")
 		checkKeysBatchSize   = flag.Int64("check-keys-batch-size", getEnvInt64("REDIS_EXPORTER_CHECK_KEYS_BATCH_SIZE", 1000), "Approximate number of keys to process in each execution, larger value speeds up scanning.\nWARNING: Still Redis is a single-threaded app, huge COUNT can affect production environment.")
-		scriptPath           = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Path to Lua Redis script for collecting extra metrics")
+		scriptPath           = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Path to Lua Redis scripts for collecting extra metrics, separated by ,")
 		listenAddress        = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
 		metricPath           = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
 		logFormat            = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
@@ -133,10 +134,14 @@ func main() {
 		}
 	}
 
-	var ls []byte
+	var ls [][]byte
 	if *scriptPath != "" {
-		if ls, err = ioutil.ReadFile(*scriptPath); err != nil {
-			log.Fatalf("Error loading script file %s    err: %s", *scriptPath, err)
+		scripts := strings.Split(*scriptPath, ",")
+		ls = make([][]byte, len(scripts))
+		for i, script := range scripts {
+			if ls[i], err = ioutil.ReadFile(script); err != nil {
+				log.Fatalf("Error loading script file %s    err: %s", script, err)
+			}
 		}
 	}
 

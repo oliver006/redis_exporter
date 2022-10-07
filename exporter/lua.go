@@ -8,9 +8,9 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn) error {
+func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn, script []byte) error {
 	log.Debug("Evaluating e.options.LuaScript")
-	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", e.options.LuaScript, 0, 0))
+	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", script, 0, 0))
 	if err != nil {
 		log.Errorf("LuaScript error: %v", err)
 		return err
