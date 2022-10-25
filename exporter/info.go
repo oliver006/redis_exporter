@@ -67,11 +67,21 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 		keyValues[fieldKey] = fieldValue
 
-		if fieldKey == "master_host" {
+        // keydb multimaster
+        // master_host:kdb0.server.local
+        // master_port:6377
+        // master_1_host:kdb1.server.local
+        // master_1_port:6377        
+
+        r := false
+        r,_ = regexp.MatchString("^master(_[0-9]+)?_host", fieldKey)
+		if r {
 			masterHost = fieldValue
 		}
 
-		if fieldKey == "master_port" {
+        r = false
+        r,_ = regexp.MatchString("^master(_[0-9]+)?_port", fieldKey)
+		if r {
 			masterPort = fieldValue
 		}
 
@@ -279,7 +289,9 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 
 func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
 	// only slaves have this field
-	if fieldKey == "master_link_status" {
+    r := false
+    r,_ = regexp.MatchString("^master(_[0-9]+)?_link_status", fieldKey)
+	if r {
 		if fieldValue == "up" {
 			e.registerConstMetricGauge(ch, "master_link_up", 1, masterHost, masterPort)
 		} else {
@@ -287,13 +299,20 @@ func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterH
 		}
 		return true
 	}
-	switch fieldKey {
 
-	case "master_last_io_seconds_ago", "slave_repl_offset", "master_sync_in_progress":
-		val, _ := strconv.Atoi(fieldValue)
-		e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
-		return true
-	}
+    r = false
+    r,_ = regexp.MatchString("^(master(_[0-9]+)?_(last_io_seconds_ago|sync_in_progress))|(slave_repl_offset)", fieldKey)
+    if r {
+        if strings.HasSuffix(fieldKey, "last_io_seconds_ago") {
+            fieldKey = "master_last_io_seconds_ago"
+        }
+        if strings.HasSuffix(fieldKey, "sync_in_progress") {
+            fieldKey = "master_sync_in_progress"
+        }
+        val, _ := strconv.Atoi(fieldValue)
+        e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
+        return true
+    }
 
 	// not a slave, try extracting master metrics
 	if slaveOffset, slaveIP, slavePort, slaveState, slaveLag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
