@@ -12,6 +12,29 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// precompiled regexps
+
+// keydb multimaster
+/*
+master_host:kdb0.server.local
+master_port:6377
+master_1_host:kdb1.server.local
+master_1_port:6377
+*/
+var reMasterHost = regexp.MustCompile(`^master(_[0-9]+)?_host`)
+var reMasterPort = regexp.MustCompile(`^master(_[0-9]+)?_port`)
+var reMasterLinkStatus = regexp.MustCompile(`^master(_[0-9]+)?_link_status`)
+
+// info fieldKey:fieldValue -> metric redis_fieldKey{master_host, master_port} fieldValue
+var reMasterDirect = regexp.MustCompile(`^(master(_[0-9]+)?_(last_io_seconds_ago|sync_in_progress)|slave_repl_offset)`)
+
+// numbered slaves
+/*
+slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
+slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
+*/
+var reSlave = regexp.MustCompile(`^slave\d+`)
+
 func extractVal(s string) (val float64, err error) {
 	split := strings.Split(s, "=")
 	if len(split) != 2 {
@@ -67,21 +90,11 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 		keyValues[fieldKey] = fieldValue
 
-        // keydb multimaster
-        // master_host:kdb0.server.local
-        // master_port:6377
-        // master_1_host:kdb1.server.local
-        // master_1_port:6377        
-
-        r := false
-        r,_ = regexp.MatchString("^master(_[0-9]+)?_host", fieldKey)
-		if r {
+		if reMasterHost.MatchString(fieldKey) {
 			masterHost = fieldValue
 		}
 
-        r = false
-        r,_ = regexp.MatchString("^master(_[0-9]+)?_port", fieldKey)
-		if r {
+		if reMasterPort.MatchString(fieldKey) {
 			masterPort = fieldValue
 		}
 
@@ -250,7 +263,8 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 */
 func parseConnectedSlaveString(slaveName string, keyValues string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
-	if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
+	if !reSlave.MatchString(slaveName) {
+		//if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
 		return
 	}
 	connectedkeyValues := make(map[string]string)
@@ -289,9 +303,7 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 
 func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
 	// only slaves have this field
-    r := false
-    r,_ = regexp.MatchString("^master(_[0-9]+)?_link_status", fieldKey)
-	if r {
+	if reMasterLinkStatus.MatchString(fieldKey) {
 		if fieldValue == "up" {
 			e.registerConstMetricGauge(ch, "master_link_up", 1, masterHost, masterPort)
 		} else {
@@ -300,19 +312,17 @@ func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterH
 		return true
 	}
 
-    r = false
-    r,_ = regexp.MatchString("^(master(_[0-9]+)?_(last_io_seconds_ago|sync_in_progress))|(slave_repl_offset)", fieldKey)
-    if r {
-        if strings.HasSuffix(fieldKey, "last_io_seconds_ago") {
-            fieldKey = "master_last_io_seconds_ago"
-        }
-        if strings.HasSuffix(fieldKey, "sync_in_progress") {
-            fieldKey = "master_sync_in_progress"
-        }
-        val, _ := strconv.Atoi(fieldValue)
-        e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
-        return true
-    }
+	if reMasterDirect.MatchString(fieldKey) {
+		if strings.HasSuffix(fieldKey, "last_io_seconds_ago") {
+			fieldKey = "master_last_io_seconds_ago"
+		}
+		if strings.HasSuffix(fieldKey, "sync_in_progress") {
+			fieldKey = "master_sync_in_progress"
+		}
+		val, _ := strconv.Atoi(fieldValue)
+		e.registerConstMetricGauge(ch, fieldKey, float64(val), masterHost, masterPort)
+		return true
+	}
 
 	// not a slave, try extracting master metrics
 	if slaveOffset, slaveIP, slavePort, slaveState, slaveLag, ok := parseConnectedSlaveString(fieldKey, fieldValue); ok {
