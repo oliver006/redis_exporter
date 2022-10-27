@@ -264,7 +264,6 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 func parseConnectedSlaveString(slaveName string, keyValues string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
 	if !reSlave.MatchString(slaveName) {
-		//if matched, _ := regexp.MatchString(`^slave\d+`, slaveName); !matched {
 		return
 	}
 	connectedkeyValues := make(map[string]string)
@@ -315,8 +314,7 @@ func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterH
 	if reMasterDirect.MatchString(fieldKey) {
 		if strings.HasSuffix(fieldKey, "last_io_seconds_ago") {
 			fieldKey = "master_last_io_seconds_ago"
-		}
-		if strings.HasSuffix(fieldKey, "sync_in_progress") {
+		} else if strings.HasSuffix(fieldKey, "sync_in_progress") {
 			fieldKey = "master_sync_in_progress"
 		}
 		val, _ := strconv.Atoi(fieldValue)
