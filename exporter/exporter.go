@@ -374,6 +374,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"master_link_up":                               {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
 		"master_sync_in_progress":                      {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
 		"number_of_distinct_key_groups":                {txt: `Number of distinct key groups`, lbls: []string{"db"}},
+		"script_result":                                {txt: "Result of the collect script evaluation", lbls: []string{"filename"}},
 		"script_values":                                {txt: "Values returned by the collect script", lbls: []string{"key", "filename"}},
 		"sentinel_master_ok_sentinels":                 {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_ok_slaves":                    {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},

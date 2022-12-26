@@ -13,11 +13,13 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", script, 0, 0))
 	if err != nil {
 		log.Errorf("LuaScript error: %v", err)
+		e.registerConstMetricGauge(ch, "script_result", 0, filename)
 		return err
 	}
 
 	if len(kv) == 0 {
 		log.Debugf("Lua script returned no results")
+		e.registerConstMetricGauge(ch, "script_result", 2, filename)
 		return nil
 	}
 
@@ -29,5 +31,6 @@ func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.
 		}
 		e.registerConstMetricGauge(ch, "script_values", val, key, filename)
 	}
+	e.registerConstMetricGauge(ch, "script_result", 1, filename)
 	return nil
 }
