@@ -134,12 +134,12 @@ func main() {
 		}
 	}
 
-	var ls [][]byte
+	var ls map[string][]byte
 	if *scriptPath != "" {
 		scripts := strings.Split(*scriptPath, ",")
-		ls = make([][]byte, len(scripts))
-		for i, script := range scripts {
-			if ls[i], err = ioutil.ReadFile(script); err != nil {
+		ls = make(map[string][]byte, len(scripts))
+		for _, script := range scripts {
+			if ls[script], err = ioutil.ReadFile(script); err != nil {
 				log.Fatalf("Error loading script file %s    err: %s", script, err)
 			}
 		}

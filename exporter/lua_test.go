@@ -54,7 +54,7 @@ func TestLuaScript(t *testing.T) {
 				os.Getenv("TEST_REDIS_URI"),
 				Options{
 					Namespace: "test", Registry: prometheus.NewRegistry(),
-					LuaScript: [][]byte{[]byte(tst.Script)},
+					LuaScript: map[string][]byte{"test.lua": []byte(tst.Script)},
 				})
 			ts := httptest.NewServer(e)
 			defer ts.Close()

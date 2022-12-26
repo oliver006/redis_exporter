@@ -59,7 +59,7 @@ type Options struct {
 	CheckKeyGroups        string
 	MaxDistinctKeyGroups  int64
 	CountKeys             string
-	LuaScript             [][]byte
+	LuaScript             map[string][]byte
 	ClientCertFile        string
 	ClientKeyFile         string
 	CaCertFile            string
@@ -374,7 +374,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"master_link_up":                               {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
 		"master_sync_in_progress":                      {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
 		"number_of_distinct_key_groups":                {txt: `Number of distinct key groups`, lbls: []string{"db"}},
-		"script_values":                                {txt: "Values returned by the collect script", lbls: []string{"key"}},
+		"script_values":                                {txt: "Values returned by the collect script", lbls: []string{"key", "filename"}},
 		"sentinel_master_ok_sentinels":                 {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_ok_slaves":                    {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_sentinels":                    {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
@@ -648,8 +648,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	if len(e.options.LuaScript) > 0 {
-		for _, script := range e.options.LuaScript {
-			if err := e.extractLuaScriptMetrics(ch, c, script); err != nil {
+		for filename, script := range e.options.LuaScript {
+			if err := e.extractLuaScriptMetrics(ch, c, filename, script); err != nil {
 				return err
 			}
 		}

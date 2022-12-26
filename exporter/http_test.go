@@ -83,8 +83,8 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 			options := Options{
 				Namespace: "test",
 				Password:  tst.pwd,
-				LuaScript: [][]byte{
-					[]byte(`return {"a", "11", "b", "12", "c", "13"}`),
+				LuaScript: map[string][]byte{
+					"test.lua": []byte(`return {"a", "11", "b", "12", "c", "13"}`),
 				},
 				Registry: prometheus.NewRegistry(),
 			}
