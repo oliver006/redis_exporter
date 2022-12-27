@@ -1,0 +1,77 @@
+name: "Build"
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    env:
+      TEST_REDIS_URI:     "redis://localhost:6379"
+      TEST_REDIS5_URI:    "redis://localhost:6383"
+      TEST_REDIS6_URI:    "redis://localhost:6379"
+      TEST_REDIS7_URI:    "redis://localhost:6384"
+      TEST_REDIS_2_8_URI: "redis://localhost:6381"
+      TEST_KEYDB01_URI:   "redis://localhost:6401"
+      TEST_KEYDB02_URI:   "redis://localhost:6402"
+      TEST_TILE38_URI:    "redis://localhost:9851"
+      TEST_REDIS_CLUSTER_MASTER_URI: "redis://localhost:7000"
+      TEST_REDIS_CLUSTER_SLAVE_URI:  "redis://localhost:7005"
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.19
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test
+        run: go test -v ./...
+
+
+    services:
+      redis5:
+        image: redis:5
+        ports:
+          - 6383:6379
+      redis6:
+        image: redis:6.2
+        ports:
+          - 6379:6379
+      redis7:
+        image: redis:7.0
+        ports:
+          - 6384:6379
+      redis2-8:
+        image: redis:2.8
+        ports:
+          - 6381:6379
+
+      keydb-01:
+        image: "eqalpha/keydb:x86_64_v6.3.1"
+        ports:
+          - 6401:6379
+      keydb-02:
+        image: "eqalpha/keydb:x86_64_v6.3.1"
+        ports:
+          - 6402:6379
+
+      redis-cluster:
+        image: grokzen/redis-cluster
+        ports:
+          - 7000:7000
+          - 7001:7001
+          - 7002:7002
+          - 7003:7003
+          - 7004:7004
+          - 7005:7005
+
+      tile38:
+        image: tile38/tile38:latest
+        ports:
+          - 9851:6379
+
