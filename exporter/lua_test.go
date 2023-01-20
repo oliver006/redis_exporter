@@ -20,33 +20,34 @@ func TestLuaScript(t *testing.T) {
 		{
 			Name:         "ok1",
 			Script:       `return {"a", "11", "b", "12", "c", "13"}`,
-			ExpectedKeys: 3,
-			Wants:        []string{`test_exporter_last_scrape_error{err=""} 0`, `test_script_values{key="a"} 11`, `test_script_values{key="b"} 12`},
+			ExpectedKeys: 4,
+			Wants:        []string{`test_exporter_last_scrape_error{err=""} 0`, `test_script_values{filename="test.lua",key="a"} 11`, `test_script_values{filename="test.lua",key="b"} 12`, `test_script_values{filename="test.lua",key="c"} 13`, `test_script_result{filename="test.lua"} 1`},
 		},
 		{
 			Name:         "ok2",
 			Script:       `return {"key1", "6389"}`,
-			ExpectedKeys: 1,
-			Wants:        []string{`test_exporter_last_scrape_error{err=""} 0`, `test_script_values{key="key1"} 6389`},
+			ExpectedKeys: 4,
+			Wants:        []string{`test_exporter_last_scrape_error{err=""} 0`, `test_script_values{filename="test.lua",key="key1"} 6389`, `test_script_result{filename="test.lua"} 1`},
 		},
 		{
 			Name:         "ok3",
 			Script:       `return {} `,
-			ExpectedKeys: 0,
+			ExpectedKeys: 1,
+			Wants:        []string{`test_script_result{filename="test.lua"} 2`},
 		},
 		{
 			Name:          "borked1",
 			Script:        `return {"key1"   BROKEN `,
-			ExpectedKeys:  0,
+			ExpectedKeys:  1,
 			ExpectedError: true,
-			Wants:         []string{`test_exporter_last_scrape_error{err="ERR Error compiling script`},
+			Wants:         []string{`test_exporter_last_scrape_error{err="ERR Error compiling script`, `test_script_result{filename="test.lua"} 0`},
 		},
 		{
 			Name:          "borked2",
 			Script:        `return {"key1", "abc"}`,
-			ExpectedKeys:  0,
+			ExpectedKeys:  1,
 			ExpectedError: true,
-			Wants:         []string{`test_exporter_last_scrape_error{err="strconv.ParseFloat: parsing \"abc\": invalid syntax"} 1`},
+			Wants:         []string{`test_exporter_last_scrape_error{err="strconv.ParseFloat: parsing \"abc\": invalid syntax"} 1`, `test_script_result{filename="test.lua"} 0`},
 		},
 	} {
 		t.Run(tst.Name, func(t *testing.T) {
@@ -54,7 +55,7 @@ func TestLuaScript(t *testing.T) {
 				os.Getenv("TEST_REDIS_URI"),
 				Options{
 					Namespace: "test", Registry: prometheus.NewRegistry(),
-					LuaScript: []byte(tst.Script),
+					LuaScript: map[string][]byte{"test.lua": []byte(tst.Script)},
 				})
 			ts := httptest.NewServer(e)
 			defer ts.Close()
