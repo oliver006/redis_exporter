@@ -1,9 +1,7 @@
 kind: pipeline
 name: default
+type: kubernetes
 
-workspace:
-  base: /go
-  path: src/github.com/oliver006/redis_exporter
 
 
 services:
