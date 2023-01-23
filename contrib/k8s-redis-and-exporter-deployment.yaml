@@ -33,6 +33,13 @@ spec:
         - containerPort: 6379
       - name: redis-exporter
         image: oliver006/redis_exporter:latest
+        securityContext:
+          runAsUser: 59000
+          runAsGroup: 59000
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
         resources:
           requests:
             cpu: 100m
