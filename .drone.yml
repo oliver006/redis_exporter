@@ -426,8 +426,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -450,8 +452,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -474,8 +478,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -498,8 +504,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
