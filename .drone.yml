@@ -1,9 +1,7 @@
 kind: pipeline
 name: default
+type: kubernetes
 
-workspace:
-  base: /go
-  path: src/github.com/oliver006/redis_exporter
 
 
 services:
@@ -48,7 +46,7 @@ services:
       - 6390
 
   - name: redis-2-8
-    image: redis:2.8
+    image: redis:2.8.22
     pull: if-not-exists
     commands:
       - "redis-server --port 6381 --dbfilename dump2-8.rdb"
@@ -225,19 +223,33 @@ steps:
     depends_on:
       - tests
 
-
-  - name: build-binaries
+  - name: build-some-amd64-binaries
     image: "golang:1.19"
     pull: if-not-exists
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
     commands:
-      - make build-binaries
+      - make build-some-amd64-binaries
     when:
       event:
         - pull_request
         - push
+        - tag
+    depends_on:
+      - tests
+
+
+  - name: build-all-binaries
+    image: "golang:1.19"
+    pull: if-not-exists
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
+    commands:
+      - make build-all-binaries
+    when:
+      event:
         - tag
     depends_on:
       - tests
@@ -428,8 +440,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -452,8 +466,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -476,8 +492,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -500,8 +518,10 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
@@ -595,4 +615,4 @@ steps:
       event:
         - tag
     depends_on:
-      - build-binaries
+      - build-all-binaries

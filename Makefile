@@ -69,8 +69,19 @@ upload-coverage:
 BUILD_DT:=$(shell date +%F-%T)
 GO_LDFLAGS:="-s -w -extldflags \"-static\" -X main.BuildVersion=${DRONE_TAG} -X main.BuildCommitSha=${DRONE_COMMIT_SHA} -X main.BuildDate=$(BUILD_DT)" 
 
-.PHONE: build-binaries
-build-binaries:
+
+.PHONE: build-some-amd64-binaries
+build-some-amd64-binaries:
+	go install github.com/oliver006/gox@master
+
+	rm -rf .build | true
+
+	export CGO_ENABLED=0 ; \
+	gox -os="linux windows" -arch="amd64" -verbose -rebuild -ldflags $(GO_LDFLAGS) -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}" && echo "done"
+
+
+.PHONE: build-all-binaries
+build-all-binaries:
 	go install github.com/oliver006/gox@master
 
 	rm -rf .build | true
