@@ -275,7 +275,7 @@ Example [Grafana](http://grafana.org/) screenshots:
 
 ![redis_exporter_screen_02](https://cloud.githubusercontent.com/assets/1222339/19412041/dee6d7bc-92da-11e6-84f8-610c025d6182.png)
 
-Grafana dashboard is available on [grafana.com](https://grafana.com/dashboards/763) and/or [github.com](contrib/grafana_prometheus_redis_dashboard.json).
+Grafana dashboard is available on [grafana.com](https://grafana.com/grafana/dashboards/763-redis-dashboard-for-prometheus-redis-exporter-1-x/) and/or [github.com](contrib/grafana_prometheus_redis_dashboard.json).
 
 ### Viewing multiple Redis simultaneously
 
