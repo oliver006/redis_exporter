@@ -83,7 +83,7 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     commands:
       - sleep 20
@@ -156,7 +156,7 @@ steps:
       - start
 
   - name: tests
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -175,7 +175,7 @@ steps:
 
 
   - name: mixins
-    image: golang:1.19
+    image: golang:1.20
     pull: if-not-exists
     commands:
       - make mixin
@@ -188,7 +188,7 @@ steps:
 
 
   - name: coverage-codecov
-    image: golang:1.19
+    image: golang:1.20
     pull: if-not-exists
     environment:
       CODECOV_TOKEN:
@@ -206,7 +206,7 @@ steps:
 
 
   - name: coverage-coveralls
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -224,7 +224,7 @@ steps:
       - tests
 
   - name: build-some-amd64-binaries
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -241,7 +241,7 @@ steps:
 
 
   - name: build-all-binaries
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -606,7 +606,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:
