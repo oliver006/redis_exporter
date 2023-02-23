@@ -104,3 +104,15 @@ func resetLatency(t *testing.T, addr string) error {
 
 	return nil
 }
+
+func TestLatencyHistogram(t *testing.T) {
+	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+
+	// Since Redis v7 we should have latency histogram stats
+	e := getTestExporterWithAddr(redisSevenAddr)
+	setupDBKeys(t, redisSevenAddr)
+
+	want := map[string]bool{"latency_usec": false}
+	commandStatsCheck(t, e, want)
+	deleteKeysFromDB(t, redisSevenAddr)
+}

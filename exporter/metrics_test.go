@@ -1,7 +1,10 @@
 package exporter
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestSanitizeMetricName(t *testing.T) {
@@ -14,5 +17,56 @@ func TestSanitizeMetricName(t *testing.T) {
 		if got := sanitizeMetricName(m); got != want {
 			t.Errorf("sanitizeMetricName( %s ) error, want: %s, got: %s", m, want, got)
 		}
+	}
+}
+
+func TestRegisterConstHistogram(t *testing.T) {
+	exp := getTestExporter()
+
+	metricName := "foo"
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		exp.registerConstHistogram(ch, metricName, []string{"bar"}, 12, .24, map[float64]uint64{}, "test")
+		close(ch)
+	}()
+
+	for m := range ch {
+		if strings.Contains(m.Desc().String(), metricName) {
+			return
+		}
+	}
+	t.Errorf("Histogram was not registered")
+}
+
+func TestFindOrCreateMetricsDescriptionFindExisting(t *testing.T) {
+	exp := getTestExporter()
+	exp.metricDescriptions = make(map[string]*prometheus.Desc)
+
+	metricName := "foo"
+	metricDesc := "bar"
+	labels := []string{"1", "2"}
+
+	description := newMetricDescr("ns", metricName, metricDesc, labels)
+	exp.metricDescriptions[metricName] = description
+
+	ret := exp.findOrCreateMetricDescription(metricName, labels)
+
+	if ret == nil || ret != description {
+		t.Errorf("Unexpected return value: %s", ret)
+	}
+}
+
+func TestFindOrCreateMetricsDescriptionCreateNew(t *testing.T) {
+	exp := getTestExporter()
+	exp.metricDescriptions = make(map[string]*prometheus.Desc)
+
+	metricName := "foo"
+	labels := []string{"1", "2"}
+
+	ret := exp.findOrCreateMetricDescription(metricName, labels)
+
+	if ret == nil {
+		t.Errorf("Unexpected return value: %s", ret)
 	}
 }
