@@ -82,8 +82,8 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 
 func extractCertExpiryMetrics() (int, error) {
 	ip := getHostIp()
-	ip = ip + ":6380"
-	fmt.Println("ip ", ip)
+	ip = ip + ":6378"
+	//fmt.Println("ip ", ip)
 	conn, err := tls.Dial("tcp", ip, &tls.Config{
 		ServerName:         "test",
 		InsecureSkipVerify: true,
