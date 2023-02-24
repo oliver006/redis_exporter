@@ -43,9 +43,9 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 	if err != nil {
 		return
 	}
-	fmt.Println("length of values ", len(valuesArr))
+	//fmt.Println("length of values ", len(valuesArr))
 	for i := 0; i < len(valuesArr); i++ {
-		fmt.Println("executing the block", i)
+		//fmt.Println("executing the block", i)
 		if values, err = redis.Values(valuesArr[i], err); err == nil && len(values) > 2 {
 			tmp := values[1].(int64)
 			commandExecutedTimeStamp := strconv.Itoa(int(tmp))
@@ -82,7 +82,7 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 
 func extractCertExpiryMetrics() (int, error) {
 	ip := getHostIp()
-
+	ip = ip + ":6380"
 	fmt.Println("ip ", ip)
 	conn, err := tls.Dial("tcp", ip, &tls.Config{
 		ServerName:         "test",
