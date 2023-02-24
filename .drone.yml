@@ -70,7 +70,7 @@ services:
       - 6402
 
   - name: redis-cluster
-    image: grokzen/redis-cluster
+    image: grokzen/redis-cluster:6.2.10
     pull: if-not-exists
     ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
 
