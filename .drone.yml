@@ -276,7 +276,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - build-all-binaries
 
 
   - name: release-docker-image-alpine-arm64
