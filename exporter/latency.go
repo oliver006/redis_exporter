@@ -85,7 +85,7 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 
 func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
 	sanitizedCmd := strings.ReplaceAll(cmd, "|", "\\|")
-	usecRegexp := regexp.MustCompile(`(?m)^cmdstat_` + sanitizedCmd + `(?:|.*)?:.*usec=([0-9]+).*$`)
+	usecRegexp := regexp.MustCompile(`(?m)^cmdstat_` + sanitizedCmd + `(?:\|.*)?:.*usec=([0-9]+).*$`)
 
 	matches := usecRegexp.FindAllStringSubmatch(infoAll, -1)
 
@@ -97,14 +97,10 @@ func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
 	total := uint64(0)
 
 	for _, match := range matches {
-		if len(match) < 2 {
-			log.Warnf("Unable to match usec for cmd=%s", cmd)
-			continue
-		}
-
 		usecs, err := strconv.ParseUint(match[1], 10, 0)
 		if err != nil {
 			log.Warnf("Unable to parse uint from string \"%s\": %v", match[1], err)
+			continue
 		}
 
 		total += usecs
