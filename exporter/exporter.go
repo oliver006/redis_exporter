@@ -614,7 +614,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractInfoMetrics(ch, infoAll, dbCount)
 
-	e.extractLatencyMetrics(ch, c)
+	e.extractLatencyMetrics(ch, infoAll, c)
 
 	if e.options.IsCluster {
 		clusterClient, err := e.connectToRedisCluster()
