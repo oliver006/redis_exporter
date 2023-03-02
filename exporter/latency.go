@@ -12,7 +12,11 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var logLatestErrOnce, logHistogramErrOnce sync.Once
+var (
+	logLatestErrOnce, logHistogramErrOnce sync.Once
+
+	extractUsecRegexp = regexp.MustCompile(`(?m)^cmdstat_([a-zA-Z0-9\|]+):.*usec=([0-9]+).*$`)
+)
 
 func (e *Exporter) extractLatencyMetrics(ch chan<- prometheus.Metric, infoAll string, c redis.Conn) {
 	e.extractLatencyLatestMetrics(ch, c)
@@ -57,7 +61,6 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 	}
 
 	for i := 0; i < len(reply); i += 2 {
-
 		cmd := string(reply[i].([]byte))
 		details, _ := redis.Values(reply[i+1], nil)
 
@@ -84,22 +87,23 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 }
 
 func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
-	sanitizedCmd := strings.ReplaceAll(cmd, "|", "\\|")
-	usecRegexp := regexp.MustCompile(`(?m)^cmdstat_` + sanitizedCmd + `(?:\|.*)?:.*usec=([0-9]+).*$`)
-
-	matches := usecRegexp.FindAllStringSubmatch(infoAll, -1)
+	matches := extractUsecRegexp.FindAllStringSubmatch(infoAll, -1)
 
 	if len(matches) == 0 {
-		log.Errorf("Unable to extract total latency for cmd=%s", cmd)
+		log.Warnf("Unable to extract total latency for cmd=%s", cmd)
 		return 0
 	}
 
 	total := uint64(0)
 
 	for _, match := range matches {
-		usecs, err := strconv.ParseUint(match[1], 10, 0)
+		if !strings.HasPrefix(match[1], cmd) {
+			continue
+		}
+
+		usecs, err := strconv.ParseUint(match[2], 10, 0)
 		if err != nil {
-			log.Warnf("Unable to parse uint from string \"%s\": %v", match[1], err)
+			log.Warnf("Unable to parse uint from string \"%s\": %v", match[2], err)
 			continue
 		}
 
