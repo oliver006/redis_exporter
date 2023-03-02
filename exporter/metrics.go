@@ -117,6 +117,7 @@ func (e *Exporter) findOrCreateMetricDescription(metricName string, labels []str
 
 	if !found {
 		description = newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
+		e.metricDescriptions[metricName] = description
 	}
 
 	return description

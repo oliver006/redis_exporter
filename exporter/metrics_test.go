@@ -41,25 +41,26 @@ func TestRegisterConstHistogram(t *testing.T) {
 
 func TestFindOrCreateMetricsDescriptionFindExisting(t *testing.T) {
 	exp := getTestExporter()
-	exp.metricDescriptions = make(map[string]*prometheus.Desc)
+	exp.metricDescriptions = map[string]*prometheus.Desc{}
 
 	metricName := "foo"
-	metricDesc := "bar"
 	labels := []string{"1", "2"}
 
-	description := newMetricDescr("ns", metricName, metricDesc, labels)
-	exp.metricDescriptions[metricName] = description
-
 	ret := exp.findOrCreateMetricDescription(metricName, labels)
+	ret2 := exp.findOrCreateMetricDescription(metricName, labels)
 
-	if ret == nil || ret != description {
-		t.Errorf("Unexpected return value: %s", ret)
+	if ret == nil || ret2 == nil || ret != ret2 {
+		t.Errorf("Unexpected return values: (%v, %v)", ret, ret2)
+	}
+
+	if len(exp.metricDescriptions) != 1 {
+		t.Errorf("Unexpected metricDescriptions entry count.")
 	}
 }
 
 func TestFindOrCreateMetricsDescriptionCreateNew(t *testing.T) {
 	exp := getTestExporter()
-	exp.metricDescriptions = make(map[string]*prometheus.Desc)
+	exp.metricDescriptions = map[string]*prometheus.Desc{}
 
 	metricName := "foo"
 	labels := []string{"1", "2"}
