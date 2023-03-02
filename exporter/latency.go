@@ -61,7 +61,7 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 	}
 
 	for i := 0; i < len(reply); i += 2 {
-		cmd := string(reply[i].([]byte))
+        cmd, _ := redis.String(reply[i], nil)
 		details, _ := redis.Values(reply[i+1], nil)
 
 		var totalCalls uint64
