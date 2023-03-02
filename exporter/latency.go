@@ -61,7 +61,7 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 	}
 
 	for i := 0; i < len(reply); i += 2 {
-        cmd, _ := redis.String(reply[i], nil)
+		cmd, _ := redis.String(reply[i], nil)
 		details, _ := redis.Values(reply[i+1], nil)
 
 		var totalCalls uint64
@@ -82,7 +82,7 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 		totalUsecs := extractTotalUsecForCommand(infoAll, cmd)
 
 		labelValues := []string{"cmd"}
-		e.registerConstHistogram(outChan, "latency_usec", labelValues, totalCalls, float64(totalUsecs), buckets, cmd)
+		e.registerConstHistogram(outChan, "commands_latencies_usec", labelValues, totalCalls, float64(totalUsecs), buckets, cmd)
 	}
 }
 

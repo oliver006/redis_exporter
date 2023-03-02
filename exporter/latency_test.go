@@ -113,7 +113,7 @@ func TestLatencyHistogram(t *testing.T) {
 	e := getTestExporterWithAddr(redisSevenAddr)
 	setupDBKeys(t, redisSevenAddr)
 
-	want := map[string]bool{"latency_usec": false}
+	want := map[string]bool{"commands_latencies_usec": false}
 	commandStatsCheck(t, e, want)
 	deleteKeysFromDB(t, redisSevenAddr)
 }
