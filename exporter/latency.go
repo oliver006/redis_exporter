@@ -87,15 +87,9 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 }
 
 func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
-	matches := extractUsecRegexp.FindAllStringSubmatch(infoAll, -1)
-
-	if len(matches) == 0 {
-		log.Warnf("Unable to extract total latency for cmd=%s", cmd)
-		return 0
-	}
-
 	total := uint64(0)
 
+	matches := extractUsecRegexp.FindAllStringSubmatch(infoAll, -1)
 	for _, match := range matches {
 		if !strings.HasPrefix(match[1], cmd) {
 			continue
