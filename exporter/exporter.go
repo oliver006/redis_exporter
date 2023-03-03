@@ -347,6 +347,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"commands_failed_calls_total":                  {txt: `Total number of errors prior command execution per command`, lbls: []string{"cmd"}},
 		"commands_rejected_calls_total":                {txt: `Total number of errors within command execution per command`, lbls: []string{"cmd"}},
 		"commands_total":                               {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"commands_latencies_usec":                      {txt: `A histogram of latencies per command`, lbls: []string{"cmd"}},
 		"latency_percentiles_usec":                     {txt: `A summary of latency percentile distribution per command`, lbls: []string{"cmd"}},
 		"config_key_value":                             {txt: `Config key and value`, lbls: []string{"key", "value"}},
 		"config_value":                                 {txt: `Config key and value as metric`, lbls: []string{"key"}},
@@ -613,7 +614,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractInfoMetrics(ch, infoAll, dbCount)
 
-	e.extractLatencyMetrics(ch, c)
+	e.extractLatencyMetrics(ch, infoAll, c)
 
 	if e.options.IsCluster {
 		clusterClient, err := e.connectToRedisCluster()
