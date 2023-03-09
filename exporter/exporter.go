@@ -334,11 +334,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 	e.metricDescriptions = map[string]*prometheus.Desc{}
 
-	connectedClientsLabels := []string{"name", "created_at", "idle_since", "flags", "db", "omem", "cmd", "host"}
-	if e.options.ExportClientsInclPort {
-		connectedClientsLabels = append(connectedClientsLabels, "port")
-	}
-
 	for k, desc := range map[string]struct {
 		txt  string
 		lbls []string
@@ -351,7 +346,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"latency_percentiles_usec":                     {txt: `A summary of latency percentile distribution per command`, lbls: []string{"cmd"}},
 		"config_key_value":                             {txt: `Config key and value`, lbls: []string{"key", "value"}},
 		"config_value":                                 {txt: `Config key and value as metric`, lbls: []string{"key"}},
-		"connected_clients_details":                    {txt: "Details about connected clients", lbls: connectedClientsLabels},
 		"connected_slave_lag_seconds":                  {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"connected_slave_offset_bytes":                 {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"db_avg_ttl_seconds":                           {txt: "Avg TTL in seconds", lbls: []string{"db"}},
