@@ -11,12 +11,16 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+type ClientInfo struct {
+	Name, User, Created_at, Idle_since, Flags, Db, Omem, Cmd, Host, Port string
+}
+
 /*
 	Valid Examples
-	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex
-	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client
+	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex user=default
+	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client user=default
 */
-func parseClientListString(clientInfo string) (map[string]string, bool) {
+func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
 		return nil, false
 	}
@@ -35,23 +39,31 @@ func parseClientListString(clientInfo string) (map[string]string, bool) {
 		log.Debugf("cloud not parse age field(%s): %s", connectedClient["age"], err.Error())
 		return nil, false
 	}
-	connectedClient["created_at"] = createdAtTs
 
 	idleSinceTs, err := durationFieldToTimestamp(connectedClient["idle"])
 	if err != nil {
 		log.Debugf("cloud not parse idle field(%s): %s", connectedClient["idle"], err.Error())
 		return nil, false
 	}
-	connectedClient["idle_since"] = idleSinceTs
 
 	hostPortString := strings.Split(connectedClient["addr"], ":")
 	if len(hostPortString) != 2 {
 		return nil, false
 	}
-	connectedClient["host"] = hostPortString[0]
-	connectedClient["port"] = hostPortString[1]
 
-	return connectedClient, true
+	return &ClientInfo{
+		Name:       connectedClient["name"],
+		User:       connectedClient["user"],
+		Created_at: createdAtTs,
+		Idle_since: idleSinceTs,
+		Flags:      connectedClient["flags"],
+		Db:         connectedClient["db"],
+		Omem:       connectedClient["omen"],
+		Cmd:        connectedClient["cmd"],
+		Host:       hostPortString[0],
+		Port:       hostPortString[1],
+	}, true
+
 }
 
 func durationFieldToTimestamp(field string) (string, error) {
@@ -73,12 +85,14 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 	for _, c := range strings.Split(reply, "\n") {
 		if lbls, ok := parseClientListString(c); ok {
 			connectedClientsLabels := []string{"name", "created_at", "idle_since", "flags", "db", "omem", "cmd", "host"}
-			connectedClientsLabelsValues := []string{lbls["name"], lbls["created_at"], lbls["idle_since"], lbls["flags"], lbls["db"], lbls["omem"], lbls["cmd"], lbls["host"]}
+			connectedClientsLabelsValues := []string{lbls.Name, lbls.Created_at, lbls.Idle_since, lbls.Flags, lbls.Db, lbls.Omem, lbls.Cmd, lbls.Host}
+
 			if e.options.ExportClientsInclPort {
 				connectedClientsLabels = append(connectedClientsLabels, "port")
-				connectedClientsLabelsValues = append(connectedClientsLabelsValues, lbls["port"])
+				connectedClientsLabelsValues = append(connectedClientsLabelsValues, lbls.Port)
 			}
-			if user, ok := lbls["user"]; ok {
+
+			if user := lbls.User; user != "" {
 				connectedClientsLabels = append(connectedClientsLabels, "user")
 				connectedClientsLabelsValues = append(connectedClientsLabelsValues, user)
 			}
