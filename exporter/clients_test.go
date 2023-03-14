@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -92,7 +93,8 @@ func TestParseClientListString(t *testing.T) {
 			continue
 		}
 		mismatch := false
-		for idx, l := range lbls {
+		for idx, l := range reflect.VisibleFields(ClientInfo) {
+		https: //stackoverflow.com/questions/18926303/iterate-through-the-fields-of-a-struct-in-go
 			if l != tst.expectedLbls[idx] {
 				mismatch = true
 				break
