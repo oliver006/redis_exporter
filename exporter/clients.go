@@ -65,7 +65,7 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			connectedClient.Flags = vPart[1]
 		case "db":
 			connectedClient.Db = vPart[1]
-		case "omen":
+		case "omem":
 			connectedClient.OMem = vPart[1]
 		case "cmd":
 			connectedClient.Cmd = vPart[1]
