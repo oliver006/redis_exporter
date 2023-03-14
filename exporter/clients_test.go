@@ -99,7 +99,6 @@ func TestParseClientListString(t *testing.T) {
 
 		if lbls != &tst.expectedLbls {
 			mismatch = true
-			break
 		}
 
 		if mismatch {
