@@ -66,15 +66,15 @@ func TestParseClientListString(t *testing.T) {
 		{
 			in:           "id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex",
 			expectedOk:   true,
-			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("6321"), IdleSince: convertDurationToTimestampString("6320"), Flags: "n", Db: "0", OMem: "0", Cmd: "setex", Host: "127.0.0.1", Port: "63508"},
+			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("6321"), IdleSince: convertDurationToTimestampString("6320"), Flags: "N", Db: "0", OMem: "0", Cmd: "setex", Host: "127.0.0.1", Port: "63508"},
 		}, {
 			in:           "id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client",
 			expectedOk:   true,
-			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("5"), IdleSince: convertDurationToTimestampString("0"), Flags: "N", Db: "1", OMem: "0", Cmd: "client", Host: "127.0.0.1", Port: "64958"},
+			expectedLbls: ClientInfo{Name: "foo", CreatedAt: convertDurationToTimestampString("5"), IdleSince: convertDurationToTimestampString("0"), Flags: "N", Db: "1", OMem: "0", Cmd: "client", Host: "127.0.0.1", Port: "64958"},
 		}, {
 			in:           "id=14 addr=127.0.0.1:64959 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client user=default resp=3",
 			expectedOk:   true,
-			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("5"), IdleSince: convertDurationToTimestampString("0"), Flags: "N", Db: "0", OMem: "0", Cmd: "client", Host: "127.0.0.1", Port: "64959", User: "default", Resp: "2"},
+			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("5"), IdleSince: convertDurationToTimestampString("0"), Flags: "N", Db: "0", OMem: "0", Cmd: "client", Host: "127.0.0.1", Port: "64959", User: "default", Resp: "3"},
 		}, {
 			in:         "id=14 addr=127.0.0.1:64958 fd=9 name=foo age=ABCDE idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client",
 			expectedOk: false,
