@@ -95,13 +95,8 @@ func TestParseClientListString(t *testing.T) {
 			}
 			continue
 		}
-		mismatch := false
 
-		if lbls != &tst.expectedLbls {
-			mismatch = true
-		}
-
-		if mismatch {
+		if *lbls != tst.expectedLbls {
 			t.Errorf("TestParseClientListString( %s ) error. Given: %s Wanted: %s", tst.in, lbls, tst.expectedLbls)
 		}
 	}
