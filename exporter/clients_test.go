@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -159,5 +160,33 @@ func TestExportClientListInclPort(t *testing.T) {
 		} else if !inclPort && found {
 			t.Errorf(`connected_clients_details did *include* "port" in isExportClientList metrics but was *not* expected`)
 		}
+	}
+}
+
+func TestExportClientListResp(t *testing.T) {
+	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+	e := getTestExporterWithAddrAndOptions(redisSevenAddr, Options{
+		Namespace: "test", Registry: prometheus.NewRegistry(),
+		ExportClientList: true,
+	})
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	found := false
+	for m := range chM {
+		desc := m.Desc().String()
+		if strings.Contains(desc, "connected_clients_details") {
+			if strings.Contains(desc, "resp") {
+				found = true
+			}
+		}
+	}
+
+	if !found {
+		t.Errorf(`connected_clients_details did *not* include "resp" in isExportClientList metrics but was expected`)
 	}
 }
