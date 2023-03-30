@@ -21,6 +21,7 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
 		redis.DialTLSConfig(tlsConfig),
+		redis.DialUseTLS(strings.HasPrefix(e.redisAddr, "rediss://")),
 	}
 
 	if e.options.User != "" {
