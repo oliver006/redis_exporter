@@ -171,7 +171,7 @@ steps:
         - push
         - tag
     depends_on:
-      - start
+      - test-docker-build
 
 
   - name: mixins
@@ -393,10 +393,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-scratch
-      - release-docker-image-alpine-arm64
-      - release-docker-image-alpine-arm
-      - release-docker-image-alpine-amd64
+      - manifest-docker-latest
 
 
   - name: manifest-docker-alpine
@@ -417,9 +414,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-alpine-arm64
-      - release-docker-image-alpine-arm
-      - release-docker-image-alpine-amd64
+      - manifest-docker-tag
 
 
 ###########
@@ -448,9 +443,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-scratch
-      - manifest-docker-alpine
+      - manifest-docker-tag
 
 
   - name: release-quay-alpine-arm64
@@ -475,8 +468,6 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-alpine-arm64
       - release-quay-scratch
 
 
@@ -502,8 +493,6 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-alpine-arm
       - release-quay-alpine-arm64
 
 
@@ -529,8 +518,6 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-alpine-amd64
       - release-quay-alpine-arm
 
 
@@ -575,10 +562,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-scratch
-      - release-quay-alpine-arm64
-      - release-quay-alpine-arm
-      - release-quay-alpine-amd64
+      - manifest-quay-latest
 
 
   - name: manifest-quay-alpine
@@ -599,10 +583,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-scratch
-      - release-quay-alpine-arm64
-      - release-quay-alpine-arm
-      - release-quay-alpine-amd64
+      - manifest-quay-tag
 
 
   - name: release-github-binaries
@@ -619,4 +600,4 @@ steps:
       event:
         - tag
     depends_on:
-      - build-all-binaries
+      - manifest-quay-tag
