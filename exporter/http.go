@@ -8,6 +8,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	log "github.com/sirupsen/logrus"
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -87,4 +88,20 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	promhttp.HandlerFor(
 		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
 	).ServeHTTP(w, r)
+}
+
+func (e *Exporter) ReloadPwdFile(w http.ResponseWriter, r *http.Request) {
+	passwordMap := make(map[string]string, 8)
+	if e.options.RedisPwdFile != "" {
+		var err error
+		passwordMap, err = LoadPwdFile(e.options.RedisPwdFile)
+		log.Debugf("Reload redisPwdFile")
+		if err != nil {
+			log.Errorf("Error reloading redis passwords from file %s, err: %s", e.options.RedisPwdFile, err)
+			http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	e.options.PasswordMap = passwordMap
+	_, _ = w.Write([]byte(`ok`))
 }
