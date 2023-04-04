@@ -90,18 +90,20 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	).ServeHTTP(w, r)
 }
 
-func (e *Exporter) ReloadPwdFile(w http.ResponseWriter, r *http.Request) {
-	passwordMap := make(map[string]string, 8)
-	if e.options.RedisPwdFile != "" {
-		var err error
-		passwordMap, err = LoadPwdFile(e.options.RedisPwdFile)
-		log.Debugf("Reload redisPwdFile")
-		if err != nil {
-			log.Errorf("Error reloading redis passwords from file %s, err: %s", e.options.RedisPwdFile, err)
-			http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
+func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
+	if e.options.RedisPwdFile == "" {
+		http.Error(w, "There is no pwd file specified", http.StatusBadRequest)
+		return
 	}
+	passwordMap, err := LoadPwdFile(e.options.RedisPwdFile)
+	log.Debugf("Reload redisPwdFile")
+	if err != nil {
+		log.Errorf("Error reloading redis passwords from file %s, err: %s", e.options.RedisPwdFile, err)
+		http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	e.Lock()
 	e.options.PasswordMap = passwordMap
+	e.Unlock()
 	_, _ = w.Write([]byte(`ok`))
 }
