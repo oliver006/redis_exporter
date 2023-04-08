@@ -95,8 +95,8 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "There is no pwd file specified", http.StatusBadRequest)
 		return
 	}
-	passwordMap, err := LoadPwdFile(e.options.RedisPwdFile)
 	log.Debugf("Reload redisPwdFile")
+	passwordMap, err := LoadPwdFile(e.options.RedisPwdFile)
 	if err != nil {
 		log.Errorf("Error reloading redis passwords from file %s, err: %s", e.options.RedisPwdFile, err)
 		http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
