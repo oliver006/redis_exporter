@@ -76,6 +76,7 @@ type Options struct {
 	MetricsPath           string
 	RedisMetricsOnly      bool
 	PingOnConnect         bool
+	RedisPwdFile          string
 	Registry              *prometheus.Registry
 	BuildInfo             BuildInfo
 }
@@ -428,6 +429,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	e.mux.HandleFunc("/", e.indexHandler)
 	e.mux.HandleFunc("/scrape", e.scrapeHandler)
 	e.mux.HandleFunc("/health", e.healthHandler)
+	e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
 
 	return e, nil
 }

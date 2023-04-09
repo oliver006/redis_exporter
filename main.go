@@ -183,6 +183,7 @@ func main() {
 			MetricsPath:           *metricPath,
 			RedisMetricsOnly:      *redisMetricsOnly,
 			PingOnConnect:         *pingOnConnect,
+			RedisPwdFile:          *redisPwdFile,
 			Registry:              registry,
 			BuildInfo: exporter.BuildInfo{
 				Version:   BuildVersion,
