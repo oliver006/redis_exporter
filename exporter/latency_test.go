@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"math"
 	"os"
 	"strings"
@@ -103,4 +104,46 @@ func resetLatency(t *testing.T, addr string) error {
 	time.Sleep(time.Millisecond * 50)
 
 	return nil
+}
+
+func TestLatencyHistogram(t *testing.T) {
+	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+
+	// Since Redis v7 we should have latency histogram stats
+	e := getTestExporterWithAddr(redisSevenAddr)
+	setupDBKeys(t, redisSevenAddr)
+
+	want := map[string]bool{"commands_latencies_usec": false}
+	commandStatsCheck(t, e, want)
+	deleteKeysFromDB(t, redisSevenAddr)
+}
+
+func TestExtractTotalUsecForCommand(t *testing.T) {
+	statsOutString := `# Commandstats
+cmdstat_testerr|1:calls=1,usec_per_call=5.00,rejected_calls=0,failed_calls=0
+cmdstat_testerr:calls=1,usec=2,usec_per_call=5.00,rejected_calls=0,failed_calls=0
+cmdstat_testerr2:calls=1,usec=-2,usec_per_call=5.00,rejected_calls=0,failed_calls=0
+cmdstat_testerr3:calls=1,usec=` + fmt.Sprintf("%d1", uint64(math.MaxUint64)) + `,usec_per_call=5.00,rejected_calls=0,failed_calls=0
+cmdstat_config|get:calls=69103,usec=15005068,usec_per_call=217.14,rejected_calls=0,failed_calls=0
+cmdstat_config|set:calls=3,usec=58,usec_per_call=19.33,rejected_calls=0,failed_calls=3
+
+# Latencystats
+latency_percentiles_usec_pubsub|channels:p50=5.023,p99=5.023,p99.9=5.023
+latency_percentiles_usec_config|get:p50=272.383,p99=346.111,p99.9=395.263
+latency_percentiles_usec_config|set:p50=23.039,p99=27.007,p99.9=27.007`
+
+	testMap := map[string]uint64{
+		"config|set": 58,
+		"config":     58 + 15005068,
+		"testerr|1":  0,
+		"testerr":    2 + 0,
+		"testerr2":   0,
+		"testerr3":   0,
+	}
+
+	for cmd, expected := range testMap {
+		if res := extractTotalUsecForCommand(statsOutString, cmd); res != expected {
+			t.Errorf("Incorrect usec extracted. Expected %d but got %d!", expected, res)
+		}
+	}
 }

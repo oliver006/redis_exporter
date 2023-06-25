@@ -46,39 +46,41 @@ type Exporter struct {
 }
 
 type Options struct {
-	User                  string
-	Password              string
-	Namespace             string
-	PasswordMap           map[string]string
-	ConfigCommandName     string
-	CheckKeys             string
-	CheckSingleKeys       string
-	CheckStreams          string
-	CheckSingleStreams    string
-	CheckKeysBatchSize    int64
-	CheckKeyGroups        string
-	MaxDistinctKeyGroups  int64
-	CountKeys             string
-	LuaScript             map[string][]byte
-	ClientCertFile        string
-	ClientKeyFile         string
-	CaCertFile            string
-	InclConfigMetrics     bool
-	RedactConfigMetrics   bool
-	InclSystemMetrics     bool
-	SkipTLSVerification   bool
-	SlowlogHistoryEnabled bool
-	SetClientName         bool
-	IsTile38              bool
-	IsCluster             bool
-	ExportClientList      bool
-	ExportClientsInclPort bool
-	ConnectionTimeouts    time.Duration
-	MetricsPath           string
-	RedisMetricsOnly      bool
-	PingOnConnect         bool
-	Registry              *prometheus.Registry
-	BuildInfo             BuildInfo
+	User                      string
+	Password                  string
+	Namespace                 string
+	PasswordMap               map[string]string
+	ConfigCommandName         string
+	CheckKeys                 string
+	CheckSingleKeys           string
+	CheckStreams              string
+	CheckSingleStreams        string
+	CheckKeysBatchSize        int64
+	CheckKeyGroups            string
+	MaxDistinctKeyGroups      int64
+	CountKeys                 string
+	LuaScript                 map[string][]byte
+	ClientCertFile            string
+	ClientKeyFile             string
+	CaCertFile                string
+	InclConfigMetrics         bool
+	DisableExportingKeyValues bool
+	RedactConfigMetrics       bool
+	InclSystemMetrics         bool
+	SkipTLSVerification       bool
+  SlowlogHistoryEnabled bool
+	SetClientName             bool
+	IsTile38                  bool
+	IsCluster                 bool
+	ExportClientList          bool
+	ExportClientsInclPort     bool
+	ConnectionTimeouts        time.Duration
+	MetricsPath               string
+	RedisMetricsOnly          bool
+	PingOnConnect             bool
+	RedisPwdFile              string
+	Registry                  *prometheus.Registry
+	BuildInfo                 BuildInfo
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -335,11 +337,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 	e.metricDescriptions = map[string]*prometheus.Desc{}
 
-	connectedClientsLabels := []string{"name", "created_at", "idle_since", "flags", "db", "omem", "cmd", "host"}
-	if e.options.ExportClientsInclPort {
-		connectedClientsLabels = append(connectedClientsLabels, "port")
-	}
-
 	for k, desc := range map[string]struct {
 		txt  string
 		lbls []string
@@ -348,10 +345,10 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"commands_failed_calls_total":                  {txt: `Total number of errors prior command execution per command`, lbls: []string{"cmd"}},
 		"commands_rejected_calls_total":                {txt: `Total number of errors within command execution per command`, lbls: []string{"cmd"}},
 		"commands_total":                               {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"commands_latencies_usec":                      {txt: `A histogram of latencies per command`, lbls: []string{"cmd"}},
 		"latency_percentiles_usec":                     {txt: `A summary of latency percentile distribution per command`, lbls: []string{"cmd"}},
 		"config_key_value":                             {txt: `Config key and value`, lbls: []string{"key", "value"}},
 		"config_value":                                 {txt: `Config key and value as metric`, lbls: []string{"key"}},
-		"connected_clients_details":                    {txt: "Details about connected clients", lbls: connectedClientsLabels},
 		"connected_slave_lag_seconds":                  {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"connected_slave_offset_bytes":                 {txt: "Offset of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
 		"db_avg_ttl_seconds":                           {txt: "Avg TTL in seconds", lbls: []string{"db"}},
@@ -435,6 +432,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	e.mux.HandleFunc("/", e.indexHandler)
 	e.mux.HandleFunc("/scrape", e.scrapeHandler)
 	e.mux.HandleFunc("/health", e.healthHandler)
+	e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
 
 	return e, nil
 }
@@ -486,14 +484,23 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.targetScrapeRequestErrors
 }
 
-func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []string) (dbCount int, err error) {
+func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []interface{}) (dbCount int, err error) {
 	if len(config)%2 != 0 {
 		return 0, fmt.Errorf("invalid config: %#v", config)
 	}
 
 	for pos := 0; pos < len(config)/2; pos++ {
-		strKey := config[pos*2]
-		strVal := config[pos*2+1]
+		strKey, err := redis.String(config[pos*2], nil)
+		if err != nil {
+			log.Errorf("invalid config key name, err: %s, skipped", err)
+			continue
+		}
+
+		strVal, err := redis.String(config[pos*2+1], nil)
+		if err != nil {
+			log.Errorf("invalid config value for key name %s, err: %s, skipped", strKey, err)
+			continue
+		}
 
 		if strKey == "databases" {
 			if dbCount, err = strconv.Atoi(strVal); err != nil {
@@ -573,7 +580,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
-	if config, err := redis.Strings(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+	if config, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
 		log.Debugf("Redis CONFIG GET * result: [%#v]", config)
 		dbCount, err = e.extractConfigMetrics(ch, config)
 		if err != nil {
@@ -615,7 +622,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractInfoMetrics(ch, infoAll, dbCount)
 
-	e.extractLatencyMetrics(ch, c)
+	e.extractLatencyMetrics(ch, infoAll, c)
 
 	if e.options.IsCluster {
 		clusterClient, err := e.connectToRedisCluster()

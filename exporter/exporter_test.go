@@ -70,6 +70,11 @@ func getTestExporterWithAddr(addr string) *Exporter {
 	return e
 }
 
+func getTestExporterWithAddrAndOptions(addr string, opt Options) *Exporter {
+	e, _ := NewRedisExporter(addr, opt)
+	return e
+}
+
 func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 	if _, err := c.Do("SELECT", dbNumStr); err != nil {
 		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)

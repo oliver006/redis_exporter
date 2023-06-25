@@ -288,6 +288,78 @@ func TestHttpHandlers(t *testing.T) {
 	}
 }
 
+func TestReloadHandlers(t *testing.T) {
+	if os.Getenv("TEST_PWD_REDIS_URI") == "" {
+		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
+	}
+
+	eWithPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry(), RedisPwdFile: "../contrib/sample-pwd-file.json"})
+	ts := httptest.NewServer(eWithPwdfile)
+	defer ts.Close()
+
+	for _, tst := range []struct {
+		e    *Exporter
+		path string
+		want string
+	}{
+		{
+			path: "/-/reload",
+			want: `ok`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+
+	eWithnoPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	ts2 := httptest.NewServer(eWithnoPwdfile)
+	defer ts2.Close()
+
+	for _, tst := range []struct {
+		e    *Exporter
+		path string
+		want string
+	}{
+		{
+			path: "/-/reload",
+			want: `There is no pwd file specified`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts2.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+
+	eWithMalformedPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry(), RedisPwdFile: "../contrib/sample-pwd-file.json-malformed"})
+	ts3 := httptest.NewServer(eWithMalformedPwdfile)
+	defer ts3.Close()
+
+	for _, tst := range []struct {
+		e    *Exporter
+		path string
+		want string
+	}{
+		{
+			path: "/-/reload",
+			want: `failed to reload passwords file: unexpected end of JSON input`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts3.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+}
+
 func downloadURL(t *testing.T, u string) string {
 	_, res := downloadURLWithStatusCode(t, u)
 	return res

@@ -2,7 +2,7 @@ ARG GOARCH
 #
 # build container
 #
-FROM --platform=linux/amd64 golang:1.19-alpine as builder
+FROM --platform=linux/amd64 golang:1.20-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
@@ -36,7 +36,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM --platform=linux/$GOARCH alpine as alpine
+FROM --platform=linux/$GOARCH alpine:3.18.2 as alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
