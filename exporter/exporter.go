@@ -633,6 +633,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractSlowLogMetrics(ch, c)
 
 	if e.options.SlowlogHistoryEnabled {
+		log.Info(e.options.SlowlogHistoryEnabled)
 		e.extractSlowLogDetailsMetrics(ch, c)
 	}
 
