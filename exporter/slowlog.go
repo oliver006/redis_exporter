@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"strconv"
-
+	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 )
