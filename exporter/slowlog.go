@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"strconv"
-	"fmt"
+
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -34,7 +34,6 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 }
 
 func (e *Exporter) extractSlowLogDetailsMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	fmt.Print(e.options.SlowlogHistoryEnabled)
 	valuesArr, err := redis.Values(doRedisCmd(c, "SLOWLOG", "GET", "10"))
 	var commandDurationSeconds float64
 
