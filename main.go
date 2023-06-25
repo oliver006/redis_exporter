@@ -93,7 +93,7 @@ func main() {
 		redactConfigMetrics  = flag.Bool("redact-config-metrics", getEnvBool("REDIS_EXPORTER_REDACT_CONFIG_METRICS", true), "Whether to redact config settings that include potentially sensitive information like passwords")
 		inclSystemMetrics    = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS", false), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
 		skipTLSVerification  = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to to skip TLS verification")
-		slowlogHistoryEnabled = flag.Bool("slowlog-history-enabled", getEnvBool("REDIS_EXPORTER_SLOWLOG_HISTORY-ENABLED", false), "Whether to included the slowlog metrics history")
+		slowlogHistoryEnabled = flag.Bool("slowlog-history-enabled", getEnvBool("REDIS_EXPORTER_SLOWLOG_HISTORY_ENABLED", false), "Whether to included the slowlog metrics history")
 	)
 	flag.Parse()
 
