@@ -67,6 +67,7 @@ type Options struct {
 	RedactConfigMetrics   bool
 	InclSystemMetrics     bool
 	SkipTLSVerification   bool
+	SlowlogHistoryEnabled bool
 	SetClientName         bool
 	IsTile38              bool
 	IsCluster             bool
@@ -631,7 +632,9 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractSlowLogMetrics(ch, c)
 
-	e.extractSlowLogDetailsMetrics(ch, c)
+	if e.options.SlowlogHistoryEnabled {
+		e.extractSlowLogDetailsMetrics(ch, c)
+	}
 
 	e.extractStreamMetrics(ch, c)
 
