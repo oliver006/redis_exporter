@@ -28,10 +28,11 @@ func isNotTestTimestamp(returned string) bool {
 }
 
 func TestGetStreamInfo(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Skipf("TEST_REDIS_URI not set - skipping")
+	if os.Getenv("TEST_REDIS7_URI") == "" {
+		t.Skipf("TEST_REDIS7_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_URI")
+
+	addr := os.Getenv("TEST_REDIS7_URI")
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
@@ -80,15 +81,24 @@ func TestGetStreamInfo(t *testing.T) {
 			if isNotTestTimestamp(info.LastGeneratedId) {
 				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastGeneratedId, TestStreamTimestamps)
 			}
+			if info.FirstEntryId != TestStreamTimestamps[0] {
+				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.FirstEntryId, TestStreamTimestamps)
+			}
+			if info.LastEntryId != TestStreamTimestamps[len(TestStreamTimestamps)-1] {
+				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastEntryId, TestStreamTimestamps)
+			}
+			if info.MaxDeletedEntryId != "0-0" {
+				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v;\nExpected: %#v\n", info.MaxDeletedEntryId, "0-0")
+			}
 		})
 	}
 }
 
 func TestScanStreamGroups(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Skipf("TEST_REDIS_URI not set - skipping")
+	if os.Getenv("TEST_REDIS7_URI") == "" {
+		t.Skipf("TEST_REDIS7_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_URI")
+	addr := os.Getenv("TEST_REDIS7_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
@@ -128,6 +138,8 @@ func TestScanStreamGroups(t *testing.T) {
 					Name:            "test_group_1",
 					Consumers:       1,
 					Pending:         1,
+					EntriesRead:     1,
+					Lag:             0,
 					LastDeliveredId: "1638006862521-0",
 					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
 						{
@@ -145,12 +157,15 @@ func TestScanStreamGroups(t *testing.T) {
 					Name:            "test_group_1",
 					Consumers:       2,
 					Pending:         1,
+					Lag:             0,
+					EntriesRead:     1,
 					LastDeliveredId: "1638006862522-0",
 				},
 				{
 					Name:      "test_group_2",
 					Consumers: 0,
 					Pending:   0,
+					Lag:       1,
 				},
 			}},
 	}
@@ -175,6 +190,12 @@ func TestScanStreamGroups(t *testing.T) {
 					if parseStreamItemId(scannedGroup[i].LastDeliveredId) != parseStreamItemId(tst.groups[i].LastDeliveredId) {
 						t.Errorf("LastDeliveredId items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
 					}
+					if scannedGroup[i].Lag != tst.groups[i].Lag {
+						t.Errorf("Lag mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Lag, scannedGroup[i].Lag)
+					}
+					if scannedGroup[i].EntriesRead != tst.groups[i].EntriesRead {
+						t.Errorf("EntriesRead mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
+					}
 				}
 			} else {
 				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d\n", len(tst.consumers), len(scannedGroup))
@@ -184,10 +205,10 @@ func TestScanStreamGroups(t *testing.T) {
 }
 
 func TestScanStreamGroupsConsumers(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Skipf("TEST_REDIS_URI not set - skipping")
+	if os.Getenv("TEST_REDIS7_URI") == "" {
+		t.Skipf("TEST_REDIS7_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_URI")
+	addr := os.Getenv("TEST_REDIS7_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
@@ -275,10 +296,10 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 }
 
 func TestExtractStreamMetrics(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Skipf("TEST_REDIS_URI not set - skipping")
+	if os.Getenv("TEST_REDIS7_URI") == "" {
+		t.Skipf("TEST_REDIS7_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_URI")
+	addr := os.Getenv("TEST_REDIS7_URI")
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestStreamName},
@@ -302,9 +323,14 @@ func TestExtractStreamMetrics(t *testing.T) {
 		"stream_radix_tree_nodes":                false,
 		"stream_last_generated_id":               false,
 		"stream_groups":                          false,
+		"stream_max_deleted_entry_id":            false,
+		"stream_first_entry_id":                  false,
+		"stream_last_entry_id":                   false,
 		"stream_group_consumers":                 false,
 		"stream_group_messages_pending":          false,
 		"stream_group_last_delivered_id":         false,
+		"stream_group_entries_read":              false,
+		"stream_group_lag":                       false,
 		"stream_group_consumer_messages_pending": false,
 		"stream_group_consumer_idle_seconds":     false,
 	}
@@ -313,6 +339,7 @@ func TestExtractStreamMetrics(t *testing.T) {
 		for k := range want {
 			log.Debugf("metric: %s", m.Desc().String())
 			log.Debugf("want: %s", k)
+
 			if strings.Contains(m.Desc().String(), k) {
 				want[k] = true
 			}
