@@ -65,13 +65,15 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 }
 
 func getEntryId(redisValue []interface{}, index int) string {
+	var emptyStreamId = ""
+
 	if len(redisValue) < index || len(redisValue) > index && len(redisValue[index].([]interface{})) < 2 {
-		return "0-0"
+		return emptyStreamId
 	}
 
 	entryId, ok := redisValue[index].([]interface{})[0].([]byte)
 	if !ok {
-		return "0-0"
+		return emptyStreamId
 	}
 	return string(entryId)
 }
