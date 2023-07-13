@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"io/ioutil"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -111,7 +111,7 @@ func LoadKeyPair(certFile, keyFile string) (*tls.Certificate, error) {
 // The file must contain PEM encoded data.
 func LoadCAFile(caFile string) (*x509.CertPool, error) {
 	log.Debugf("Load CA cert file: %s", caFile)
-	pemCerts, err := ioutil.ReadFile(caFile)
+	pemCerts, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, err
 	}

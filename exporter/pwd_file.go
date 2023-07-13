@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -12,7 +12,7 @@ func LoadPwdFile(passwordFile string) (map[string]string, error) {
 	res := make(map[string]string)
 
 	log.Debugf("start load password file: %s", passwordFile)
-	bytes, err := ioutil.ReadFile(passwordFile)
+	bytes, err := os.ReadFile(passwordFile)
 	if err != nil {
 		log.Warnf("load password file failed: %s", err)
 		return nil, err

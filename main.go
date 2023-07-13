@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"runtime"
@@ -140,7 +139,7 @@ func main() {
 		scripts := strings.Split(*scriptPath, ",")
 		ls = make(map[string][]byte, len(scripts))
 		for _, script := range scripts {
-			if ls[script], err = ioutil.ReadFile(script); err != nil {
+			if ls[script], err = os.ReadFile(script); err != nil {
 				log.Fatalf("Error loading script file %s    err: %s", script, err)
 			}
 		}
