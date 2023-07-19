@@ -31,6 +31,7 @@ func TestGetStreamInfo(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
+
 	addr := os.Getenv("TEST_REDIS_URI")
 	c, err := redis.DialURL(addr)
 	if err != nil {
@@ -80,6 +81,82 @@ func TestGetStreamInfo(t *testing.T) {
 			if isNotTestTimestamp(info.LastGeneratedId) {
 				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastGeneratedId, TestStreamTimestamps)
 			}
+			if info.FirstEntryId != "" {
+				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.FirstEntryId, "")
+			}
+			if info.LastEntryId != "" {
+				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastEntryId, "")
+			}
+			if info.MaxDeletedEntryId != "" {
+				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v;\nExpected: %#v\n", info.MaxDeletedEntryId, "")
+			}
+		})
+	}
+}
+
+func TestGetStreamInfoUsingRedis7(t *testing.T) {
+	if os.Getenv("TEST_REDIS7_URI") == "" {
+		t.Skipf("TEST_REDIS7_URI not set - skipping")
+	}
+
+	addr := os.Getenv("TEST_REDIS7_URI")
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	defer c.Close()
+
+	setupDBKeys(t, addr)
+	defer deleteKeysFromDB(t, addr)
+
+	if _, err = c.Do("SELECT", dbNumStr); err != nil {
+		t.Errorf("Couldn't select database %#v", dbNumStr)
+	}
+
+	tsts := []scanStreamFixture{
+		{
+			name:   "Stream test",
+			stream: TestStreamName,
+			streamInfo: streamInfo{
+				Length:         2,
+				RadixTreeKeys:  1,
+				RadixTreeNodes: 2,
+				Groups:         2,
+			},
+		},
+	}
+
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+			info, err := getStreamInfo(c, tst.stream)
+			if err != nil {
+				t.Fatalf("Error getting stream info for %#v: %s", tst.stream, err)
+			}
+
+			if info.Length != tst.streamInfo.Length {
+				t.Errorf("Stream length mismatch.\nActual: %#v;\nExpected: %#v\n", info.Length, tst.streamInfo.Length)
+			}
+			if info.RadixTreeKeys != tst.streamInfo.RadixTreeKeys {
+				t.Errorf("Stream RadixTreeKeys mismatch.\nActual: %#v;\nExpected: %#v\n", info.RadixTreeKeys, tst.streamInfo.RadixTreeKeys)
+			}
+			if info.RadixTreeNodes != tst.streamInfo.RadixTreeNodes {
+				t.Errorf("Stream RadixTreeNodes mismatch.\nActual: %#v;\nExpected: %#v\n", info.RadixTreeNodes, tst.streamInfo.RadixTreeNodes)
+			}
+			if info.Groups != tst.streamInfo.Groups {
+				t.Errorf("Stream Groups mismatch.\nActual: %#v;\nExpected: %#v\n", info.Groups, tst.streamInfo.Groups)
+			}
+			if isNotTestTimestamp(info.LastGeneratedId) {
+				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastGeneratedId, TestStreamTimestamps)
+			}
+			if info.FirstEntryId != TestStreamTimestamps[0] {
+				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.FirstEntryId, TestStreamTimestamps)
+			}
+			if info.LastEntryId != TestStreamTimestamps[len(TestStreamTimestamps)-1] {
+				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected any of: %#v\n", info.LastEntryId, TestStreamTimestamps)
+			}
+			if info.MaxDeletedEntryId != "0-0" {
+				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v;\nExpected: %#v\n", info.MaxDeletedEntryId, "0-0")
+			}
 		})
 	}
 }
@@ -128,6 +205,8 @@ func TestScanStreamGroups(t *testing.T) {
 					Name:            "test_group_1",
 					Consumers:       1,
 					Pending:         1,
+					EntriesRead:     0,
+					Lag:             0,
 					LastDeliveredId: "1638006862521-0",
 					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
 						{
@@ -145,12 +224,15 @@ func TestScanStreamGroups(t *testing.T) {
 					Name:            "test_group_1",
 					Consumers:       2,
 					Pending:         1,
+					Lag:             0,
+					EntriesRead:     0,
 					LastDeliveredId: "1638006862522-0",
 				},
 				{
 					Name:      "test_group_2",
 					Consumers: 0,
 					Pending:   0,
+					Lag:       0,
 				},
 			}},
 	}
@@ -175,6 +257,122 @@ func TestScanStreamGroups(t *testing.T) {
 					if parseStreamItemId(scannedGroup[i].LastDeliveredId) != parseStreamItemId(tst.groups[i].LastDeliveredId) {
 						t.Errorf("LastDeliveredId items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
 					}
+					if scannedGroup[i].Lag != tst.groups[i].Lag {
+						t.Errorf("Lag mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Lag, scannedGroup[i].Lag)
+					}
+					if scannedGroup[i].EntriesRead != tst.groups[i].EntriesRead {
+						t.Errorf("EntriesRead mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
+					}
+				}
+			} else {
+				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d\n", len(tst.consumers), len(scannedGroup))
+			}
+		})
+	}
+}
+
+func TestScanStreamGroupsUsingRedis7(t *testing.T) {
+	if os.Getenv("TEST_REDIS7_URI") == "" {
+		t.Skipf("TEST_REDIS7_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_REDIS7_URI")
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+
+	if _, err = c.Do("SELECT", db); err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		{"XADD", "test_stream_1", []interface{}{"1638006862521-0", "field_1", "str_1"}},
+		{"XADD", "test_stream_2", []interface{}{"1638006862522-0", "field_pattern_1", "str_pattern_1"}},
+	}
+	// Create test streams
+	c.Do("XGROUP", "CREATE", "test_stream_1", "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", "test_stream_2", "test_group_2", "$")
+	// Add simple values
+	createKeyFixtures(t, c, fixtures)
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+	// Process messages to assign Consumers to their groups
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_1", ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", "test_stream_2", ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", "test_stream_2", "0")
+
+	tsts := []scanStreamFixture{
+		{
+			name:   "Single group test",
+			stream: "test_stream_1",
+			groups: []streamGroupsInfo{
+				{
+					Name:            "test_group_1",
+					Consumers:       1,
+					Pending:         1,
+					EntriesRead:     1,
+					Lag:             0,
+					LastDeliveredId: "1638006862521-0",
+					StreamGroupConsumersInfo: []streamGroupConsumersInfo{
+						{
+							Name:    "test_consumer_1",
+							Pending: 1,
+						},
+					},
+				},
+			}},
+		{
+			name:   "Multiple groups test",
+			stream: "test_stream_2",
+			groups: []streamGroupsInfo{
+				{
+					Name:            "test_group_1",
+					Consumers:       2,
+					Pending:         1,
+					Lag:             0,
+					EntriesRead:     1,
+					LastDeliveredId: "1638006862522-0",
+				},
+				{
+					Name:      "test_group_2",
+					Consumers: 0,
+					Pending:   0,
+					Lag:       1,
+				},
+			}},
+	}
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+			scannedGroup, _ := scanStreamGroups(c, tst.stream)
+			if err != nil {
+				t.Errorf("Err: %s", err)
+			}
+
+			if len(scannedGroup) == len(tst.groups) {
+				for i := range scannedGroup {
+					if scannedGroup[i].Name != tst.groups[i].Name {
+						t.Errorf("Group name mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Name, scannedGroup[i].Name)
+					}
+					if scannedGroup[i].Consumers != tst.groups[i].Consumers {
+						t.Errorf("Consumers count mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Consumers, scannedGroup[i].Consumers)
+					}
+					if scannedGroup[i].Pending != tst.groups[i].Pending {
+						t.Errorf("Pending items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Pending, scannedGroup[i].Pending)
+					}
+					if parseStreamItemId(scannedGroup[i].LastDeliveredId) != parseStreamItemId(tst.groups[i].LastDeliveredId) {
+						t.Errorf("LastDeliveredId items mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
+					}
+					if scannedGroup[i].Lag != tst.groups[i].Lag {
+						t.Errorf("Lag mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].Lag, scannedGroup[i].Lag)
+					}
+					if scannedGroup[i].EntriesRead != tst.groups[i].EntriesRead {
+						t.Errorf("EntriesRead mismatch.\nExpected: %#v;\nActual: %#v\n", tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
+					}
 				}
 			} else {
 				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d\n", len(tst.consumers), len(scannedGroup))
@@ -187,7 +385,7 @@ func TestScanStreamGroupsConsumers(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_URI")
+	addr := os.Getenv("TEST_REDIS7_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
@@ -302,9 +500,14 @@ func TestExtractStreamMetrics(t *testing.T) {
 		"stream_radix_tree_nodes":                false,
 		"stream_last_generated_id":               false,
 		"stream_groups":                          false,
+		"stream_max_deleted_entry_id":            false,
+		"stream_first_entry_id":                  false,
+		"stream_last_entry_id":                   false,
 		"stream_group_consumers":                 false,
 		"stream_group_messages_pending":          false,
 		"stream_group_last_delivered_id":         false,
+		"stream_group_entries_read":              false,
+		"stream_group_lag":                       false,
 		"stream_group_consumer_messages_pending": false,
 		"stream_group_consumer_idle_seconds":     false,
 	}
@@ -313,6 +516,7 @@ func TestExtractStreamMetrics(t *testing.T) {
 		for k := range want {
 			log.Debugf("metric: %s", m.Desc().String())
 			log.Debugf("want: %s", k)
+
 			if strings.Contains(m.Desc().String(), k) {
 				want[k] = true
 			}
