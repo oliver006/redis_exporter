@@ -30,8 +30,8 @@ var reMasterDirect = regexp.MustCompile(`^(master(_[0-9]+)?_(last_io_seconds_ago
 
 // numbered slaves
 /*
-	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
-	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
+slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
+slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
 var reSlave = regexp.MustCompile(`^slave\d+`)
 
@@ -258,8 +258,8 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 }
 
 /*
-slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
-slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
+	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
+	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
 func parseConnectedSlaveString(slaveName string, keyValues string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
