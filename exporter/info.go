@@ -210,7 +210,7 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 }
 
 /*
-	valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
+valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
 */
 func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, keysCachedTotal float64, ok bool) {
 	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
@@ -258,8 +258,8 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 }
 
 /*
-	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
-	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
+slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
+slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
 func parseConnectedSlaveString(slaveName string, keyValues string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
@@ -301,6 +301,14 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 }
 
 func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
+	if strings.HasSuffix(fieldKey, "role") {
+		if fieldValue == "master" {
+			e.registerConstMetricGauge(ch, "node_is_master", 1)
+		} else {
+			e.registerConstMetricGauge(ch, "node_is_master", 0)
+		}
+	}
+
 	// only slaves have this field
 	if reMasterLinkStatus.MatchString(fieldKey) {
 		if fieldValue == "up" {
