@@ -301,7 +301,7 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 }
 
 func (e *Exporter) handleMetricsReplication(ch chan<- prometheus.Metric, masterHost string, masterPort string, fieldKey string, fieldValue string) bool {
-	if strings.HasSuffix(fieldKey, "role") {
+	if fieldKey == "role" {
 		if fieldValue == "master" {
 			e.registerConstMetricGauge(ch, "node_is_master", 1)
 		} else {
