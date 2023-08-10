@@ -81,10 +81,13 @@ func (e *Exporter) registerConstMetricGauge(ch chan<- prometheus.Metric, metric 
 
 func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric string, val float64, valType prometheus.ValueType, labelValues ...string) {
 	description := e.findOrCreateMetricDescription(metric, labelValues)
-
-	if m, err := prometheus.NewConstMetric(description, valType, val, labelValues...); err == nil {
-		ch <- m
+	m, err := prometheus.NewConstMetric(description, valType, val, labelValues...)
+	if err != nil {
+		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, err, val)
+		return
 	}
+
+	ch <- m
 }
 
 func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric string, labelValues []string, count uint64, sum float64, latencyMap map[float64]float64, cmd string) {

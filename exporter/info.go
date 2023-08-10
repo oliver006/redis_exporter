@@ -210,7 +210,7 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 }
 
 /*
-	valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
+valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
 */
 func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, keysCachedTotal float64, ok bool) {
 	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
@@ -258,8 +258,8 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 }
 
 /*
-	slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
-	slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
+slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
+slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
 func parseConnectedSlaveString(slaveName string, keyValues string) (offset float64, ip string, port string, state string, lag float64, ok bool) {
 	ok = false
@@ -499,13 +499,15 @@ func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorType strin
 
 func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) (cmd string, calls float64, usecTotal float64) {
 	cmd, calls, rejectedCalls, failedCalls, usecTotal, extendedStats, err := parseMetricsCommandStats(fieldKey, fieldValue)
-	if err == nil {
-		e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
-		e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
-		if extendedStats {
-			e.registerConstMetric(ch, "commands_rejected_calls_total", rejectedCalls, prometheus.CounterValue, cmd)
-			e.registerConstMetric(ch, "commands_failed_calls_total", failedCalls, prometheus.CounterValue, cmd)
-		}
+	if err != nil {
+		log.Debugf("parseMetricsCommandStats( %s , %s ) err: %s", fieldKey, fieldValue, err)
+		return
+	}
+	e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
+	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
+	if extendedStats {
+		e.registerConstMetric(ch, "commands_rejected_calls_total", rejectedCalls, prometheus.CounterValue, cmd)
+		e.registerConstMetric(ch, "commands_failed_calls_total", failedCalls, prometheus.CounterValue, cmd)
 	}
 	return
 }
