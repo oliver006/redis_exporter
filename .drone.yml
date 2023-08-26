@@ -120,6 +120,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "test"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -259,6 +260,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -283,6 +285,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -307,6 +310,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -331,6 +335,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -425,6 +430,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
@@ -450,6 +456,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
@@ -475,6 +482,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
@@ -500,6 +508,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "${DRONE_TAG}-alpine,alpine-amd64"
