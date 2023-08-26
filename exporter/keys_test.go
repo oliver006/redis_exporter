@@ -283,7 +283,7 @@ func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	for _, f := range fixtures {
 		args := append([]interface{}{f.key}, f.args...)
 		if _, err := c.Do(f.command, args...); err != nil {
-			t.Errorf("Error creating fixture: %#v, %#v", f, err)
+			t.Fatalf("Error creating fixture: %#v, %#v", f, err)
 		}
 	}
 }

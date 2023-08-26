@@ -40,11 +40,6 @@ var (
 	altDBNumStr     = "12"
 	invalidDBNumStr = "16"
 	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
-
-	TestStreamTimestamps = []string{
-		"1638006862416-0",
-		"1638006862417-2",
-	}
 )
 
 const (
