@@ -83,7 +83,7 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 	description := e.findOrCreateMetricDescription(metric, labelValues)
 	m, err := prometheus.NewConstMetric(description, valType, val, labelValues...)
 	if err != nil {
-		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, err, val)
+		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, val, err)
 		return
 	}
 

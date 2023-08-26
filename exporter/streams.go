@@ -40,40 +40,40 @@ type streamGroupConsumersInfo struct {
 }
 
 func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
-	v, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", key))
+	values, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", key))
 	if err != nil {
 		return nil, err
 	}
 
 	// Scan slice to struct
 	var stream streamInfo
-	if err := redis.ScanStruct(v, &stream); err != nil {
+	if err := redis.ScanStruct(values, &stream); err != nil {
 		return nil, err
 	}
 
 	// Extract first and last id from slice
-	stream.FirstEntryId = getEntryId(v, 17)
-	stream.LastEntryId = getEntryId(v, 19)
+	stream.FirstEntryId = getStreamEntryId(values, 17)
+	stream.LastEntryId = getStreamEntryId(values, 19)
 
 	stream.StreamGroupsInfo, err = scanStreamGroups(c, key)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debugf("stream: %#v", &stream)
+	log.Debugf("getStreamInfo() stream: %#v", &stream)
 	return &stream, nil
 }
 
-func getEntryId(redisValue []interface{}, index int) string {
-	var emptyStreamId = ""
-
-	if len(redisValue) < index || len(redisValue) > index && len(redisValue[index].([]interface{})) < 2 {
-		return emptyStreamId
+func getStreamEntryId(redisValue []interface{}, index int) string {
+	if len(redisValue) < index || redisValue[index] == nil || len(redisValue[index].([]interface{})) < 2 {
+		log.Debugf("Failed to parse StreamEntryId")
+		return ""
 	}
 
 	entryId, ok := redisValue[index].([]interface{})[0].([]byte)
 	if !ok {
-		return emptyStreamId
+		log.Debugf("Failed to parse StreamEntryId")
+		return ""
 	}
 	return string(entryId)
 }
@@ -141,9 +141,17 @@ func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]stre
 }
 
 func parseStreamItemId(id string) float64 {
+	if strings.TrimSpace(id) == "" {
+		return 0
+	}
+	frags := strings.Split(id, "-")
+	if len(frags) == 0 {
+		log.Errorf("Couldn't parse StreamItemId: %s", id)
+		return 0
+	}
 	parsedId, err := strconv.ParseFloat(strings.Split(id, "-")[0], 64)
 	if err != nil {
-		log.Errorf("Couldn't parse given stream timestamp: %s", err)
+		log.Errorf("Couldn't parse given StreamItemId: [%s]   err: %s", id, err)
 	}
 	return parsedId
 }
