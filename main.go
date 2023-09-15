@@ -53,6 +53,8 @@ func getEnvInt64(key string, defaultVal int64) int64 {
 
 func main() {
 	var (
+		basicAuthUser             = flag.String("basic-auth.user", getEnv("BASIC_AUTH_USER", ""), "Basic username for accessing Exporter")
+		basicAuthPwd              = flag.String("basic-auth.password", getEnv("BASIC_AUTH_PASSWORD", ""), "Basic password for accessing Exporter")
 		redisAddr                 = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of the Redis instance to scrape")
 		redisUser                 = flag.String("redis.user", getEnv("REDIS_USER", ""), "User name to use for authentication (Redis ACL for Redis 6.0 and newer)")
 		redisPwd                  = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
@@ -190,6 +192,10 @@ func main() {
 				Version:   BuildVersion,
 				CommitSha: BuildCommitSha,
 				Date:      BuildDate,
+			},
+			BasicAuth: exporter.BasicAuth{
+				ExporterUser: *basicAuthUser,
+				ExporterPwd:  *basicAuthPwd,
 			},
 		},
 	)

@@ -22,6 +22,11 @@ type BuildInfo struct {
 	Date      string
 }
 
+type BasicAuth struct {
+	ExporterUser string
+	ExporterPwd  string
+}
+
 // Exporter implements the prometheus.Exporter interface, and exports Redis metrics.
 type Exporter struct {
 	sync.Mutex
@@ -80,6 +85,7 @@ type Options struct {
 	RedisPwdFile              string
 	Registry                  *prometheus.Registry
 	BuildInfo                 BuildInfo
+	BasicAuth                 BasicAuth
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -412,14 +418,22 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 	if e.options.MetricsPath == "" {
 		e.options.MetricsPath = "/metrics"
 	}
+	// If one of the username and password is not the default value
+	openBasicAuth := e.options.BasicAuth.ExporterPwd != "" || e.options.BasicAuth.ExporterUser != ""
 
 	e.mux = http.NewServeMux()
 
 	if e.options.Registry != nil {
 		e.options.Registry.MustRegister(e)
-		e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(
-			e.options.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
-		))
+		if openBasicAuth {
+			log.Infof("Detected that the probe has initiated Basic authentication with username: %s", e.options.BasicAuth.ExporterUser)
+			// add basic auth
+			e.mux.HandleFunc(e.options.MetricsPath, e.basicAuth(e.metricHandler))
+		} else {
+			e.mux.Handle(e.options.MetricsPath, promhttp.HandlerFor(
+				e.options.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
+			))
+		}
 
 		if !e.options.RedisMetricsOnly {
 			buildInfoCollector := prometheus.NewGaugeVec(prometheus.GaugeOpts{
@@ -432,10 +446,19 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		}
 	}
 
-	e.mux.HandleFunc("/", e.indexHandler)
-	e.mux.HandleFunc("/scrape", e.scrapeHandler)
-	e.mux.HandleFunc("/health", e.healthHandler)
-	e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
+	if openBasicAuth {
+		log.Infof("Detected that the probe has initiated Basic authentication with username: %s", e.options.BasicAuth.ExporterUser)
+		// add basic auth
+		e.mux.HandleFunc("/", e.basicAuth(e.indexHandler))
+		e.mux.HandleFunc("/scrape", e.basicAuth(e.scrapeHandler))
+		e.mux.HandleFunc("/health", e.basicAuth(e.healthHandler))
+		e.mux.HandleFunc("/-/reload", e.basicAuth(e.reloadPwdFile))
+	} else {
+		e.mux.HandleFunc("/", e.indexHandler)
+		e.mux.HandleFunc("/scrape", e.scrapeHandler)
+		e.mux.HandleFunc("/health", e.healthHandler)
+		e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
+	}
 
 	return e, nil
 }
