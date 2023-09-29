@@ -211,6 +211,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			// # Stats
 			"pubsub_channels":         "pubsub_channels",
 			"pubsub_patterns":         "pubsub_patterns",
+			"pubsubshard_channels":    "pubsubshard_channels",  // Added in Redis 7.0.3
 			"latest_fork_usec":        "latest_fork_usec",
 			"tracking_total_keys":     "tracking_total_keys",
 			"tracking_total_items":    "tracking_total_items",
