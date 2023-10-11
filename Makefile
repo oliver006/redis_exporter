@@ -40,9 +40,10 @@ test:
 	TEST_USER_PWD_REDIS_URI="redis://exporter:exporter-password@pwd-redis6:6390" \
 	TEST_REDIS_CLUSTER_MASTER_URI="redis://redis-cluster:7000" \
 	TEST_REDIS_CLUSTER_SLAVE_URI="redis://redis-cluster:7005" \
+	TEST_REDIS_CLUSTER_PASSWORD_URI="redis://redis-cluster-password:7006" \
 	TEST_TILE38_URI="redis://tile38:9851" \
 	TEST_REDIS_SENTINEL_URI="redis://redis-sentinel:26379" \
-	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
+	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./... 
 
 .PHONY: lint
 lint:

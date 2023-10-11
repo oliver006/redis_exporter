@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"bytes"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -8,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	log "github.com/sirupsen/logrus"
 )
 
 func TestHostVariations(t *testing.T) {
@@ -110,4 +112,47 @@ func TestPasswordInvalid(t *testing.T) {
 	if !strings.Contains(body, want) {
 		t.Errorf(`error, expected string "%s" in body, got body: \n\n%s`, want, body)
 	}
+}
+
+func TestConnectToClusterUingPasswordFile(t *testing.T) {
+	cluster_host := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
+	if cluster_host == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_PASSWORD_URI is not set")
+	}
+	passMap := map[string]string{"redis://redis-cluster-password:7006": "redis-password"}
+	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}
+
+	tsts := []struct {
+		name         string
+		isCluster    bool
+		passMap      map[string]string
+		refreshError bool
+	}{
+		{name: "ConnectToCluster using passord file witch cluster mode", isCluster: true, passMap: passMap, refreshError: false},
+		{name: "ConnectToCluster using password file without cluster mode", isCluster: false, passMap: passMap, refreshError: false},
+		{name: "ConnectToCluster using password file witch cluster mode failed", isCluster: false, passMap: wrongPassMap, refreshError: true},
+	}
+	for _, tst := range tsts {
+		t.Run(tst.name, func(t *testing.T) {
+			e, _ := NewRedisExporter(cluster_host, Options{
+				SkipTLSVerification: true,
+				PasswordMap:         tst.passMap,
+				IsCluster:           tst.isCluster,
+			})
+			var buf bytes.Buffer
+			log.SetOutput(&buf)
+			defer func() {
+				log.SetOutput(os.Stderr)
+			}()
+			_, err := e.connectToRedisCluster()
+			if strings.Contains(buf.String(), "Cluster refresh failed:") && !tst.refreshError {
+				t.Errorf("Test Cluster connection Failed error")
+			}
+			if err != nil {
+				t.Errorf("Test Cluster connection Failed-connection error")
+			}
+
+		})
+	}
+
 }

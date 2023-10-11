@@ -74,6 +74,16 @@ services:
     pull: if-not-exists
     ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
 
+  - name: redis-cluster-password
+    image: bitnami/redis-cluster
+    environment:
+      REDIS_PORT_NUMBER: 7006
+      REDIS_PASSWORD: redis-password
+      REDIS_CLUSTER_CREATOR: yes
+      REDIS_NODES: redis-cluster-password:7006
+    ports:
+      - 7006
+
   - name: tile38
     image: tile38/tile38:latest
     pull: if-not-exists
