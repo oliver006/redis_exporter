@@ -123,14 +123,14 @@ func TestConnectToClusterUingPasswordFile(t *testing.T) {
 	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}
 
 	tsts := []struct {
-		name      string
-		isCluster bool
-		passMap   map[string]string
-		expectEr  bool
+		name         string
+		isCluster    bool
+		passMap      map[string]string
+		refreshError bool
 	}{
-		{name: "ConnectToCluster using passord file witch cluster mode", isCluster: true, passMap: passMap, expectEr: false},
-		{name: "ConnectToCluster using password file without cluster mode", isCluster: false, passMap: passMap, expectEr: false},
-		{name: "ConnectToCluster using password file witch cluster mode failed", isCluster: false, passMap: wrongPassMap, expectEr: true},
+		{name: "ConnectToCluster using passord file witch cluster mode", isCluster: true, passMap: passMap, refreshError: false},
+		{name: "ConnectToCluster using password file without cluster mode", isCluster: false, passMap: passMap, refreshError: false},
+		{name: "ConnectToCluster using password file witch cluster mode failed", isCluster: false, passMap: wrongPassMap, refreshError: true},
 	}
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
@@ -145,12 +145,11 @@ func TestConnectToClusterUingPasswordFile(t *testing.T) {
 				log.SetOutput(os.Stderr)
 			}()
 			_, err := e.connectToRedisCluster()
-			if !tst.expectEr && err != nil {
+			if strings.Contains(buf.String(), "Cluster refresh failed:") && !tst.refreshError {
+				t.Errorf("Test Cluster connection Failed error")
+			}
+			if err != nil {
 				t.Errorf("Test Cluster connection Failed-connection error")
-			} else if tst.expectEr {
-				if !strings.Contains(buf.String(), "Cluster refresh failed:") {
-					t.Errorf("Test Cluster connection Failed error")
-				}
 			}
 
 		})
