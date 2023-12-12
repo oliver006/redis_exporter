@@ -75,6 +75,16 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		}
 		e.registerConstMetricGauge(ch, "sentinel_master_ckquorum_status", float64(masterCkquorumStatus), masterName, masterCkquorumMsg)
 
+		masterCkquorum, _ := strconv.ParseFloat(masterDetailMap["ckquorum"], 64)
+		masterFailoverTimeout, _ := strconv.ParseFloat(masterDetailMap["failover-timeout"], 64)
+		masterParallelSyncs, _ := strconv.ParseFloat(masterDetailMap["parallel-syncs"], 64)
+		masterDownAfterMs, _ := strconv.ParseFloat(masterDetailMap["down-after-milliseconds"], 64)
+
+		e.registerConstMetricGauge(ch, "sentinel_master_setting_ckquorum", masterCkquorum, masterName, masterAddr)
+		e.registerConstMetricGauge(ch, "sentinel_master_setting_failover_timeout", masterFailoverTimeout, masterName, masterAddr)
+		e.registerConstMetricGauge(ch, "sentinel_master_setting_parallel_syncs", masterParallelSyncs, masterName, masterAddr)
+		e.registerConstMetricGauge(ch, "sentinel_master_setting_down_after_milliseconds", masterDownAfterMs, masterName, masterAddr)
+
 		sentinelDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
 		log.Debugf("Sentinel details for master %s: %s", masterName, sentinelDetails)
 		e.processSentinelSentinels(ch, sentinelDetails, masterName, masterAddr)
@@ -137,9 +147,10 @@ func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetai
 }
 
 /*
-	valid examples:
-		master0:name=user03,status=sdown,address=192.169.2.52:6381,slaves=1,sentinels=5
-		master1:name=user02,status=ok,address=192.169.2.54:6380,slaves=1,sentinels=5
+valid examples:
+
+	master0:name=user03,status=sdown,address=192.169.2.52:6381,slaves=1,sentinels=5
+	master1:name=user02,status=ok,address=192.169.2.54:6380,slaves=1,sentinels=5
 */
 func parseSentinelMasterString(master string, masterInfo string) (masterName string, masterStatus string, masterAddr string, masterSlaves float64, masterSentinels float64, ok bool) {
 	ok = false
