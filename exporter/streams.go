@@ -12,12 +12,15 @@ import (
 // All fields of the streamInfo struct must be exported
 // because of redis.ScanStruct (reflect) limitations
 type streamInfo struct {
-	Length           int64  `redis:"length"`
-	RadixTreeKeys    int64  `redis:"radix-tree-keys"`
-	RadixTreeNodes   int64  `redis:"radix-tree-nodes"`
-	LastGeneratedId  string `redis:"last-generated-id"`
-	Groups           int64  `redis:"groups"`
-	StreamGroupsInfo []streamGroupsInfo
+	Length            int64  `redis:"length"`
+	RadixTreeKeys     int64  `redis:"radix-tree-keys"`
+	RadixTreeNodes    int64  `redis:"radix-tree-nodes"`
+	LastGeneratedId   string `redis:"last-generated-id"`
+	Groups            int64  `redis:"groups"`
+	MaxDeletedEntryId string `redis:"max-deleted-entry-id"`
+	FirstEntryId      string
+	LastEntryId       string
+	StreamGroupsInfo  []streamGroupsInfo
 }
 
 type streamGroupsInfo struct {
@@ -25,6 +28,8 @@ type streamGroupsInfo struct {
 	Consumers                int64  `redis:"consumers"`
 	Pending                  int64  `redis:"pending"`
 	LastDeliveredId          string `redis:"last-delivered-id"`
+	EntriesRead              int64  `redis:"entries-read"`
+	Lag                      int64  `redis:"lag"`
 	StreamGroupConsumersInfo []streamGroupConsumersInfo
 }
 
@@ -35,23 +40,42 @@ type streamGroupConsumersInfo struct {
 }
 
 func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
-	v, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", key))
+	values, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", key))
 	if err != nil {
 		return nil, err
 	}
+
 	// Scan slice to struct
 	var stream streamInfo
-	if err := redis.ScanStruct(v, &stream); err != nil {
+	if err := redis.ScanStruct(values, &stream); err != nil {
 		return nil, err
 	}
+
+	// Extract first and last id from slice
+	stream.FirstEntryId = getStreamEntryId(values, 17)
+	stream.LastEntryId = getStreamEntryId(values, 19)
 
 	stream.StreamGroupsInfo, err = scanStreamGroups(c, key)
 	if err != nil {
 		return nil, err
 	}
 
-	log.Debugf("stream: %#v", &stream)
+	log.Debugf("getStreamInfo() stream: %#v", &stream)
 	return &stream, nil
+}
+
+func getStreamEntryId(redisValue []interface{}, index int) string {
+	if len(redisValue) < index || redisValue[index] == nil || len(redisValue[index].([]interface{})) < 2 {
+		log.Debugf("Failed to parse StreamEntryId")
+		return ""
+	}
+
+	entryId, ok := redisValue[index].([]interface{})[0].([]byte)
+	if !ok {
+		log.Debugf("Failed to parse StreamEntryId")
+		return ""
+	}
+	return string(entryId)
 }
 
 func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
@@ -117,9 +141,17 @@ func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]stre
 }
 
 func parseStreamItemId(id string) float64 {
+	if strings.TrimSpace(id) == "" {
+		return 0
+	}
+	frags := strings.Split(id, "-")
+	if len(frags) == 0 {
+		log.Errorf("Couldn't parse StreamItemId: %s", id)
+		return 0
+	}
 	parsedId, err := strconv.ParseFloat(strings.Split(id, "-")[0], 64)
 	if err != nil {
-		log.Errorf("Couldn't parse given stream timestamp: %s", err)
+		log.Errorf("Couldn't parse given StreamItemId: [%s]   err: %s", id, err)
 	}
 	return parsedId
 }
@@ -163,11 +195,16 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 		e.registerConstMetricGauge(ch, "stream_radix_tree_nodes", float64(info.RadixTreeNodes), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_last_generated_id", parseStreamItemId(info.LastGeneratedId), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_groups", float64(info.Groups), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_max_deleted_entry_id", parseStreamItemId(info.MaxDeletedEntryId), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_first_entry_id", parseStreamItemId(info.FirstEntryId), dbLabel, k.key)
+		e.registerConstMetricGauge(ch, "stream_last_entry_id", parseStreamItemId(info.LastEntryId), dbLabel, k.key)
 
 		for _, g := range info.StreamGroupsInfo {
 			e.registerConstMetricGauge(ch, "stream_group_consumers", float64(g.Consumers), dbLabel, k.key, g.Name)
 			e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(g.Pending), dbLabel, k.key, g.Name)
 			e.registerConstMetricGauge(ch, "stream_group_last_delivered_id", parseStreamItemId(g.LastDeliveredId), dbLabel, k.key, g.Name)
+			e.registerConstMetricGauge(ch, "stream_group_entries_read", float64(g.EntriesRead), dbLabel, k.key, g.Name)
+			e.registerConstMetricGauge(ch, "stream_group_lag", float64(g.Lag), dbLabel, k.key, g.Name)
 			for _, c := range g.StreamGroupConsumersInfo {
 				e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(c.Pending), dbLabel, k.key, g.Name, c.Name)
 				e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)

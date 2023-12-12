@@ -49,7 +49,7 @@
             },
             annotations: {
               summary: 'Number of hash slots mapping to a node in FAIL state (instance {{ $labels.instance }})',
-              description: 'Redis cluste has slots fail\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
+              description: 'Redis cluster has slots fail\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
             },
           },
           {
@@ -61,7 +61,7 @@
             },
             annotations: {
               summary: 'Number of hash slots mapping to a node in PFAIL state (instance {{ $labels.instance }})',
-              description: 'Redis cluste has slots pfail\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
+              description: 'Redis cluster has slots pfail\n  VALUE = {{ $value }}\n  LABELS: {{ $labels }}',
             },
           },
           {

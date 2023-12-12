@@ -103,8 +103,10 @@ func TestHTTPScrapeWithPasswordFile(t *testing.T) {
 		options := Options{
 			Namespace:   "test",
 			PasswordMap: passwordMap,
-			LuaScript:   []byte(`return {"a", "11", "b", "12", "c", "13"}`),
-			Registry:    prometheus.NewRegistry(),
+			LuaScript: map[string][]byte{
+				"test.lua": []byte(`return {"a", "11", "b", "12", "c", "13"}`),
+			},
+			Registry: prometheus.NewRegistry(),
 		}
 		t.Run(tst.name, func(t *testing.T) {
 			e, _ := NewRedisExporter(tst.addr, options)

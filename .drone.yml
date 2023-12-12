@@ -1,9 +1,7 @@
 kind: pipeline
 name: default
+type: kubernetes
 
-workspace:
-  base: /go
-  path: src/github.com/oliver006/redis_exporter
 
 
 services:
@@ -48,7 +46,7 @@ services:
       - 6390
 
   - name: redis-2-8
-    image: redis:2.8
+    image: redis:2.8.22
     pull: if-not-exists
     commands:
       - "redis-server --port 6381 --dbfilename dump2-8.rdb"
@@ -72,9 +70,19 @@ services:
       - 6402
 
   - name: redis-cluster
-    image: grokzen/redis-cluster
+    image: grokzen/redis-cluster:6.2.10
     pull: if-not-exists
     ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
+
+  - name: redis-cluster-password
+    image: bitnami/redis-cluster
+    environment:
+      REDIS_PORT_NUMBER: 7006
+      REDIS_PASSWORD: redis-password
+      REDIS_CLUSTER_CREATOR: yes
+      REDIS_NODES: redis-cluster-password:7006
+    ports:
+      - 7006
 
   - name: tile38
     image: tile38/tile38:latest
@@ -85,7 +93,7 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     commands:
       - sleep 20
@@ -122,6 +130,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "test"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -158,7 +167,7 @@ steps:
       - start
 
   - name: tests
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -173,17 +182,13 @@ steps:
         - push
         - tag
     depends_on:
-      - start
+      - test-docker-build
 
 
   - name: mixins
-    image: golang:1.19
+    image: golang:1.20
     pull: if-not-exists
     commands:
-      - cd ./contrib/redis-mixin
-      - go install github.com/monitoring-mixins/mixtool/cmd/mixtool
-      - go install github.com/google/go-jsonnet/cmd/jsonnetfmt
-      - cd ../../
       - make mixin
     when:
       event:
@@ -194,7 +199,7 @@ steps:
 
 
   - name: coverage-codecov
-    image: golang:1.19
+    image: golang:1.20
     pull: if-not-exists
     environment:
       CODECOV_TOKEN:
@@ -212,7 +217,7 @@ steps:
 
 
   - name: coverage-coveralls
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -229,15 +234,14 @@ steps:
     depends_on:
       - tests
 
-
-  - name: build-binaries
-    image: "golang:1.19"
+  - name: build-some-amd64-binaries
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GO111MODULE: on
       LOG_LEVEL: "info"
     commands:
-      - make build-binaries
+      - make build-some-amd64-binaries
     when:
       event:
         - pull_request
@@ -247,10 +251,26 @@ steps:
       - tests
 
 
+  - name: build-all-binaries
+    image: "golang:1.20"
+    pull: if-not-exists
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
+    commands:
+      - make build-all-binaries
+    when:
+      event:
+        - tag
+    depends_on:
+      - build-some-amd64-binaries
+
+
   - name: release-docker-image-scratch
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -268,13 +288,14 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - build-all-binaries
 
 
   - name: release-docker-image-alpine-arm64
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -292,13 +313,14 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - release-docker-image-scratch
 
 
   - name: release-docker-image-alpine-arm
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -316,13 +338,14 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - release-docker-image-alpine-arm64
 
 
   - name: release-docker-image-alpine-amd64
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       tags: "${DRONE_TAG}-alpine,alpine-amd64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
@@ -340,7 +363,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - release-docker-image-alpine-arm
 
 
   - name: manifest-docker-latest
@@ -385,10 +408,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-scratch
-      - release-docker-image-alpine-arm64
-      - release-docker-image-alpine-arm
-      - release-docker-image-alpine-amd64
+      - manifest-docker-latest
 
 
   - name: manifest-docker-alpine
@@ -409,9 +429,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-alpine-arm64
-      - release-docker-image-alpine-arm
-      - release-docker-image-alpine-amd64
+      - manifest-docker-tag
 
 
 ###########
@@ -422,6 +440,7 @@ steps:
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
@@ -432,20 +451,22 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-scratch
+      - manifest-docker-tag
 
 
   - name: release-quay-alpine-arm64
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest-arm64,${DRONE_TAG}-arm64,alpine-arm64"
@@ -456,20 +477,22 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-alpine-arm64
+      - release-quay-scratch
 
 
   - name: release-quay-alpine-arm
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest-arm,${DRONE_TAG}-arm,alpine-arm"
@@ -480,20 +503,22 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=arm'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-alpine-arm
+      - release-quay-alpine-arm64
 
 
   - name: release-quay-alpine-amd64
     image: plugins/docker
     pull: if-not-exists
     settings:
+      mtu: 1200
       registry: "quay.io"
       repo: "quay.io/oliver006/redis_exporter"
       tags: "${DRONE_TAG}-alpine,alpine-amd64"
@@ -504,14 +529,15 @@ steps:
         - 'TAG=${DRONE_TAG}'
         - 'SHA1=${DRONE_COMMIT_SHA}'
         - 'GOARCH=amd64'
-      config:
-        from_secret: docker_config_json
+      username:
+        from_secret: quay_user
+      password:
+        from_secret: quay_pass
     when:
       event:
         - tag
     depends_on:
-      - tests
-      - release-docker-image-alpine-amd64
+      - release-quay-alpine-arm
 
 
   - name: manifest-quay-latest
@@ -555,10 +581,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-scratch
-      - release-quay-alpine-arm64
-      - release-quay-alpine-arm
-      - release-quay-alpine-amd64
+      - manifest-quay-latest
 
 
   - name: manifest-quay-alpine
@@ -579,14 +602,11 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-scratch
-      - release-quay-alpine-arm64
-      - release-quay-alpine-arm
-      - release-quay-alpine-amd64
+      - manifest-quay-tag
 
 
   - name: release-github-binaries
-    image: "golang:1.19"
+    image: "golang:1.20"
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:
@@ -599,4 +619,4 @@ steps:
       event:
         - tag
     depends_on:
-      - build-binaries
+      - manifest-quay-tag

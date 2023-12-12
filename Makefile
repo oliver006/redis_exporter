@@ -1,3 +1,9 @@
+.DEFAULT_GOAL := build
+
+.PHONY: build
+build:
+	go build .
+
 
 .PHONY: docker-all
 docker-all: docker-env-up docker-test docker-env-down
@@ -34,9 +40,10 @@ test:
 	TEST_USER_PWD_REDIS_URI="redis://exporter:exporter-password@pwd-redis6:6390" \
 	TEST_REDIS_CLUSTER_MASTER_URI="redis://redis-cluster:7000" \
 	TEST_REDIS_CLUSTER_SLAVE_URI="redis://redis-cluster:7005" \
+	TEST_REDIS_CLUSTER_PASSWORD_URI="redis://redis-cluster-password:7006" \
 	TEST_TILE38_URI="redis://tile38:9851" \
 	TEST_REDIS_SENTINEL_URI="redis://redis-sentinel:26379" \
-	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
+	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./... 
 
 .PHONY: lint
 lint:
@@ -69,8 +76,19 @@ upload-coverage:
 BUILD_DT:=$(shell date +%F-%T)
 GO_LDFLAGS:="-s -w -extldflags \"-static\" -X main.BuildVersion=${DRONE_TAG} -X main.BuildCommitSha=${DRONE_COMMIT_SHA} -X main.BuildDate=$(BUILD_DT)" 
 
-.PHONE: build-binaries
-build-binaries:
+
+.PHONE: build-some-amd64-binaries
+build-some-amd64-binaries:
+	go install github.com/oliver006/gox@master
+
+	rm -rf .build | true
+
+	export CGO_ENABLED=0 ; \
+	gox -os="linux windows" -arch="amd64" -verbose -rebuild -ldflags $(GO_LDFLAGS) -output ".build/redis_exporter-${DRONE_TAG}.{{.OS}}-{{.Arch}}/{{.Dir}}" && echo "done"
+
+
+.PHONE: build-all-binaries
+build-all-binaries:
 	go install github.com/oliver006/gox@master
 
 	rm -rf .build | true

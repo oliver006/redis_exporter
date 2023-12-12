@@ -2,7 +2,7 @@ package exporter
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net"
 	"net/http"
@@ -83,8 +83,10 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 			options := Options{
 				Namespace: "test",
 				Password:  tst.pwd,
-				LuaScript: []byte(`return {"a", "11", "b", "12", "c", "13"}`),
-				Registry:  prometheus.NewRegistry(),
+				LuaScript: map[string][]byte{
+					"test.lua": []byte(`return {"a", "11", "b", "12", "c", "13"}`),
+				},
+				Registry: prometheus.NewRegistry(),
 			}
 
 			options.CheckSingleKeys = tst.csk
@@ -286,6 +288,78 @@ func TestHttpHandlers(t *testing.T) {
 	}
 }
 
+func TestReloadHandlers(t *testing.T) {
+	if os.Getenv("TEST_PWD_REDIS_URI") == "" {
+		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
+	}
+
+	eWithPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry(), RedisPwdFile: "../contrib/sample-pwd-file.json"})
+	ts := httptest.NewServer(eWithPwdfile)
+	defer ts.Close()
+
+	for _, tst := range []struct {
+		e    *Exporter
+		path string
+		want string
+	}{
+		{
+			path: "/-/reload",
+			want: `ok`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+
+	eWithnoPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	ts2 := httptest.NewServer(eWithnoPwdfile)
+	defer ts2.Close()
+
+	for _, tst := range []struct {
+		e    *Exporter
+		path string
+		want string
+	}{
+		{
+			path: "/-/reload",
+			want: `There is no pwd file specified`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts2.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+
+	eWithMalformedPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry(), RedisPwdFile: "../contrib/sample-pwd-file.json-malformed"})
+	ts3 := httptest.NewServer(eWithMalformedPwdfile)
+	defer ts3.Close()
+
+	for _, tst := range []struct {
+		e    *Exporter
+		path string
+		want string
+	}{
+		{
+			path: "/-/reload",
+			want: `failed to reload passwords file: unexpected end of JSON input`,
+		},
+	} {
+		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
+			body := downloadURL(t, ts3.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+}
+
 func downloadURL(t *testing.T, u string) string {
 	_, res := downloadURLWithStatusCode(t, u)
 	return res
@@ -299,7 +373,7 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -40,11 +40,6 @@ var (
 	altDBNumStr     = "12"
 	invalidDBNumStr = "16"
 	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
-
-	TestStreamTimestamps = []string{
-		"1638006862416-0",
-		"1638006862417-2",
-	}
 )
 
 const (
@@ -67,6 +62,11 @@ func getTestExporterWithOptions(opt Options) *Exporter {
 
 func getTestExporterWithAddr(addr string) *Exporter {
 	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	return e
+}
+
+func getTestExporterWithAddrAndOptions(addr string, opt Options) *Exporter {
+	e, _ := NewRedisExporter(addr, opt)
 	return e
 }
 

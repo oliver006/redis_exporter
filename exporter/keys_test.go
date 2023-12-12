@@ -54,67 +54,78 @@ func TestKeyValuesAndSizes(t *testing.T) {
 }
 
 func TestKeyValuesAsLabel(t *testing.T) {
-	e, _ := NewRedisExporter(
-		os.Getenv("TEST_REDIS_URI"),
-		Options{
-			Namespace:       "test",
-			CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(singleStringKey),
-			Registry:        prometheus.NewRegistry()},
-	)
-	ts := httptest.NewServer(e)
-	defer ts.Close()
+	for _, exc := range []bool{true, false} {
+		e, _ := NewRedisExporter(
+			os.Getenv("TEST_REDIS_URI"),
+			Options{
+				Namespace:                 "test",
+				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(singleStringKey),
+				DisableExportingKeyValues: exc,
+				Registry:                  prometheus.NewRegistry()},
+		)
+		ts := httptest.NewServer(e)
+		defer ts.Close()
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+		setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
+		defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+		chM := make(chan prometheus.Metric, 10000)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
 
-	body := downloadURL(t, ts.URL+"/metrics")
-	for _, want := range []string{
-		"test_key_size",
-		"test_key_value",
-		"key_value_as_string",
-	} {
-		if !strings.Contains(body, want) {
-			t.Fatalf("didn't find %s, body: %s", want, body)
-			return
+		body := downloadURL(t, ts.URL+"/metrics")
+		for _, match := range []string{
+			"key_value_as_string",
+			"test_key_value",
+		} {
+			if exc && strings.Contains(body, match) {
+				t.Fatalf("didn't expect %s with DisableExportingKeyValues enabled, body: %s", match, body)
+			} else if !exc && !strings.Contains(body, match) {
+				t.Fatalf("didn't find %s with DisableExportingKeyValues disabled, body: %s", match, body)
+			}
 		}
 	}
 }
 
 func TestClusterKeyValuesAndSizes(t *testing.T) {
-	e, _ := NewRedisExporter(
-		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
-		Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]), IsCluster: true},
-	)
+	for _, exc := range []bool{true, false} {
+		e, _ := NewRedisExporter(
+			os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
+			Options{Namespace: "test", DisableExportingKeyValues: exc, CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]), IsCluster: true},
+		)
 
-	uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+		uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
 
-	setupDBKeysCluster(t, uri)
-	defer deleteKeysFromDBCluster(uri)
+		setupDBKeysCluster(t, uri)
+		defer deleteKeysFromDBCluster(uri)
 
-	chM := make(chan prometheus.Metric)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+		chM := make(chan prometheus.Metric)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
 
-	want := map[string]bool{"test_key_size": false, "test_key_value": false}
+		want := map[string]bool{"test_key_size": false, "test_key_value": false}
 
-	for m := range chM {
-		for k := range want {
-			if strings.Contains(m.Desc().String(), k) {
-				want[k] = true
+		for m := range chM {
+			for k := range want {
+				if strings.Contains(m.Desc().String(), k) {
+					want[k] = true
+				}
 			}
 		}
-	}
-	for k, found := range want {
-		if !found {
-			t.Errorf("didn't find %s", k)
+		for k, found := range want {
+			if k == "test_key_value" {
+				if found && exc {
+					t.Errorf("didn't expect %s with DisableExportingKeyValues enabled", k)
+				} else if !found && !exc {
+					t.Errorf("didn't find %s with DisableExportingKeyValues disabled", k)
+				}
+			} else if !found {
+				t.Errorf("didn't find %s", k)
+			}
 		}
 	}
 }
@@ -272,7 +283,7 @@ func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	for _, f := range fixtures {
 		args := append([]interface{}{f.key}, f.args...)
 		if _, err := c.Do(f.command, args...); err != nil {
-			t.Errorf("Error creating fixture: %#v, %#v", f, err)
+			t.Fatalf("Error creating fixture: %#v, %#v", f, err)
 		}
 	}
 }

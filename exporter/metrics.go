@@ -80,27 +80,48 @@ func (e *Exporter) registerConstMetricGauge(ch chan<- prometheus.Metric, metric 
 }
 
 func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric string, val float64, valType prometheus.ValueType, labelValues ...string) {
-	descr := e.metricDescriptions[metric]
-	if descr == nil {
-		descr = newMetricDescr(e.options.Namespace, metric, metric+" metric", labelValues)
+	description := e.findOrCreateMetricDescription(metric, labelValues)
+	m, err := prometheus.NewConstMetric(description, valType, val, labelValues...)
+	if err != nil {
+		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, val, err)
+		return
 	}
 
-	if m, err := prometheus.NewConstMetric(descr, valType, val, labelValues...); err == nil {
-		ch <- m
-	}
+	ch <- m
 }
 
 func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric string, labelValues []string, count uint64, sum float64, latencyMap map[float64]float64, cmd string) {
-	descr := e.metricDescriptions[metric]
-	if descr == nil {
-		descr = newMetricDescr(e.options.Namespace, metric, metric+" metric", labelValues)
-	}
+	description := e.findOrCreateMetricDescription(metric, labelValues)
+
 	// Create a constant summary from values we got from a 3rd party telemetry system.
-	s := prometheus.MustNewConstSummary(
-		descr,
+	summary := prometheus.MustNewConstSummary(
+		description,
 		count, sum,
 		latencyMap,
 		cmd,
 	)
-	ch <- s
+	ch <- summary
+}
+
+func (e *Exporter) registerConstHistogram(ch chan<- prometheus.Metric, metric string, labelValues []string, count uint64, sum float64, buckets map[float64]uint64, cmd string) {
+	description := e.findOrCreateMetricDescription(metric, labelValues)
+
+	histogram := prometheus.MustNewConstHistogram(
+		description,
+		count, sum,
+		buckets,
+		cmd,
+	)
+	ch <- histogram
+}
+
+func (e *Exporter) findOrCreateMetricDescription(metricName string, labels []string) *prometheus.Desc {
+	description, found := e.metricDescriptions[metricName]
+
+	if !found {
+		description = newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
+		e.metricDescriptions[metricName] = description
+	}
+
+	return description
 }
