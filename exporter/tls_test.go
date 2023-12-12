@@ -19,6 +19,7 @@ func TestCreateClientTLSConfig(t *testing.T) {
 			ClientKeyFile:  "../contrib/tls/redis.key"}, true},
 		{"load_ca_cert", Options{
 			CaCertFile: "../contrib/tls/ca.crt"}, true},
+		{"load_system_certs", Options{}, true},
 
 		// negative tests
 		{"nonexisting_client_files", Options{

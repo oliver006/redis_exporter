@@ -29,6 +29,14 @@ func (e *Exporter) CreateClientTLSConfig() (*tls.Config, error) {
 			return nil, err
 		}
 		tlsConfig.RootCAs = certificates
+	} else {
+		// Load the system certificate pool
+		rootCAs, err := x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+
+		tlsConfig.RootCAs = rootCAs
 	}
 
 	return &tlsConfig, nil
