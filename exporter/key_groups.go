@@ -174,7 +174,7 @@ for i=3,#ARGV do
 end
 for i,key in ipairs(batch[2]) do
   local reply = redis.pcall("MEMORY", "USAGE", key)  
-  if reply['err'] == nil then
+  if type(reply) == "number" then
     usage = reply;
   end
   group = nil
