@@ -32,7 +32,7 @@ type ClientInfo struct {
 	id=40253233 addr=fd40:1481:21:dbe0:7021:300:a03:1a06:44426 fd=19 name= age=782 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 argv-mem=10 obl=0 oll=0 omem=0 tot-mem=61466 ow=0 owmem=0 events=r cmd=client user=default lib-name=redis-py lib-ver=5.0.1 numops=9
 */
 func parseClientListString(clientInfo string) (*ClientInfo, bool) {
-	if matched, _ := regexp.MatchString(`^id=\d+ addr=\w+`, clientInfo); !matched {
+	if matched, _ := regexp.MatchString(`^id=\d+ addr=\S+`, clientInfo); !matched {
 		return nil, false
 	}
 	connectedClient := ClientInfo{}
