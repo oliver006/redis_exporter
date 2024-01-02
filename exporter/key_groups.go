@@ -173,7 +173,10 @@ for i=3,#ARGV do
   end
 end
 for i,key in ipairs(batch[2]) do
-  usage = redis.call("MEMORY", "USAGE", key)
+  local reply = redis.pcall("MEMORY", "USAGE", key)  
+  if type(reply) == "number" then
+    usage = reply;
+  end
   group = nil
   for i=3,#ARGV do
     key_match_result = {string.find(key, ARGV[i])}

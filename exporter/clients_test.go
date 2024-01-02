@@ -77,6 +77,10 @@ func TestParseClientListString(t *testing.T) {
 			expectedOk:   true,
 			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("5"), IdleSince: convertDurationToTimestampString("0"), Flags: "N", Db: "0", OMem: "0", Cmd: "client", Host: "127.0.0.1", Port: "64959", User: "default", Resp: "3"},
 		}, {
+			in:           "id=40253233 addr=fd40:1481:21:dbe0:7021:300:a03:1a06:44426 fd=19 name= age=782 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 argv-mem=10 obl=0 oll=0 omem=0 tot-mem=61466 ow=0 owmem=0 events=r cmd=client user=default lib-name=redis-py lib-ver=5.0.1 numops=9",
+			expectedOk:   true,
+			expectedLbls: ClientInfo{CreatedAt: convertDurationToTimestampString("782"), IdleSince: convertDurationToTimestampString("0"), Flags: "N", Db: "0", OMem: "0", Cmd: "client", Host: "fd40:1481:21:dbe0:7021:300:a03:1a06", Port: "44426", User: "default"},
+		}, {
 			in:         "id=14 addr=127.0.0.1:64958 fd=9 name=foo age=ABCDE idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client",
 			expectedOk: false,
 		}, {
