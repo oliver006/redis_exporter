@@ -230,6 +230,6 @@ func main() {
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
 	_sig := <-s
-	log.Infof("Receive exit signal, bye! Signal: %s", _sig.String())
+	log.Infof("Receive exit signal,bye! Signal: %s", _sig.String())
 	os.Exit(0)
 }
