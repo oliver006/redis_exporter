@@ -4,9 +4,11 @@ import (
 	"flag"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -224,4 +226,14 @@ func main() {
 	} else {
 		log.Fatal(http.ListenAndServe(*listenAddress, exp))
 	}
+
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		select {
+		case _s := <-s:
+			log.Infof("Receive exit signal, bye!    signal: %s", _s.String())
+			os.Exit(0)
+		}
+	}()
 }
