@@ -229,11 +229,7 @@ func main() {
 
 	s := make(chan os.Signal, 1)
 	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		select {
-		case _s := <-s:
-			log.Infof("Receive exit signal, bye!    signal: %s", _s.String())
-			os.Exit(0)
-		}
-	}()
+	_sig := <-s
+	log.Infof("Receive exit signal, bye! Signal: %s", _sig.String())
+	os.Exit(0)
 }
