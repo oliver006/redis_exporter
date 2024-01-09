@@ -32,24 +32,28 @@ services:
       - "16390:6390"
 
   redis-2-8:
+    platform: linux/amd64
     image: redis:2.8
     command: "redis-server --port 6381 --dbfilename dump2-8.rdb"
     ports:
       - "16381:6381"
 
   keydb-01:
+    platform: linux/amd64
     image: "eqalpha/keydb:x86_64_v6.3.1"
     command: "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
     ports:
       - "16401:6401"
 
   keydb-02:
+    platform: linux/amd64
     image: "eqalpha/keydb:x86_64_v6.3.1"
     command: "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
     ports:
       - "16402:6402"
 
   redis-cluster:
+    platform: linux/amd64
     image: grokzen/redis-cluster
     ports: [ "7000", "7001", "7002", "7003", "7004", "7005" ]
 
@@ -64,6 +68,7 @@ services:
       - "7006"
 
   redis-sentinel:
+    platform: linux/amd64
     image: docker.io/bitnami/redis-sentinel:6.2-debian-10
     environment:
       - REDIS_MASTER_HOST=redis6
