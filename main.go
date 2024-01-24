@@ -239,7 +239,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	_quit := <-quit
-	log.Infof("Receive exit signal,bye! Signal: %s", _quit.String())
+	log.Infof("Received %s signal, exiting", _quit.String())
 	// Create a context with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
