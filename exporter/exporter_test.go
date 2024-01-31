@@ -10,7 +10,6 @@ package exporter
 
 import (
 	"fmt"
-	"math/rand"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -380,8 +379,6 @@ func TestKeyDbMetrics(t *testing.T) {
 }
 
 func init() {
-	rand.Seed(time.Now().UnixNano())
-
 	ll := strings.ToLower(os.Getenv("LOG_LEVEL"))
 	if pl, err := log.ParseLevel(ll); err == nil {
 		log.Printf("Setting log level to: %s", ll)

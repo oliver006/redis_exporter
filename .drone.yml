@@ -93,10 +93,10 @@ services:
 
 steps:
   - name: start
-    image: "golang:1.20"
+    image: golang:1.21
     pull: if-not-exists
     commands:
-      - sleep 20
+      - sleep 10
       - 'echo "start"'
     when:
       event:
@@ -153,7 +153,7 @@ steps:
       - start
 
   - name: lint
-    image: golangci/golangci-lint:v1.42.1-alpine
+    image: golangci/golangci-lint:v1.55.2-alpine
     pull: if-not-exists
     commands:
       - golangci-lint run --tests=false --exclude-use-default
@@ -167,7 +167,7 @@ steps:
       - start
 
   - name: tests
-    image: "golang:1.20"
+    image: golang:1.21
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -182,11 +182,11 @@ steps:
         - push
         - tag
     depends_on:
-      - test-docker-build
+      - start
 
 
   - name: mixins
-    image: golang:1.20
+    image: golang:1.21
     pull: if-not-exists
     commands:
       - make mixin
@@ -194,12 +194,13 @@ steps:
       event:
         - pull_request
         - push
+        - tag
     depends_on:
       - start
 
 
   - name: coverage-codecov
-    image: golang:1.20
+    image: golang:1.21
     pull: if-not-exists
     environment:
       CODECOV_TOKEN:
@@ -212,12 +213,13 @@ steps:
       event:
         - pull_request
         - push
+        - tag
     depends_on:
       - tests
 
 
   - name: coverage-coveralls
-    image: "golang:1.20"
+    image: golang:1.21
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -234,8 +236,9 @@ steps:
     depends_on:
       - tests
 
+  # this is just a smoke test if building a few different arch/OS combinations succeeds
   - name: build-some-amd64-binaries
-    image: "golang:1.20"
+    image: golang:1.21
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -246,13 +249,13 @@ steps:
       event:
         - pull_request
         - push
-        - tag
     depends_on:
-      - tests
+      - start
 
-
+  # this builds the binaries that get uploaded to GH for a release
+  # docker binaries are build in docker itself via multi-stage Docker files
   - name: build-all-binaries
-    image: "golang:1.20"
+    image: golang:1.21
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -263,7 +266,7 @@ steps:
       event:
         - tag
     depends_on:
-      - build-some-amd64-binaries
+      - tests
 
 
   - name: release-docker-image-scratch
@@ -288,7 +291,7 @@ steps:
       event:
         - tag
     depends_on:
-      - build-all-binaries
+      - tests
 
 
   - name: release-docker-image-alpine-arm64
@@ -313,7 +316,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-scratch
+      - tests
 
 
   - name: release-docker-image-alpine-arm
@@ -338,7 +341,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-alpine-arm64
+      - tests
 
 
   - name: release-docker-image-alpine-amd64
@@ -363,7 +366,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-docker-image-alpine-arm
+      - tests
 
 
   - name: manifest-docker-latest
@@ -459,7 +462,7 @@ steps:
       event:
         - tag
     depends_on:
-      - manifest-docker-tag
+      - tests
 
 
   - name: release-quay-alpine-arm64
@@ -485,7 +488,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-scratch
+      - tests
 
 
   - name: release-quay-alpine-arm
@@ -511,7 +514,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-alpine-arm64
+      - tests
 
 
   - name: release-quay-alpine-amd64
@@ -537,7 +540,7 @@ steps:
       event:
         - tag
     depends_on:
-      - release-quay-alpine-arm
+      - tests
 
 
   - name: manifest-quay-latest
@@ -606,7 +609,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: "golang:1.20"
+    image: golang:1.21
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:
@@ -619,4 +622,4 @@ steps:
       event:
         - tag
     depends_on:
-      - manifest-quay-tag
+      - build-all-binaries
