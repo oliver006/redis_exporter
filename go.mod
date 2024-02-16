@@ -1,6 +1,6 @@
 module github.com/oliver006/redis_exporter
 
-go 1.20
+go 1.22
 
 require (
 	github.com/gomodule/redigo v1.8.9
