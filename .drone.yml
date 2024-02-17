@@ -93,7 +93,7 @@ services:
 
 steps:
   - name: start
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     commands:
       - sleep 10
@@ -153,7 +153,7 @@ steps:
       - start
 
   - name: lint
-    image: golangci/golangci-lint:v1.55.2-alpine
+    image: golangci/golangci-lint:v1.56.2-alpine
     pull: if-not-exists
     commands:
       - golangci-lint run --tests=false --exclude-use-default
@@ -167,7 +167,7 @@ steps:
       - start
 
   - name: tests
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -186,7 +186,7 @@ steps:
 
 
   - name: mixins
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     commands:
       - make mixin
@@ -200,7 +200,7 @@ steps:
 
 
   - name: coverage-codecov
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     environment:
       CODECOV_TOKEN:
@@ -219,7 +219,7 @@ steps:
 
 
   - name: coverage-coveralls
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -238,7 +238,7 @@ steps:
 
   # this is just a smoke test if building a few different arch/OS combinations succeeds
   - name: build-some-amd64-binaries
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -255,7 +255,7 @@ steps:
   # this builds the binaries that get uploaded to GH for a release
   # docker binaries are build in docker itself via multi-stage Docker files
   - name: build-all-binaries
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     environment:
       GO111MODULE: on
@@ -609,7 +609,7 @@ steps:
 
 
   - name: release-github-binaries
-    image: golang:1.21
+    image: golang:1.22
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:
