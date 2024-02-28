@@ -156,8 +156,8 @@ steps:
     image: golangci/golangci-lint:v1.56.2-alpine
     pull: if-not-exists
     commands:
-      - golangci-lint run --tests=false --exclude-use-default
-      - golangci-lint run -D=errcheck   --exclude-use-default
+      - golangci-lint run --tests=false --exclude-use-default --timeout=5m
+      - golangci-lint run -D=errcheck   --exclude-use-default --timeout=5m
     when:
       event:
         - pull_request
