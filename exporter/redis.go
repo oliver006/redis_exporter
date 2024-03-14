@@ -36,6 +36,12 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
+	if pwdKey := e.options.RedisPwdKey; pwdKey != "" {
+		if p := e.options.PasswordMap[pwdKey]; p != "" {
+			options = append(options, redis.DialPassword(p))
+		}
+	}
+
 	return options, nil
 }
 

@@ -77,6 +77,7 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	registry := prometheus.NewRegistry()
 	opts.Registry = registry
+	opts.RedisPwdKey = r.URL.Query().Get(e.options.RedisPwdKey)
 
 	_, err = NewRedisExporter(target, opts)
 	if err != nil {

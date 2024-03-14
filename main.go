@@ -61,6 +61,7 @@ func main() {
 		redisUser                 = flag.String("redis.user", getEnv("REDIS_USER", ""), "User name to use for authentication (Redis ACL for Redis 6.0 and newer)")
 		redisPwd                  = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
 		redisPwdFile              = flag.String("redis.password-file", getEnv("REDIS_PASSWORD_FILE", ""), "Password file of the Redis instance to scrape")
+		redisPwdKey               = flag.String("redis.password-key", getEnv("REDIS_PASSWORD_KEY", ""), "Password Key of the password contained in password-file")
 		namespace                 = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
 		checkKeys                 = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
 		checkSingleKeys           = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
@@ -189,6 +190,7 @@ func main() {
 			RedisMetricsOnly:          *redisMetricsOnly,
 			PingOnConnect:             *pingOnConnect,
 			RedisPwdFile:              *redisPwdFile,
+			RedisPwdKey:               *redisPwdKey,
 			Registry:                  registry,
 			BuildInfo: exporter.BuildInfo{
 				Version:   BuildVersion,
