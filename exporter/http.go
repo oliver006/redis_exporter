@@ -1,6 +1,8 @@
 package exporter
 
 import (
+	"crypto/sha256"
+	"crypto/subtle"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -28,6 +30,12 @@ func (e *Exporter) indexHandler(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>
 `))
+}
+
+func (e *Exporter) metricHandler(w http.ResponseWriter, r *http.Request) {
+	promhttp.HandlerFor(
+		e.options.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
+	).ServeHTTP(w, r)
 }
 
 func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
@@ -106,4 +114,32 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 	e.options.PasswordMap = passwordMap
 	e.Unlock()
 	_, _ = w.Write([]byte(`ok`))
+}
+
+/*
+basic auth handler
+*/
+func (e *Exporter) basicAuth(next http.HandlerFunc) http.HandlerFunc {
+	exporterUser := e.options.BasicAuth.ExporterUser
+	exporterPwd := e.options.BasicAuth.ExporterPwd
+	return func(w http.ResponseWriter, r *http.Request) {
+		username, password, ok := r.BasicAuth()
+		if ok {
+			// Calculate SHA-256 hashes for the provided and expected usernames and passwords.
+			usernameHash := sha256.Sum256([]byte(username))
+			passwordHash := sha256.Sum256([]byte(password))
+			expectedUsernameHash := sha256.Sum256([]byte(exporterUser))
+			expectedPasswordHash := sha256.Sum256([]byte(exporterPwd))
+
+			usernameMatch := subtle.ConstantTimeCompare(usernameHash[:], expectedUsernameHash[:]) == 1
+			passwordMatch := subtle.ConstantTimeCompare(passwordHash[:], expectedPasswordHash[:]) == 1
+
+			if usernameMatch && passwordMatch {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+		w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+	}
 }
