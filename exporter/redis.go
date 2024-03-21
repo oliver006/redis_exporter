@@ -67,6 +67,16 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	uri := e.redisAddr
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+
+	options, err := e.configureOptions(uri)
+	if err != nil {
+		return nil, err
+	}
+
+	// remove url scheme for redis.Cluster.StartupNodes
 	if strings.Contains(uri, "://") {
 		u, _ := url.Parse(uri)
 		if u.Port() == "" {
@@ -78,11 +88,6 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		if frags := strings.Split(uri, ":"); len(frags) != 2 {
 			uri = uri + ":6379"
 		}
-	}
-
-	options, err := e.configureOptions(uri)
-	if err != nil {
-		return nil, err
 	}
 
 	log.Debugf("Creating cluster object")

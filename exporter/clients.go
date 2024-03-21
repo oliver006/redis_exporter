@@ -26,12 +26,13 @@ type ClientInfo struct {
 }
 
 /*
-	Valid Examples
-	id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex user=default resp=2
-	id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client user=default resp=3
+Valid Examples
+id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 events=r cmd=setex user=default resp=2
+id=14 addr=127.0.0.1:64958 fd=9 name= age=5 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 events=r cmd=client user=default resp=3
+id=40253233 addr=fd40:1481:21:dbe0:7021:300:a03:1a06:44426 fd=19 name= age=782 idle=0 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 argv-mem=10 obl=0 oll=0 omem=0 tot-mem=61466 ow=0 owmem=0 events=r cmd=client user=default lib-name=redis-py lib-ver=5.0.1 numops=9
 */
 func parseClientListString(clientInfo string) (*ClientInfo, bool) {
-	if matched, _ := regexp.MatchString(`^id=\d+ addr=\d+`, clientInfo); !matched {
+	if matched, _ := regexp.MatchString(`^id=\d+ addr=\S+`, clientInfo); !matched {
 		return nil, false
 	}
 	connectedClient := ClientInfo{}
@@ -71,11 +72,12 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			connectedClient.Cmd = vPart[1]
 		case "addr":
 			hostPortString := strings.Split(vPart[1], ":")
-			if len(hostPortString) != 2 {
+			if len(hostPortString) < 2 {
+				log.Debug("Invalid value for 'addr' found in client info")
 				return nil, false
 			}
-			connectedClient.Host = hostPortString[0]
-			connectedClient.Port = hostPortString[1]
+			connectedClient.Host = strings.Join(hostPortString[:len(hostPortString)-1], ":")
+			connectedClient.Port = hostPortString[len(hostPortString)-1]
 		case "resp":
 			connectedClient.Resp = vPart[1]
 		}

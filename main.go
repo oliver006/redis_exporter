@@ -1,12 +1,16 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"net/http"
 	"os"
+	"os/signal"
 	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 	"encoding/json"
 	"io/ioutil"
@@ -280,20 +284,41 @@ func main() {
 
 	log.Infof("Providing metrics at %s%s", *listenAddress, *metricPath)
 	log.Debugf("Configured redis addr: %#v", *redisAddr)
-	if *tlsServerCertFile != "" && *tlsServerKeyFile != "" {
-		log.Debugf("Bind as TLS using cert %s and key %s", *tlsServerCertFile, *tlsServerKeyFile)
-
-		tlsConfig, err := exp.CreateServerTLSConfig(*tlsServerCertFile, *tlsServerKeyFile, *tlsServerCaCertFile, *tlsServerMinVersion)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		server := &http.Server{
-			Addr:      *listenAddress,
-			TLSConfig: tlsConfig,
-			Handler:   exp}
-		log.Fatal(server.ListenAndServeTLS("", ""))
-	} else {
-		log.Fatal(http.ListenAndServe(*listenAddress, exp))
+	server := &http.Server{
+		Addr:    *listenAddress,
+		Handler: exp,
 	}
+	go func() {
+		if *tlsServerCertFile != "" && *tlsServerKeyFile != "" {
+			log.Debugf("Bind as TLS using cert %s and key %s", *tlsServerCertFile, *tlsServerKeyFile)
+
+			tlsConfig, err := exp.CreateServerTLSConfig(*tlsServerCertFile, *tlsServerKeyFile, *tlsServerCaCertFile, *tlsServerMinVersion)
+			if err != nil {
+				log.Fatal(err)
+			}
+			server.TLSConfig = tlsConfig
+			if err := server.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("TLS Server error: %v", err)
+			}
+		} else {
+			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("Server error: %v", err)
+			}
+		}
+	}()
+
+	// graceful shutdown
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	_quit := <-quit
+	log.Infof("Received %s signal, exiting", _quit.String())
+	// Create a context with a timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Shutdown the HTTP server gracefully
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server shutdown failed: %v", err)
+	}
+	log.Infof("Server shut down gracefully")
 }

@@ -53,6 +53,16 @@ services:
     image: grokzen/redis-cluster
     ports: [ "7000", "7001", "7002", "7003", "7004", "7005" ]
 
+  redis-cluster-password:
+    image: bitnami/redis-cluster
+    environment:
+      - REDIS_PORT_NUMBER=7006
+      - REDIS_PASSWORD=redis-password
+      - REDIS_CLUSTER_CREATOR=yes
+      - REDIS_NODES=redis-cluster-password:7006
+    ports:
+      - "7006"
+
   redis-sentinel:
     image: docker.io/bitnami/redis-sentinel:6.2-debian-10
     environment:
@@ -67,7 +77,7 @@ services:
 
 
   tests:
-    image: golang:1.20
+    image: golang:1.22
     working_dir: /go/src/github.com/oliver006/redis_exporter
     volumes:
       - ..:/go/src/github.com/oliver006/redis_exporter
