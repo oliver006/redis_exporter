@@ -109,7 +109,7 @@ func TestCommandStats(t *testing.T) {
 }
 
 func TestLatencyStats(t *testing.T) {
-	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+	redisSevenAddr := os.Getenv("TEST_VALKEY7_URI")
 
 	// Since Redis v7 we should have extended latency stats (summary of command latencies)
 	e := getTestExporterWithAddr(redisSevenAddr)

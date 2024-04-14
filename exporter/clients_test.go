@@ -168,7 +168,7 @@ func TestExportClientListInclPort(t *testing.T) {
 }
 
 func TestExportClientListResp(t *testing.T) {
-	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+	redisSevenAddr := os.Getenv("TEST_VALKEY7_URI")
 	e := getTestExporterWithAddrAndOptions(redisSevenAddr, Options{
 		Namespace: "test", Registry: prometheus.NewRegistry(),
 		ExportClientList: true,
