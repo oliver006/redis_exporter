@@ -397,7 +397,7 @@ func TestStreamsScanStreamGroupsConsumers(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_VALKEY7_URIl")
+	addr := os.Getenv("TEST_VALKEY7_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
