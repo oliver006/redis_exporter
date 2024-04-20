@@ -14,7 +14,7 @@ services:
       - "16379:6379"
 
   valkey7:
-    image: redis:7.0
+    image: valkey/valkey:7.2
     command: "redis-server --port 6384 --protected-mode no --dbfilename dump7.rdb"
     ports:
       - "16384:6384"
