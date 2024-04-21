@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := build
 
+DOCKER_COMPOSE := $(if $(shell which docker-compose),docker-compose,docker compose)
+
 .PHONY: build
 build:
 	go build .
@@ -11,18 +13,18 @@ docker-all: docker-env-up docker-test docker-env-down
 
 .PHONY: docker-env-up
 docker-env-up:
-	docker-compose -f contrib/docker-compose-for-tests.yml up -d
+	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml up -d
 
 
 .PHONY: docker-env-down
 docker-env-down:
-	docker-compose -f contrib/docker-compose-for-tests.yml down
+	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml down
 
 
 .PHONY: docker-test
 docker-test:
-	docker-compose -f contrib/docker-compose-for-tests.yml up -d
-	docker-compose -f contrib/docker-compose-for-tests.yml run --rm tests bash -c 'make test'
+	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml up -d
+	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml run --rm tests bash -c 'make test'
 
 
 
