@@ -101,12 +101,12 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 	}
 }
 
-func TestStreamsGetStreamInfoUsingRedis7(t *testing.T) {
-	if os.Getenv("TEST_REDIS7_URI") == "" {
-		t.Skipf("TEST_REDIS7_URI not set - skipping")
+func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
+	if os.Getenv("TEST_VALKEY7_URI") == "" {
+		t.Skipf("TEST_VALKEY7_URI not set - skipping")
 	}
 
-	addr := os.Getenv("TEST_REDIS7_URI")
+	addr := os.Getenv("TEST_VALKEY7_URI")
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
@@ -280,11 +280,11 @@ func TestStreamsScanStreamGroups123(t *testing.T) {
 	}
 }
 
-func TestStreamsScanStreamGroupsUsingRedis7(t *testing.T) {
-	if os.Getenv("TEST_REDIS7_URI") == "" {
-		t.Skipf("TEST_REDIS7_URI not set - skipping")
+func TestStreamsScanStreamGroupsUsingValKey7(t *testing.T) {
+	if os.Getenv("TEST_VALKEY7_URI") == "" {
+		t.Skipf("TEST_VALKEY7_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS7_URI")
+	addr := os.Getenv("TEST_VALKEY7_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
@@ -397,7 +397,7 @@ func TestStreamsScanStreamGroupsConsumers(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS7_URI")
+	addr := os.Getenv("TEST_VALKEY7_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)

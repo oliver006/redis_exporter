@@ -5,6 +5,14 @@ type: docker
 
 
 services:
+  - name: valkey7
+    image: valkey/valkey:7.2
+    pull: if-not-exists
+    commands:
+      - "valkey-server --port 6384 --protected-mode no --dbfilename dump7.rdb"
+    ports:
+      - 6384
+
   - name: redis5
     image: redis:5
     pull: if-not-exists
@@ -20,14 +28,6 @@ services:
       - "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
       - 6379
-
-  - name: redis7
-    image: redis:7.0
-    pull: if-not-exists
-    commands:
-      - "redis-server --port 6384 --protected-mode no --dbfilename dump7.rdb"
-    ports:
-      - 6384
 
   - name: pwd-redis5
     image: redis:5

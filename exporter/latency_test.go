@@ -107,15 +107,15 @@ func resetLatency(t *testing.T, addr string) error {
 }
 
 func TestLatencyHistogram(t *testing.T) {
-	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+	valKeySevenAddr := os.Getenv("TEST_VALKEY7_URI")
 
-	// Since Redis v7 we should have latency histogram stats
-	e := getTestExporterWithAddr(redisSevenAddr)
-	setupDBKeys(t, redisSevenAddr)
+	// Since ValKey v7 we should have latency histogram stats
+	e := getTestExporterWithAddr(valKeySevenAddr)
+	setupDBKeys(t, valKeySevenAddr)
 
 	want := map[string]bool{"commands_latencies_usec": false}
 	commandStatsCheck(t, e, want)
-	deleteKeysFromDB(t, redisSevenAddr)
+	deleteKeysFromDB(t, valKeySevenAddr)
 }
 
 func TestExtractTotalUsecForCommand(t *testing.T) {
