@@ -46,7 +46,7 @@ services:
       - 6390
 
   - name: redis-2-8
-    image: redis:2.8.22
+    image: redis:2.8.23
     pull: if-not-exists
     commands:
       - "redis-server --port 6381 --dbfilename dump2-8.rdb"
