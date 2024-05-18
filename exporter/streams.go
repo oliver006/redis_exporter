@@ -205,9 +205,11 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 			e.registerConstMetricGauge(ch, "stream_group_last_delivered_id", parseStreamItemId(g.LastDeliveredId), dbLabel, k.key, g.Name)
 			e.registerConstMetricGauge(ch, "stream_group_entries_read", float64(g.EntriesRead), dbLabel, k.key, g.Name)
 			e.registerConstMetricGauge(ch, "stream_group_lag", float64(g.Lag), dbLabel, k.key, g.Name)
-			for _, c := range g.StreamGroupConsumersInfo {
-				e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(c.Pending), dbLabel, k.key, g.Name, c.Name)
-				e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)
+			if !e.options.StreamsExcludeConsumer {
+				for _, c := range g.StreamGroupConsumersInfo {
+					e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(c.Pending), dbLabel, k.key, g.Name, c.Name)
+					e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)
+				}
 			}
 		}
 	}

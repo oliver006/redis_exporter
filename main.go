@@ -67,6 +67,7 @@ func main() {
 		checkKeyGroups            = flag.String("check-key-groups", getEnv("REDIS_EXPORTER_CHECK_KEY_GROUPS", ""), "Comma separated list of lua regex for grouping keys")
 		checkStreams              = flag.String("check-streams", getEnv("REDIS_EXPORTER_CHECK_STREAMS", ""), "Comma separated list of stream-patterns to export info about streams, groups and consumers, searched for with SCAN")
 		checkSingleStreams        = flag.String("check-single-streams", getEnv("REDIS_EXPORTER_CHECK_SINGLE_STREAMS", ""), "Comma separated list of single streams to export info about streams, groups and consumers")
+		streamsExcludeConsumer    = flag.Bool("streams-exclude-consumer", getEnvBool("REDIS_EXPORTER_STREAMS_EXCLUDE_CONSUMER", false), "Don't collect per consumer metrics for streams (decreases cardinality)")
 		countKeys                 = flag.String("count-keys", getEnv("REDIS_EXPORTER_COUNT_KEYS", ""), "Comma separated list of patterns to count (eg: 'db0=production_*,db3=sessions:*'), searched for with SCAN")
 		checkKeysBatchSize        = flag.Int64("check-keys-batch-size", getEnvInt64("REDIS_EXPORTER_CHECK_KEYS_BATCH_SIZE", 1000), "Approximate number of keys to process in each execution, larger value speeds up scanning.\nWARNING: Still Redis is a single-threaded app, huge COUNT can affect production environment.")
 		scriptPath                = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Comma separated list of path(s) to Redis Lua script(s) for gathering extra metrics")
@@ -169,6 +170,7 @@ func main() {
 			MaxDistinctKeyGroups:      *maxDistinctKeyGroups,
 			CheckStreams:              *checkStreams,
 			CheckSingleStreams:        *checkSingleStreams,
+			StreamsExcludeConsumer:    *streamsExcludeConsumer,
 			CountKeys:                 *countKeys,
 			LuaScript:                 ls,
 			InclSystemMetrics:         *inclSystemMetrics,

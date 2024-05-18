@@ -55,6 +55,7 @@ type Options struct {
 	CheckSingleKeys           string
 	CheckStreams              string
 	CheckSingleStreams        string
+	StreamsExcludeConsumer    bool
 	CheckKeysBatchSize        int64
 	CheckKeyGroups            string
 	MaxDistinctKeyGroups      int64
@@ -189,10 +190,10 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"rdb_last_bgsave_status":       "rdb_last_bgsave_status",
 			"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
 			"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
-                        "rdb_saves":                    "rdb_saves_total",
+			"rdb_saves":                    "rdb_saves_total",
 			"rdb_last_cow_size":            "rdb_last_cow_size_bytes",
-                        "rdb_last_load_keys_expired":   "rdb_last_load_expired_keys",
-                        "rdb_last_load_keys_loaded":    "rdb_last_load_loaded_keys",
+			"rdb_last_load_keys_expired":   "rdb_last_load_expired_keys",
+			"rdb_last_load_keys_loaded":    "rdb_last_load_loaded_keys",
 			"aof_enabled":                  "aof_enabled",
 			"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
 			"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
