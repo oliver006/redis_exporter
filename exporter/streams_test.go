@@ -544,3 +544,59 @@ func TestStreamsExtractStreamMetrics(t *testing.T) {
 
 	}
 }
+
+func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
+	if os.Getenv("TEST_REDIS_URI") == "" {
+		t.Skipf("TEST_REDIS_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_REDIS_URI")
+	e, _ := NewRedisExporter(
+		addr,
+		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestStreamName, StreamsExcludeConsumerMetrics: true},
+	)
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+
+	setupDBKeys(t, addr)
+	defer deleteKeysFromDB(t, addr)
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.extractStreamMetrics(chM, c)
+		close(chM)
+	}()
+	want := map[string]bool{
+		"stream_length":                  false,
+		"stream_radix_tree_keys":         false,
+		"stream_radix_tree_nodes":        false,
+		"stream_last_generated_id":       false,
+		"stream_groups":                  false,
+		"stream_max_deleted_entry_id":    false,
+		"stream_first_entry_id":          false,
+		"stream_last_entry_id":           false,
+		"stream_group_consumers":         false,
+		"stream_group_messages_pending":  false,
+		"stream_group_last_delivered_id": false,
+		"stream_group_entries_read":      false,
+		"stream_group_lag":               false,
+	}
+
+	for m := range chM {
+		for k := range want {
+			log.Debugf("metric: %s", m.Desc().String())
+			log.Debugf("want: %s", k)
+
+			if strings.Contains(m.Desc().String(), k) {
+				want[k] = true
+			}
+		}
+	}
+	for k, found := range want {
+		if !found {
+			t.Errorf("didn't find %s", k)
+		}
+
+	}
+}
