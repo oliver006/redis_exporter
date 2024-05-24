@@ -166,7 +166,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
 			// ... the sum of AOF and slaves buffer ....
-			"mem_not_counted_for_evict": "mem_not_counted_for_eviction_bytes",
+			"mem_not_counted_for_evict":     "mem_not_counted_for_eviction_bytes",
+			"mem_total_replication_buffers": "mem_total_replication_buffers_bytes",
 
 			"lazyfree_pending_objects": "lazyfree_pending_objects",
 			"active_defrag_running":    "active_defrag_running",
@@ -189,10 +190,10 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"rdb_last_bgsave_status":       "rdb_last_bgsave_status",
 			"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
 			"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
-                        "rdb_saves":                    "rdb_saves_total",
+			"rdb_saves":                    "rdb_saves_total",
 			"rdb_last_cow_size":            "rdb_last_cow_size_bytes",
-                        "rdb_last_load_keys_expired":   "rdb_last_load_expired_keys",
-                        "rdb_last_load_keys_loaded":    "rdb_last_load_loaded_keys",
+			"rdb_last_load_keys_expired":   "rdb_last_load_expired_keys",
+			"rdb_last_load_keys_loaded":    "rdb_last_load_loaded_keys",
 			"aof_enabled":                  "aof_enabled",
 			"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
 			"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
