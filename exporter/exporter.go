@@ -46,40 +46,42 @@ type Exporter struct {
 }
 
 type Options struct {
-	User                      string
-	Password                  string
-	Namespace                 string
-	PasswordMap               map[string]string
-	ConfigCommandName         string
-	CheckKeys                 string
-	CheckSingleKeys           string
-	CheckStreams              string
-	CheckSingleStreams        string
-	CheckKeysBatchSize        int64
-	CheckKeyGroups            string
-	MaxDistinctKeyGroups      int64
-	CountKeys                 string
-	LuaScript                 map[string][]byte
-	ClientCertFile            string
-	ClientKeyFile             string
-	CaCertFile                string
-	InclConfigMetrics         bool
-	DisableExportingKeyValues bool
-	RedactConfigMetrics       bool
-	InclSystemMetrics         bool
-	SkipTLSVerification       bool
-	SetClientName             bool
-	IsTile38                  bool
-	IsCluster                 bool
-	ExportClientList          bool
-	ExportClientsInclPort     bool
-	ConnectionTimeouts        time.Duration
-	MetricsPath               string
-	RedisMetricsOnly          bool
-	PingOnConnect             bool
-	RedisPwdFile              string
-	Registry                  *prometheus.Registry
-	BuildInfo                 BuildInfo
+	User                           string
+	Password                       string
+	Namespace                      string
+	PasswordMap                    map[string]string
+	ConfigCommandName              string
+	CheckKeys                      string
+	CheckSingleKeys                string
+	CheckStreams                   string
+	CheckSingleStreams             string
+	StreamsExcludeConsumerMetrics  bool
+	CheckKeysBatchSize             int64
+	CheckKeyGroups                 string
+	MaxDistinctKeyGroups           int64
+	CountKeys                      string
+	LuaScript                      map[string][]byte
+	ClientCertFile                 string
+	ClientKeyFile                  string
+	CaCertFile                     string
+	InclConfigMetrics              bool
+	DisableExportingKeyValues      bool
+	ExcludeLatencyHistogramMetrics bool
+	RedactConfigMetrics            bool
+	InclSystemMetrics              bool
+	SkipTLSVerification            bool
+	SetClientName                  bool
+	IsTile38                       bool
+	IsCluster                      bool
+	ExportClientList               bool
+	ExportClientsInclPort          bool
+	ConnectionTimeouts             time.Duration
+	MetricsPath                    string
+	RedisMetricsOnly               bool
+	PingOnConnect                  bool
+	RedisPwdFile                   string
+	Registry                       *prometheus.Registry
+	BuildInfo                      BuildInfo
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -633,7 +635,9 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractInfoMetrics(ch, infoAll, dbCount)
 
-	e.extractLatencyMetrics(ch, infoAll, c)
+	if !e.options.ExcludeLatencyHistogramMetrics {
+		e.extractLatencyMetrics(ch, infoAll, c)
+	}
 
 	if e.options.IsCluster {
 		clusterClient, err := e.connectToRedisCluster()
