@@ -54,7 +54,7 @@ services:
       - 6381
 
   - name: keydb-01
-    image: "eqalpha/keydb:x86_64_v6.3.1"
+    image: "eqalpha/keydb:x86_64_v6.3.4"
     pull: if-not-exists
     commands:
       - "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
@@ -62,7 +62,7 @@ services:
       - 6401
 
   - name: keydb-02
-    image: "eqalpha/keydb:x86_64_v6.3.1"
+    image: "eqalpha/keydb:x86_64_v6.3.4"
     pull: if-not-exists
     commands:
       - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
@@ -70,12 +70,12 @@ services:
       - 6402
 
   - name: redis-cluster
-    image: grokzen/redis-cluster:6.2.10
+    image: grokzen/redis-cluster:6.2.11
     pull: if-not-exists
     ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
 
   - name: redis-cluster-password
-    image: bitnami/redis-cluster
+    image: bitnami/redis-cluster:latest
     environment:
       REDIS_PORT_NUMBER: 7006
       REDIS_PASSWORD: redis-password
