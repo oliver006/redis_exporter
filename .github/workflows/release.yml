@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    tags: [v*]
+
+jobs:
+  sdist:
+    runs-on: ubuntu-latest
+    environment: release
+
+    permissions:
+      contents: write # Used to authenticate github release publish
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.19'
+
+    - name: Generate sdist
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        go mod vendor
+        tar czf redis_exporter-${VERSION}.tar.gz --transform "s,^,redis_exporter-${VERSION}/," *
+
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: redis_exporter-*.tar.gz
+        fail_on_unmatched_files: true
+        draft: true
