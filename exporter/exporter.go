@@ -594,14 +594,18 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
-	if config, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
-		dbCount, err = e.extractConfigMetrics(ch, config)
-		if err != nil {
-			log.Errorf("Redis CONFIG err: %s", err)
-			return err
-		}
+	if e.options.ConfigCommandName == "-" {
+		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
-		log.Debugf("Redis CONFIG err: %s", err)
+		if config, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+			dbCount, err = e.extractConfigMetrics(ch, config)
+			if err != nil {
+				log.Errorf("Redis extractConfigMetrics() err: %s", err)
+				return err
+			}
+		} else {
+			log.Debugf("Redis CONFIG err: %s", err)
+		}
 	}
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
