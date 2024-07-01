@@ -57,10 +57,10 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 		if !ok {
 			continue
 		}
-		if strings.EqualFold(string(vbytes), "first-entry") {
+		if string(vbytes) == "first-entry" {
 			stream.FirstEntryId = getStreamEntryId(values, idx+1)
 		}
-		if strings.EqualFold(string(vbytes), "last-entry") {
+		if string(vbytes) == "last-entry" {
 			stream.LastEntryId = getStreamEntryId(values, idx+1)
 		}
 	}
@@ -75,9 +75,12 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 }
 
 func getStreamEntryId(redisValue []interface{}, index int) string {
-	if _, ok := redisValue[index].([]interface{}); !ok ||
-		len(redisValue) < index || redisValue[index] == nil ||
-		len(redisValue[index].([]interface{})) < 2 {
+	if values, ok := redisValue[index].([]interface{}); !ok || len(values) < 2 {
+		log.Debugf("Failed to parse StreamEntryId")
+		return ""
+	}
+
+	if len(redisValue) < index || redisValue[index] == nil {
 		log.Debugf("Failed to parse StreamEntryId")
 		return ""
 	}
