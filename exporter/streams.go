@@ -52,8 +52,18 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 	}
 
 	// Extract first and last id from slice
-	stream.FirstEntryId = getStreamEntryId(values, 17)
-	stream.LastEntryId = getStreamEntryId(values, 19)
+	for idx, v := range values {
+		vbytes, ok := v.([]byte)
+		if !ok {
+			continue
+		}
+		if string(vbytes) == "first-entry" {
+			stream.FirstEntryId = getStreamEntryId(values, idx+1)
+		}
+		if string(vbytes) == "last-entry" {
+			stream.LastEntryId = getStreamEntryId(values, idx+1)
+		}
+	}
 
 	stream.StreamGroupsInfo, err = scanStreamGroups(c, key)
 	if err != nil {
@@ -65,7 +75,12 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 }
 
 func getStreamEntryId(redisValue []interface{}, index int) string {
-	if len(redisValue) < index || redisValue[index] == nil || len(redisValue[index].([]interface{})) < 2 {
+	if values, ok := redisValue[index].([]interface{}); !ok || len(values) < 2 {
+		log.Debugf("Failed to parse StreamEntryId")
+		return ""
+	}
+
+	if len(redisValue) < index || redisValue[index] == nil {
 		log.Debugf("Failed to parse StreamEntryId")
 		return ""
 	}

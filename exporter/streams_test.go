@@ -88,11 +88,11 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 			if isNotTestTimestamp(info.LastGeneratedId) {
 				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v", info.LastGeneratedId, TestStreamTimestamps)
 			}
-			if info.FirstEntryId != "" {
-				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v; - Expected empty", info.FirstEntryId)
+			if info.FirstEntryId != TestStreamTimestamps[0] {
+				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v;\nExpected any of: %#v", info.FirstEntryId, TestStreamTimestamps)
 			}
-			if info.LastEntryId != "" {
-				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected empty", info.LastEntryId)
+			if info.LastEntryId != TestStreamTimestamps[len(TestStreamTimestamps)-1] {
+				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected any of: %#v", info.LastEntryId, TestStreamTimestamps)
 			}
 			if info.MaxDeletedEntryId != "" {
 				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v;\nExpected: %#v", info.MaxDeletedEntryId, "0-0")
