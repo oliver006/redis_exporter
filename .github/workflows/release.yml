@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags: [tst-v*, v*]
+
+jobs:
+  sdist:
+    runs-on: ubuntu-latest
+    environment: release
+
+    permissions:
+      contents: write # Used to authenticate github release publish
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Setup Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libarchive-tools # for bsdtar
+
+    - name: Generate sdist
+      run: |
+        VERSION=${GITHUB_REF_NAME#v}
+        go mod vendor
+        tar -czf ../redis_exporter-${VERSION}.tar.gz --transform "s,^,redis_exporter-${VERSION}/," *
+        tar -cJf ../redis_exporter-${VERSION}.tar.xz --transform "s,^,redis_exporter-${VERSION}/," *
+        bsdtar -c -a -f ../redis_exporter-${VERSION}.zip -s ",^,redis_exporter-${VERSION}/," *
+
+    - name: Create GitHub release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          ../redis_exporter-*.tar.gz
+          ../redis_exporter-*.tar.xz
+          ../redis_exporter-*.zip
+        fail_on_unmatched_files: true
+        draft: true
