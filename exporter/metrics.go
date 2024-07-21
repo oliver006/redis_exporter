@@ -59,6 +59,7 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	}
 	if err != nil {
 		log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
+		return
 	}
 
 	t := prometheus.GaugeValue
