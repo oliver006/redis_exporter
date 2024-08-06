@@ -353,6 +353,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"commands_total":                                  {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
 		"commands_latencies_usec":                         {txt: `A histogram of latencies per command`, lbls: []string{"cmd"}},
 		"latency_percentiles_usec":                        {txt: `A summary of latency percentile distribution per command`, lbls: []string{"cmd"}},
+		"config_client_output_buffer_limit_bytes":         {txt: `The configured buffer limits per class`, lbls: []string{"class", "limit"}},
+		"config_client_output_buffer_limit_overcome_seconds": {txt: `How long for buffer limits per class to be exceeded before replicas are dropped`, lbls: []string{"class", "limit"}},
 		"config_key_value":                                {txt: `Config key and value`, lbls: []string{"key", "value"}},
 		"config_value":                                    {txt: `Config key and value as metric`, lbls: []string{"key"}},
 		"connected_slave_lag_seconds":                     {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
@@ -544,6 +546,23 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 			if val, err := strconv.ParseFloat(strVal, 64); err == nil {
 				strKey = strings.ReplaceAll(strKey, "-", "_")
 				e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
+			}
+		}
+
+		if strKey == "client-output-buffer-limit" {
+			// client-output-buffer-limit "normal 0 0 0 slave 1610612736 1610612736 0 pubsub 33554432 8388608 60"
+			splitVal := strings.Split(strVal, " ")
+			for i := 0; i < len(splitVal); i += 4 {
+				class := splitVal[i]
+				if val, err := strconv.ParseFloat(splitVal[i+1], 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_bytes", val, class, "hard")
+				}
+				if val, err := strconv.ParseFloat(splitVal[i+2], 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_bytes", val, class, "soft")
+				}
+				if val, err := strconv.ParseFloat(splitVal[i+3], 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_overcome_seconds", val, class, "soft")
+				}
 			}
 		}
 	}
