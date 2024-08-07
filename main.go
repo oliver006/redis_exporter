@@ -133,7 +133,7 @@ func main() {
 	}
 
 	passwordMap := make(map[string]string)
-	if *redisPwd == "" && *redisPwdFile != "" {
+	if *redisPwdFile != "" {
 		passwordMap, err = exporter.LoadPwdFile(*redisPwdFile)
 		if err != nil {
 			log.Fatalf("Error loading redis passwords from file %s, err: %s", *redisPwdFile, err)
