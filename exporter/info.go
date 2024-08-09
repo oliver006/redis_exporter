@@ -168,7 +168,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		keyValues["redis_mode"],
 		keyValues["os"],
 		keyValues["maxmemory_policy"],
-		keyValues["tcp_port"], keyValues["run_id"], keyValues["process_id"],
+		keyValues["tcp_port"],
+		keyValues["run_id"],
+		keyValues["process_id"],
+		keyValues["master_replid"],
 	)
 
 	if keyValues["role"] == "slave" {
