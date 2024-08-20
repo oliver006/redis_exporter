@@ -353,6 +353,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"commands_total":                                  {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
 		"commands_latencies_usec":                         {txt: `A histogram of latencies per command`, lbls: []string{"cmd"}},
 		"latency_percentiles_usec":                        {txt: `A summary of latency percentile distribution per command`, lbls: []string{"cmd"}},
+		"config_client_output_buffer_limit_bytes":         {txt: `The configured buffer limits per class`, lbls: []string{"class", "limit"}},
+		"config_client_output_buffer_limit_overcome_seconds": {txt: `How long for buffer limits per class to be exceeded before replicas are dropped`, lbls: []string{"class", "limit"}},
 		"config_key_value":                                {txt: `Config key and value`, lbls: []string{"key", "value"}},
 		"config_value":                                    {txt: `Config key and value as metric`, lbls: []string{"key"}},
 		"connected_slave_lag_seconds":                     {txt: "Lag of connected slave", lbls: []string{"slave_ip", "slave_port", "slave_state"}},
@@ -363,7 +365,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"db_keys_cached":                                  {txt: "Total number of cached keys by DB", lbls: []string{"db"}},
 		"errors_total":                                    {txt: `Total number of errors per error type`, lbls: []string{"err"}},
 		"exporter_last_scrape_error":                      {txt: "The last scrape error status.", lbls: []string{"err"}},
-		"instance_info":                                   {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id"}},
+		"instance_info":                                   {txt: "Information about the Redis instance", lbls: []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id", "master_replid"}},
 		"key_group_count":                                 {txt: `Count of keys in key group`, lbls: []string{"db", "key_group"}},
 		"key_group_memory_usage_bytes":                    {txt: `Total memory usage of key group in bytes`, lbls: []string{"db", "key_group"}},
 		"key_size":                                        {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
@@ -544,6 +546,23 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 			if val, err := strconv.ParseFloat(strVal, 64); err == nil {
 				strKey = strings.ReplaceAll(strKey, "-", "_")
 				e.registerConstMetricGauge(ch, fmt.Sprintf("config_%s", strKey), val)
+			}
+		}
+
+		if strKey == "client-output-buffer-limit" {
+			// client-output-buffer-limit "normal 0 0 0 slave 1610612736 1610612736 0 pubsub 33554432 8388608 60"
+			splitVal := strings.Split(strVal, " ")
+			for i := 0; i < len(splitVal); i += 4 {
+				class := splitVal[i]
+				if val, err := strconv.ParseFloat(splitVal[i+1], 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_bytes", val, class, "hard")
+				}
+				if val, err := strconv.ParseFloat(splitVal[i+2], 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_bytes", val, class, "soft")
+				}
+				if val, err := strconv.ParseFloat(splitVal[i+3], 64); err == nil {
+					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_overcome_seconds", val, class, "soft")
+				}
 			}
 		}
 	}

@@ -36,7 +36,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM --platform=linux/$GOARCH alpine:3.20.0 as alpine
+FROM --platform=linux/$GOARCH alpine:3.20 as alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs

@@ -244,6 +244,43 @@ func TestIncludeConfigMetrics(t *testing.T) {
 	}
 }
 
+func TestClientOutputBufferLimitMetrics(t *testing.T) {
+	for _, class := range []string{
+		`normal`,
+		`pubsub`,
+		`slave`,
+	} {
+		for _, limit := range []string{
+			`hard`,
+			`soft`,
+		} {
+			want := fmt.Sprintf("%s{class=\"%s\",limit=\"%s\"}", "config_client_output_buffer_limit_bytes", class, limit)
+			r := prometheus.NewRegistry()
+			ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+			e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test"})
+			r.Register(e)
+
+			body := downloadURL(t, ts.URL+"/metrics")
+
+			if !strings.Contains(body, want) {
+				t.Errorf("want metrics to include %s, have:\n%s", want, body)
+			}
+		}
+
+		want := fmt.Sprintf("%s{class=\"%s\",limit=\"soft\"}", "config_client_output_buffer_limit_overcome_seconds", class)
+		r := prometheus.NewRegistry()
+		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
+		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test"})
+		r.Register(e)
+
+		body := downloadURL(t, ts.URL+"/metrics")
+
+		if !strings.Contains(body, want) {
+			t.Errorf("want metrics to include %s, have:\n%s", want, body)
+		}
+	}
+}
+
 func TestExcludeConfigMetricsViaCONFIGCommand(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		r := prometheus.NewRegistry()
