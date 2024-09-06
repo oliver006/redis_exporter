@@ -352,6 +352,12 @@ func (e *Exporter) handleMetricsServer(ch chan<- prometheus.Metric, fieldKey str
 			e.registerConstMetricGauge(ch, "start_time_seconds", float64(time.Now().Unix())-uptime)
 		}
 	}
+
+	if fieldKey == "configured_hz" {
+		if hz, err := strconv.ParseInt(fieldValue, 10, 64); err == nil {
+			e.registerConstMetricGauge(ch, "configured_hz", float64(hz))
+		}
+	}
 }
 
 func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, calls float64, rejectedCalls float64, failedCalls float64, usecTotal float64, extendedStats bool, errorOut error) {
