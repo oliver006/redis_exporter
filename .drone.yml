@@ -3,94 +3,6 @@ name: default
 type: docker
 
 
-
-services:
-  - name: valkey7
-    image: valkey/valkey:7.2
-    pull: if-not-exists
-    commands:
-      - "valkey-server --port 6384 --protected-mode no --dbfilename dump7.rdb"
-    ports:
-      - 6384
-
-  - name: redis5
-    image: redis:5
-    pull: if-not-exists
-    commands:
-      - "redis-server --port 6383  --dbfilename dump5.rdb"
-    ports:
-      - 6383
-
-  - name: redis6
-    image: redis:6.2
-    pull: if-not-exists
-    commands:
-      - "redis-server --protected-mode no --dbfilename dump6.rdb"
-    ports:
-      - 6379
-
-  - name: pwd-redis5
-    image: redis:5
-    pull: if-not-exists
-    commands:
-      - "redis-server --port 6380 --requirepass redis-password --dbfilename dump5-pwd.rdb"
-    ports:
-      - 6380
-
-  - name: pwd-redis6
-    image: redis:6
-    pull: if-not-exists
-    commands:
-      - "redis-server --port 6390 --requirepass dummy --user exporter on +INFO +CLIENT +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
-    ports:
-      - 6390
-
-  - name: redis-2-8
-    image: redis:2.8.23
-    pull: if-not-exists
-    commands:
-      - "redis-server --port 6381 --dbfilename dump2-8.rdb"
-    ports:
-      - 6381
-
-  - name: keydb-01
-    image: "eqalpha/keydb:x86_64_v6.3.4"
-    pull: if-not-exists
-    commands:
-      - "keydb-server --protected-mode no --port 6401 --dbfilename dump-keydb-01.rdb"
-    ports:
-      - 6401
-
-  - name: keydb-02
-    image: "eqalpha/keydb:x86_64_v6.3.4"
-    pull: if-not-exists
-    commands:
-      - "keydb-server --protected-mode no --port 6402 --active-replica yes --replicaof keydb-01 6401  --dbfilename dump-keydb-02.rdb"
-    ports:
-      - 6402
-
-  - name: redis-cluster
-    image: grokzen/redis-cluster:6.2.11
-    pull: if-not-exists
-    ports: [ 7000, 7001, 7002, 7003, 7004, 7005 ]
-
-  - name: redis-cluster-password
-    image: bitnami/redis-cluster:latest
-    environment:
-      REDIS_PORT_NUMBER: 7006
-      REDIS_PASSWORD: redis-password
-      REDIS_CLUSTER_CREATOR: yes
-      REDIS_NODES: redis-cluster-password:7006
-    ports:
-      - 7006
-
-  - name: tile38
-    image: tile38/tile38:latest
-    pull: if-not-exists
-    ports:
-      - 9851
-
-
 steps:
   - name: start
     image: golang:1.22
@@ -100,174 +12,7 @@ steps:
       - 'echo "start"'
     when:
       event:
-        - pull_request
-        - push
         - tag
-
-  #
-  # starting this service down here using "detached: true" because it depends on
-  # the "redis6" service and it intermittently fails if that service is not available yet
-  # making it start after the "start" step which waits 10 seconds hopefully fixes that issue
-  #
-  - name: redis-sentinel
-    image: "docker.io/bitnami/redis-sentinel:6.2-debian-10"
-    pull: if-not-exists
-    environment:
-      REDIS_MASTER_HOST: redis6
-    ports:
-      - 26379
-    detach: true
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - start
-
-
-  - name: test-docker-build
-    image: plugins/docker
-    pull: if-not-exists
-    settings:
-      mtu: 1200
-      tags: "test"
-      dockerfile: ./docker/Dockerfile
-      repo: oliver006/redis_exporter
-      target: scratch
-      dry_run: true
-      build_args:
-        - 'TAG=test'
-        - 'SHA1=${DRONE_COMMIT_SHA}'
-        - 'GOARCH=amd64'
-      username:
-        from_secret: docker_test_user
-      password:
-        from_secret: docker_test_pass
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - start
-
-  - name: lint
-    image: golangci/golangci-lint:v1.56.2-alpine
-    pull: if-not-exists
-    commands:
-      - golangci-lint run --tests=false --exclude-use-default --timeout=5m
-      - golangci-lint run -D=errcheck   --exclude-use-default --timeout=5m
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - start
-
-  - name: tests
-    image: golang:1.22
-    pull: if-not-exists
-    environment:
-      GO111MODULE: on
-      LOG_LEVEL: "info"
-    commands:
-      - sleep 15
-      - make checks
-      - make test
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - start
-
-
-  - name: mixins
-    image: golang:1.22
-    pull: if-not-exists
-    commands:
-      - make mixin
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - start
-
-
-  - name: coverage-codecov
-    image: golang:1.22
-    pull: if-not-exists
-    environment:
-      CODECOV_TOKEN:
-        from_secret: codecov-token
-    commands:
-      - curl -Os https://uploader.codecov.io/latest/linux/codecov
-      - chmod +x codecov
-      - ./codecov -t ${CODECOV_TOKEN} -f coverage.txt
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - tests
-
-
-  - name: coverage-coveralls
-    image: golang:1.22
-    pull: if-not-exists
-    environment:
-      GO111MODULE: on
-      LOG_LEVEL: "info"
-      COVERALLS_TOKEN:
-        from_secret: coveralls-token
-    commands:
-      - make upload-coverage
-    when:
-      event:
-        - pull_request
-        - push
-        - tag
-    depends_on:
-      - tests
-
-  # this is just a smoke test if building a few different arch/OS combinations succeeds
-  - name: build-some-amd64-binaries
-    image: golang:1.22
-    pull: if-not-exists
-    environment:
-      GO111MODULE: on
-      LOG_LEVEL: "info"
-    commands:
-      - make build-some-amd64-binaries
-    when:
-      event:
-        - pull_request
-        - push
-    depends_on:
-      - start
-
-  # this builds the binaries that get uploaded to GH for a release
-  # docker binaries are build in docker itself via multi-stage Docker files
-  - name: build-all-binaries
-    image: golang:1.22
-    pull: if-not-exists
-    environment:
-      GO111MODULE: on
-      LOG_LEVEL: "info"
-    commands:
-      - make build-all-binaries
-    when:
-      event:
-        - tag
-    depends_on:
-      - tests
-
 
   - name: release-docker-image-scratch
     image: plugins/docker
@@ -291,7 +36,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: release-docker-image-alpine-arm64
@@ -316,7 +61,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: release-docker-image-alpine-arm
@@ -341,7 +86,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: release-docker-image-alpine-amd64
@@ -366,7 +111,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: manifest-docker-latest
@@ -462,7 +207,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: release-quay-alpine-arm64
@@ -488,7 +233,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: release-quay-alpine-arm
@@ -514,7 +259,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: release-quay-alpine-amd64
@@ -540,7 +285,7 @@ steps:
       event:
         - tag
     depends_on:
-      - tests
+      - start
 
 
   - name: manifest-quay-latest
@@ -607,6 +352,22 @@ steps:
     depends_on:
       - manifest-quay-tag
 
+
+  # this builds the binaries that get uploaded to GH for a release
+  # docker binaries are build in docker itself via multi-stage Docker files
+  - name: build-all-binaries
+    image: golang:1.23
+    pull: if-not-exists
+    environment:
+      GO111MODULE: on
+      LOG_LEVEL: "info"
+    commands:
+      - make build-all-binaries
+    when:
+      event:
+        - tag
+    depends_on:
+      - start
 
   - name: release-github-binaries
     image: golang:1.22

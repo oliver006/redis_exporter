@@ -1,0 +1,104 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - '*'
+    tags:
+      - '*'
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v2
+
+      - name: Set up Docker Compose
+        run: sudo apt-get install docker-compose
+
+      - name: Start services
+        run: docker-compose up -d
+        working-directory: ./
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.22'
+
+      - name: Install Dependencies
+        run: go mod tidy
+
+      - name: Run tests
+        env:
+          GO111MODULE: on
+          LOG_LEVEL: "info"
+        run: |
+          sleep 15
+          make checks
+          make test
+
+      - name: Upload coverage to Codecov
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          curl -Os https://uploader.codecov.io/latest/linux/codecov
+          chmod +x codecov
+          ./codecov -t $CODECOV_TOKEN -f coverage.txt
+
+
+      - name: Upload coverage to Coveralls
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage.txt
+
+      - name: Stop services
+        run: docker-compose down
+        working-directory: ./
+
+
+  golangci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.22'
+
+      - name: Install Dependencies
+        run: go mod tidy
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+          args: "--tests=false"
+
+
+  build-stuff:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.22'
+
+      - name: Install Dependencies
+        run: go mod tidy
+
+      - name: Build some binaries
+        run: make build-some-amd64-binaries
+
+      - name: Generate mixin
+        run: make mixin
