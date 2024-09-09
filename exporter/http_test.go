@@ -31,14 +31,18 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 	testRedisHostname := ""
 	if u, err := url.Parse(os.Getenv("TEST_REDIS_URI")); err == nil {
 		testRedisHostname = u.Hostname()
-		ips, err := net.LookupIP(testRedisHostname)
-		if err != nil {
-			t.Fatalf("Could not get IP address: %s", err)
+		if testRedisHostname == "localhost" {
+			testRedisIPAddress = "127.0.0.1"
+		} else {
+			ips, err := net.LookupIP(testRedisHostname)
+			if err != nil {
+				t.Fatalf("Could not get IP address: %s", err)
+			}
+			if len(ips) == 0 {
+				t.Fatal("No IP addresses found")
+			}
+			testRedisIPAddress = ips[0].String()
 		}
-		if len(ips) == 0 {
-			t.Fatal("No IP addresses found")
-		}
-		testRedisIPAddress = ips[0].String()
 		t.Logf("testRedisIPAddress: %s", testRedisIPAddress)
 		t.Logf("testRedisHostname: %s", testRedisHostname)
 	}

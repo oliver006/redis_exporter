@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
 
-
 set -u -e -o pipefail
-
-if [[ -z "${DRONE_TAG}" ]] ; then
-  echo 'ERROR: Missing DRONE_TAG env'
-  exit 1
-fi
-
-echo "go install ghr"
-go install github.com/tcnksm/ghr@v0.14.0
 
 mkdir -p dist
 
@@ -33,7 +24,3 @@ sha256sum *.gz *.zip > sha256sums.txt
 ls -la
 cd ..
 
-echo "Upload to Github"
-ghr  -parallel 1 -u oliver006 -r redis_exporter --replace "${DRONE_TAG}" dist/
-
-echo "Done"

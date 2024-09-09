@@ -2,7 +2,7 @@ ARG GOARCH
 #
 # build container
 #
-FROM --platform=linux/amd64 golang:1.22-alpine as builder
+FROM --platform=linux/amd64 golang:1.23-alpine as builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
@@ -11,7 +11,9 @@ ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"
 ARG GOARCH
 
-RUN printf "nameserver 1.1.1.1\nnameserver 8.8.8.8"> /etc/resolv.conf \ && apk --no-cache add ca-certificates git
+#RUN printf "nameserver 1.1.1.1\nnameserver 8.8.8.8"> /etc/resolv.conf \ && apk --no-cache add ca-certificates git
+
+RUN apk --no-cache add ca-certificates git
 RUN BUILD_DATE=$(date +%F-%T) CGO_ENABLED=0 GOOS=linux GOARCH=$GOARCH go build -o /redis_exporter \
     -ldflags  "-s -w -extldflags \"-static\" -X main.BuildVersion=$TAG -X main.BuildCommitSha=$SHA1 -X main.BuildDate=$BUILD_DATE" .
 

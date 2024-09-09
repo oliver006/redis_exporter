@@ -114,12 +114,12 @@ func TestPasswordInvalid(t *testing.T) {
 	}
 }
 
-func TestConnectToClusterUingPasswordFile(t *testing.T) {
+func TestConnectToClusterUsingPasswordFile(t *testing.T) {
 	cluster_host := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
 	if cluster_host == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_PASSWORD_URI is not set")
 	}
-	passMap := map[string]string{"redis://redis-cluster-password:7006": "redis-password"}
+	passMap := map[string]string{cluster_host: "redis-password"}
 	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}
 
 	tsts := []struct {
@@ -145,6 +145,7 @@ func TestConnectToClusterUingPasswordFile(t *testing.T) {
 				log.SetOutput(os.Stderr)
 			}()
 			_, err := e.connectToRedisCluster()
+			t.Logf("connectToRedisCluster() err: %s", err)
 			if strings.Contains(buf.String(), "Cluster refresh failed:") && !tst.refreshError {
 				t.Errorf("Test Cluster connection Failed error")
 			}
