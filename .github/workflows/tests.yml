@@ -1,11 +1,11 @@
 name: Tests
 
 on:
+  pull_request:
   push:
     branches:
-      - '*'
-    tags:
-      - '*'
+      - master
+      - "v*"
 
 jobs:
   tests:
