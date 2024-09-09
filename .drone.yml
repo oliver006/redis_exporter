@@ -5,7 +5,7 @@ type: docker
 
 steps:
   - name: start
-    image: golang:1.22
+    image: golang:1.23
     pull: if-not-exists
     commands:
       - sleep 10
@@ -370,7 +370,7 @@ steps:
       - start
 
   - name: release-github-binaries
-    image: golang:1.22
+    image: golang:1.23
     pull: if-not-exists
     environment:
       GITHUB_TOKEN:

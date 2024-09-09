@@ -28,14 +28,13 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Install Dependencies
         run: go mod tidy
 
       - name: Run tests
         env:
-          GO111MODULE: on
           LOG_LEVEL: "info"
         run: |
           sleep 15
@@ -71,7 +70,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Install Dependencies
         run: go mod tidy
@@ -92,7 +91,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.22'
+          go-version: '1.23'
 
       - name: Install Dependencies
         run: go mod tidy
