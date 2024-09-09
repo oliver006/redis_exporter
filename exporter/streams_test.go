@@ -39,7 +39,7 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
 
-	addr := os.Getenv("TEST_REDIS_URI")
+	addr := os.Getenv("TEST_REDIS6_URI")
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
@@ -74,28 +74,28 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 			}
 
 			if info.Length != tst.streamInfo.Length {
-				t.Errorf("Stream length mismatch.\nActual: %#v;\nExpected: %#v", info.Length, tst.streamInfo.Length)
+				t.Errorf("Stream length mismatch.\nActual: %#v \nExpected: %#v", info.Length, tst.streamInfo.Length)
 			}
 			if info.RadixTreeKeys != tst.streamInfo.RadixTreeKeys {
-				t.Errorf("Stream RadixTreeKeys mismatch.\nActual: %#v;\nExpected: %#v", info.RadixTreeKeys, tst.streamInfo.RadixTreeKeys)
+				t.Errorf("Stream RadixTreeKeys mismatch.\nActual: %#v \nExpected: %#v", info.RadixTreeKeys, tst.streamInfo.RadixTreeKeys)
 			}
 			if info.RadixTreeNodes != tst.streamInfo.RadixTreeNodes {
-				t.Errorf("Stream RadixTreeNodes mismatch.\nActual: %#v;\nExpected: %#v", info.RadixTreeNodes, tst.streamInfo.RadixTreeNodes)
+				t.Errorf("Stream RadixTreeNodes mismatch.\nActual: %#v \nExpected: %#v", info.RadixTreeNodes, tst.streamInfo.RadixTreeNodes)
 			}
 			if info.Groups != tst.streamInfo.Groups {
-				t.Errorf("Stream Groups mismatch.\nActual: %#v;\nExpected: %#v", info.Groups, tst.streamInfo.Groups)
+				t.Errorf("Stream Groups mismatch.\nActual: %#v \nExpected: %#v", info.Groups, tst.streamInfo.Groups)
 			}
 			if isNotTestTimestamp(info.LastGeneratedId) {
-				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v", info.LastGeneratedId, TestStreamTimestamps)
+				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v \nExpected any of: %#v", info.LastGeneratedId, TestStreamTimestamps)
 			}
 			if info.FirstEntryId != TestStreamTimestamps[0] {
-				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v;\nExpected any of: %#v", info.FirstEntryId, TestStreamTimestamps)
+				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v \nExpected any of: %#v", info.FirstEntryId, TestStreamTimestamps)
 			}
 			if info.LastEntryId != TestStreamTimestamps[len(TestStreamTimestamps)-1] {
-				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected any of: %#v", info.LastEntryId, TestStreamTimestamps)
+				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v \nExpected any of: %#v", info.LastEntryId, TestStreamTimestamps)
 			}
 			if info.MaxDeletedEntryId != "" {
-				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v;\nExpected: %#v", info.MaxDeletedEntryId, "0-0")
+				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v \nExpected: %#v", info.MaxDeletedEntryId, "0-0")
 			}
 		})
 	}
@@ -141,38 +141,38 @@ func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
 			}
 
 			if info.Length != tst.streamInfo.Length {
-				t.Errorf("Stream length mismatch.\nActual: %#v;\nExpected: %#v", info.Length, tst.streamInfo.Length)
+				t.Errorf("Stream length mismatch.\nActual: %#v \nExpected: %#v", info.Length, tst.streamInfo.Length)
 			}
 			if info.RadixTreeKeys != tst.streamInfo.RadixTreeKeys {
-				t.Errorf("Stream RadixTreeKeys mismatch.\nActual: %#v;\nExpected: %#v", info.RadixTreeKeys, tst.streamInfo.RadixTreeKeys)
+				t.Errorf("Stream RadixTreeKeys mismatch.\nActual: %#v \nExpected: %#v", info.RadixTreeKeys, tst.streamInfo.RadixTreeKeys)
 			}
 			if info.RadixTreeNodes != tst.streamInfo.RadixTreeNodes {
-				t.Errorf("Stream RadixTreeNodes mismatch.\nActual: %#v;\nExpected: %#v", info.RadixTreeNodes, tst.streamInfo.RadixTreeNodes)
+				t.Errorf("Stream RadixTreeNodes mismatch.\nActual: %#v \nExpected: %#v", info.RadixTreeNodes, tst.streamInfo.RadixTreeNodes)
 			}
 			if info.Groups != tst.streamInfo.Groups {
-				t.Errorf("Stream Groups mismatch.\nActual: %#v;\nExpected: %#v", info.Groups, tst.streamInfo.Groups)
+				t.Errorf("Stream Groups mismatch.\nActual: %#v \nExpected: %#v", info.Groups, tst.streamInfo.Groups)
 			}
 			if isNotTestTimestamp(info.LastGeneratedId) {
-				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v;\nExpected any of: %#v", info.LastGeneratedId, TestStreamTimestamps)
+				t.Errorf("Stream LastGeneratedId mismatch.\nActual: %#v \nExpected any of: %#v", info.LastGeneratedId, TestStreamTimestamps)
 			}
 			if info.FirstEntryId != TestStreamTimestamps[0] {
-				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v;\nExpected any of: %#v", info.FirstEntryId, TestStreamTimestamps)
+				t.Errorf("Stream FirstEntryId mismatch.\nActual: %#v \nExpected any of: %#v", info.FirstEntryId, TestStreamTimestamps)
 			}
 			if info.LastEntryId != TestStreamTimestamps[len(TestStreamTimestamps)-1] {
-				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v;\nExpected any of: %#v", info.LastEntryId, TestStreamTimestamps)
+				t.Errorf("Stream LastEntryId mismatch.\nActual: %#v \nExpected any of: %#v", info.LastEntryId, TestStreamTimestamps)
 			}
 			if info.MaxDeletedEntryId != "0-0" {
-				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v;\nExpected: %#v", info.MaxDeletedEntryId, "0-0")
+				t.Errorf("Stream MaxDeletedEntryId mismatch.\nActual: %#v \nExpected: %#v", info.MaxDeletedEntryId, "0-0")
 			}
 		})
 	}
 }
 
 func TestStreamsScanStreamGroups123(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Skipf("TEST_REDIS_URI not set - skipping")
+	if os.Getenv("TEST_REDIS6_URI") == "" {
+		t.Skipf("TEST_REDIS6_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_URI")
+	addr := os.Getenv("TEST_REDIS6_URI")
 
 	c, err := redis.DialURL(addr)
 	if err != nil {
@@ -246,7 +246,8 @@ func TestStreamsScanStreamGroups123(t *testing.T) {
 	}
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
-			scannedGroup, _ := scanStreamGroups(c, tst.stream)
+			scannedGroup, err := scanStreamGroups(c, tst.stream)
+			t.Logf("scanStreamGroups() err: %s", err)
 			if err != nil {
 				t.Fatalf("Err: %s", err)
 				return
@@ -255,26 +256,26 @@ func TestStreamsScanStreamGroups123(t *testing.T) {
 			if len(scannedGroup) == len(tst.groups) {
 				for i := range scannedGroup {
 					if scannedGroup[i].Name != tst.groups[i].Name {
-						t.Errorf("%d) Group name mismatch.\nExpected: %#v;\nActual: %#v", i, tst.groups[i].Name, scannedGroup[i].Name)
+						t.Errorf("%d) Group name mismatch.\nExpected: %#v \nActual: %#v", i, tst.groups[i].Name, scannedGroup[i].Name)
 					}
 					if scannedGroup[i].Consumers != tst.groups[i].Consumers {
-						t.Errorf("%d) Consumers count mismatch.\nExpected: %#v;\nActual: %#v", i, tst.groups[i].Consumers, scannedGroup[i].Consumers)
+						t.Errorf("%d) Consumers count mismatch.\nExpected: %#v \nActual: %#v", i, tst.groups[i].Consumers, scannedGroup[i].Consumers)
 					}
 					if scannedGroup[i].Pending != tst.groups[i].Pending {
-						t.Errorf("%d) Pending items mismatch.\nExpected: %#v;\nActual: %#v", i, tst.groups[i].Pending, scannedGroup[i].Pending)
+						t.Errorf("%d) Pending items mismatch.\nExpected: %#v \nActual: %#v", i, tst.groups[i].Pending, scannedGroup[i].Pending)
 					}
 					if parseStreamItemId(scannedGroup[i].LastDeliveredId) != parseStreamItemId(tst.groups[i].LastDeliveredId) {
-						t.Errorf("%d) LastDeliveredId items mismatch.\nExpected: %#v;\nActual: %#v", i, tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
+						t.Errorf("%d) LastDeliveredId items mismatch.\nExpected: %#v \nActual: %#v", i, tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
 					}
 					if scannedGroup[i].Lag != tst.groups[i].Lag {
-						t.Errorf("%d) Lag mismatch.\nExpected: %#v;\nActual: %#v", i, tst.groups[i].Lag, scannedGroup[i].Lag)
+						t.Errorf("%d) Lag mismatch.\nExpected: %#v \nActual: %#v", i, tst.groups[i].Lag, scannedGroup[i].Lag)
 					}
 					if scannedGroup[i].EntriesRead != tst.groups[i].EntriesRead {
-						t.Errorf("%d) EntriesRead mismatch.\nExpected: %#v;\nActual: %#v", i, tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
+						t.Errorf("%d) EntriesRead mismatch.\nExpected: %#v \nActual: %#v", i, tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
 					}
 				}
 			} else {
-				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d", len(tst.consumers), len(scannedGroup))
+				t.Errorf("Consumers entries mismatch.\nExpected: %d\nActual: %d", len(tst.consumers), len(scannedGroup))
 			}
 		})
 	}
@@ -360,7 +361,8 @@ func TestStreamsScanStreamGroupsUsingValKey7(t *testing.T) {
 	}
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
-			scannedGroup, _ := scanStreamGroups(c, tst.stream)
+			scannedGroup, err := scanStreamGroups(c, tst.stream)
+			t.Logf("scanStreamGroups() err: %s", err)
 			if err != nil {
 				t.Errorf("Err: %s", err)
 			}
@@ -368,26 +370,26 @@ func TestStreamsScanStreamGroupsUsingValKey7(t *testing.T) {
 			if len(scannedGroup) == len(tst.groups) {
 				for i := range scannedGroup {
 					if scannedGroup[i].Name != tst.groups[i].Name {
-						t.Errorf("Group name mismatch.\nExpected: %#v;\nActual: %#v", tst.groups[i].Name, scannedGroup[i].Name)
+						t.Errorf("Group name mismatch.\nExpected: %#v \nActual: %#v", tst.groups[i].Name, scannedGroup[i].Name)
 					}
 					if scannedGroup[i].Consumers != tst.groups[i].Consumers {
-						t.Errorf("Consumers count mismatch.\nExpected: %#v;\nActual: %#v", tst.groups[i].Consumers, scannedGroup[i].Consumers)
+						t.Errorf("Consumers count mismatch.\nExpected: %#v \nActual: %#v", tst.groups[i].Consumers, scannedGroup[i].Consumers)
 					}
 					if scannedGroup[i].Pending != tst.groups[i].Pending {
-						t.Errorf("Pending items mismatch.\nExpected: %#v;\nActual: %#v", tst.groups[i].Pending, scannedGroup[i].Pending)
+						t.Errorf("Pending items mismatch.\nExpected: %#v \nActual: %#v", tst.groups[i].Pending, scannedGroup[i].Pending)
 					}
 					if parseStreamItemId(scannedGroup[i].LastDeliveredId) != parseStreamItemId(tst.groups[i].LastDeliveredId) {
-						t.Errorf("LastDeliveredId items mismatch.\nExpected: %#v;\nActual: %#v", tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
+						t.Errorf("LastDeliveredId items mismatch.\nExpected: %#v \nActual: %#v", tst.groups[i].LastDeliveredId, scannedGroup[i].LastDeliveredId)
 					}
 					if scannedGroup[i].Lag != tst.groups[i].Lag {
-						t.Errorf("Lag mismatch.\nExpected: %#v;\nActual: %#v", tst.groups[i].Lag, scannedGroup[i].Lag)
+						t.Errorf("Lag mismatch.\nExpected: %#v \nActual: %#v", tst.groups[i].Lag, scannedGroup[i].Lag)
 					}
 					if scannedGroup[i].EntriesRead != tst.groups[i].EntriesRead {
-						t.Errorf("EntriesRead mismatch.\nExpected: %#v;\nActual: %#v", tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
+						t.Errorf("EntriesRead mismatch.\nExpected: %#v \nActual: %#v", tst.groups[i].EntriesRead, scannedGroup[i].EntriesRead)
 					}
 				}
 			} else {
-				t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d", len(tst.consumers), len(scannedGroup))
+				t.Errorf("Consumers entries mismatch.\nExpected: %d\nActual: %d", len(tst.consumers), len(scannedGroup))
 			}
 		})
 	}
@@ -471,15 +473,15 @@ func TestStreamsScanStreamGroupsConsumers(t *testing.T) {
 				if len(g.StreamGroupConsumersInfo) == len(tst.consumers) {
 					for i := range g.StreamGroupConsumersInfo {
 						if g.StreamGroupConsumersInfo[i].Name != tst.consumers[i].Name {
-							t.Errorf("Consumer name mismatch.\nExpected: %#v;\nActual: %#v", tst.consumers[i].Name, g.StreamGroupConsumersInfo[i].Name)
+							t.Errorf("Consumer name mismatch.\nExpected: %#v \nActual: %#v", tst.consumers[i].Name, g.StreamGroupConsumersInfo[i].Name)
 						}
 						if g.StreamGroupConsumersInfo[i].Pending != tst.consumers[i].Pending {
-							t.Errorf("Pending items mismatch for %s.\nExpected: %#v;\nActual: %#v", g.StreamGroupConsumersInfo[i].Name, tst.consumers[i].Pending, g.StreamGroupConsumersInfo[i].Pending)
+							t.Errorf("Pending items mismatch for %s.\nExpected: %#v \nActual: %#v", g.StreamGroupConsumersInfo[i].Name, tst.consumers[i].Pending, g.StreamGroupConsumersInfo[i].Pending)
 						}
 
 					}
 				} else {
-					t.Errorf("Consumers entries mismatch.\nExpected: %d;\nActual: %d", len(tst.consumers), len(g.StreamGroupConsumersInfo))
+					t.Errorf("Consumers entries mismatch.\nExpected: %d\nActual: %d", len(tst.consumers), len(g.StreamGroupConsumersInfo))
 				}
 			}
 

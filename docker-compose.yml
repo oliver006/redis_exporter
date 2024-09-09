@@ -1,0 +1,85 @@
+version: '3'
+services:
+
+  valkey7:
+    image: valkey/valkey:7.2
+    command: "redis-server --enable-debug-command yes --protected-mode no --dbfilename dump7.rdb"
+    ports:
+      - "16384:6379"
+      - "6379:6379"
+
+  redis5:
+    image: redis:5
+    command: "redis-server  --dbfilename dump5.rdb"
+    ports:
+      - "16383:6379"
+
+  redis6:
+    image: redis:6.2
+    command: "redis-server --protected-mode no --dbfilename dump6.rdb"
+    ports:
+      - "16379:6379"
+
+  pwd-redis5:
+    image: redis:5
+    command: "redis-server --requirepass redis-password --dbfilename dump5-pwd.rdb"
+    ports:
+      - "16380:6379"
+
+  pwd-redis6:
+    image: redis:6
+    command: "redis-server --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
+    ports:
+      - "16390:6379"
+
+  redis-2-8:
+    image: redis:2.8
+    command: "redis-server --dbfilename dump2-8.rdb"
+    ports:
+      - "16381:6379"
+
+  keydb-01:
+    image: "eqalpha/keydb:x86_64_v6.3.1"
+    command: "keydb-server --protected-mode no --dbfilename dump-keydb-01.rdb"
+    ports:
+      - "16401:6379"
+
+  keydb-02:
+    image: "eqalpha/keydb:x86_64_v6.3.1"
+    command: "keydb-server --protected-mode no --active-replica yes --replicaof keydb-01 6379  --dbfilename dump-keydb-02.rdb"
+    ports:
+      - "16402:6379"
+
+  redis-cluster:
+    image: grokzen/redis-cluster:6.2.14
+    ports:
+      - "7000"
+      - "7001"
+      - "7002"
+      - "7003"
+      - "7004"
+      - "7005"
+      - "17000:7000"
+      - "17005:7005"
+
+  redis-cluster-password:
+    image: bitnami/redis-cluster
+    environment:
+      - REDIS_PORT_NUMBER=7006
+      - REDIS_PASSWORD=redis-password
+      - REDIS_CLUSTER_CREATOR=yes
+      - REDIS_NODES=redis-cluster-password:7006
+    ports:
+      - "17006:7006"
+
+  redis-sentinel:
+    image: docker.io/bitnami/redis-sentinel:6.2-debian-10
+    environment:
+      - REDIS_MASTER_HOST=redis6
+    ports:
+      - "26379:26379"
+
+  tile38:
+    image: tile38/tile38:latest
+    ports:
+      - "19851:9851"

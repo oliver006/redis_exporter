@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -52,7 +53,7 @@ func TestPasswordMap(t *testing.T) {
 	}
 
 	if len(passwordMap) == 0 {
-		t.Fatalf("Password map is empty -skipping")
+		t.Fatalf("Password map is empty - failing")
 	}
 
 	for _, tst := range []struct {
@@ -60,7 +61,7 @@ func TestPasswordMap(t *testing.T) {
 		addr string
 		want string
 	}{
-		{name: "password-hit", addr: "redis://pwd-redis5:6380", want: "redis-password"},
+		{name: "password-hit", addr: "redis://localhost:16380", want: "redis-password"},
 		{name: "password-missed", addr: "Non-existent-redis-host", want: ""},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
@@ -89,11 +90,11 @@ func TestHTTPScrapeWithPasswordFile(t *testing.T) {
 		useWrongPassword bool
 		wantStatusCode   int
 	}{
-		{name: "scrape-pwd-file", addr: "redis://pwd-redis5:6380", wants: []string{
+		{name: "scrape-pwd-file", addr: os.Getenv("TEST_PWD_REDIS_URI"), wants: []string{
 			"uptime_in_seconds",
 			"test_up 1",
 		}},
-		{name: "scrape-pwd-file-wrong-password", addr: "redis://pwd-redis5:6380", useWrongPassword: true, wants: []string{
+		{name: "scrape-pwd-file-wrong-password", addr: "redis://localhost:16380", useWrongPassword: true, wants: []string{
 			"test_up 0",
 		}},
 	} {
