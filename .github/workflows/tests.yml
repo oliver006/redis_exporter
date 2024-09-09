@@ -42,13 +42,12 @@ jobs:
           make test
 
       - name: Upload coverage to Codecov
-        env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        run: |
-          curl -Os https://uploader.codecov.io/latest/linux/codecov
-          chmod +x codecov
-          ./codecov -t $CODECOV_TOKEN -f coverage.txt
-
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: true
+          files: ./coverage.txt
+          token: ${{ secrets.CODECOV_TOKEN }} # required
+          verbose: true
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
@@ -101,3 +100,14 @@ jobs:
 
       - name: Generate mixin
         run: make mixin
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test Docker Build
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          tags: user/app:tst
+          file: docker/Dockerfile
+          build-args: "GOARCH=amd64"
