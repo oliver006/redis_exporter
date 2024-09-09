@@ -335,7 +335,7 @@ With this count, we can take following actions such as Create alerts or dashboar
 
 The tests require a variety of real Redis instances to not only verify correctness of the exporter but also
 compatibility with older versions of Redis and with Redis-like systems like KeyDB or Tile38.\
-The [contrib/docker-compose-for-tests.yml](./contrib/docker-compose-for-tests.yml) file has service definitions for
+The [docker-compose.yml](docker-compose.yml) file has service definitions for
 everything that's needed.\
 You can bring up the Redis test instances first by running `make docker-env-up` and then, every time you want to run the tests, you can run `make docker-test`. This will mount the current directory (with the .go source files) into a docker container and kick off the tests.\
 Once you're done testing you can bring down the stack by running `make docker-env-down`.\

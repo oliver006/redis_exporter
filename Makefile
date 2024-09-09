@@ -13,18 +13,18 @@ docker-all: docker-env-up docker-test docker-env-down
 
 .PHONY: docker-env-up
 docker-env-up:
-	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml up -d
+	$(DOCKER_COMPOSE) -f docker-compose.yml up -d
 
 
 .PHONY: docker-env-down
 docker-env-down:
-	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml down
+	$(DOCKER_COMPOSE) -f docker-compose.yml down
 
 
 .PHONY: docker-test
 docker-test:
-	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml up -d
-	$(DOCKER_COMPOSE) -f contrib/docker-compose-for-tests.yml run --rm tests bash -c 'make test'
+	$(DOCKER_COMPOSE) -f docker-compose.yml up -d
+	$(DOCKER_COMPOSE) -f docker-compose.yml run --rm tests bash -c 'make test'
 
 
 
@@ -67,14 +67,6 @@ mixin:
 	cd contrib/redis-mixin && \
 	$(MAKE) all && \
 	cd ../../
-
-.PHONY: upload-coverage
-upload-coverage:
-	go install github.com/mattn/goveralls@v0.0.11
-	which goveralls
-	echo $PATH
-	/home/runner/go/bin/goveralls -coverprofile=coverage.txt -service=drone.io
-
 
 
 BUILD_DT:=$(shell date +%F-%T)
