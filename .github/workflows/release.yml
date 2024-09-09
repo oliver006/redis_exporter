@@ -22,6 +22,7 @@ jobs:
         run: |
           make build-all-binaries
           ls -la 
+          ls -la .build/
           ./package-github-binaries.sh
           ls -la dist/
 
@@ -30,3 +31,4 @@ jobs:
         with:
           artifacts: "dist/*"
           allowUpdates: true
+          omitBodyDuringUpdate: true
