@@ -34,6 +34,8 @@ func TestModules(t *testing.T) {
 		}()
 
 		wantedMetrics := map[string]bool{
+			"module_info":                false,
+			"search_version":             false,
 			"search_number_of_indexes":   false,
 			"search_used_memory_indexes": false,
 			"search_total_indexing_time": false,
@@ -42,6 +44,10 @@ func TestModules(t *testing.T) {
 			"search_bytes_collected":     false,
 			"search_total_cycles":        false,
 			"search_total_ms_run":        false,
+			"search_dialect_1":           false,
+			"search_dialect_2":           false,
+			"search_dialect_3":           false,
+			"search_dialect_4":           false,
 		}
 
 		for m := range chM {

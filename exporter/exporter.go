@@ -279,6 +279,10 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"search_bytes_collected":     "search_bytes_collected",
 			"search_total_cycles":        "search_total_cycles",
 			"search_total_ms_run":        "search_total_ms_run",
+			"search_dialect_1":           "search_dialect_1",
+			"search_dialect_2":           "search_dialect_2",
+			"search_dialect_3":           "search_dialect_3",
+			"search_dialect_4":           "search_dialect_4",
 		},
 
 		metricMapCounters: map[string]string{
@@ -433,6 +437,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_keys":                             {txt: `Radix tree keys count"`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
+		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
+		"search_version":                                     {txt: "Information about the RediSearch module", lbls: []string{"version"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -711,7 +717,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	if e.options.InclModulesMetrics {
-		e.extractModuleMetrics(ch, c)
+		e.extractModulesMetrics(ch, c)
 	}
 
 	if len(e.options.LuaScript) > 0 {
