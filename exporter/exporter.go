@@ -65,7 +65,7 @@ type Options struct {
 	ClientKeyFile                  string
 	CaCertFile                     string
 	InclConfigMetrics              bool
-	IsSearch                       bool
+	InclModulesMetrics             bool
 	DisableExportingKeyValues      bool
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
@@ -269,7 +269,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"long_lock_waits":       "long_lock_waits_total",
 			"current_client_thread": "current_client_thread",
 
-			// RediSearch module metrics
+			// Redis Modules metrics
+			// RediSearch module
 			"search_number_of_indexes":   "search_number_of_indexes",
 			"search_used_memory_indexes": "search_used_memory_indexes",
 			"search_total_indexing_time": "search_total_indexing_time",
@@ -709,8 +710,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractTile38Metrics(ch, c)
 	}
 
-	if e.options.IsSearch {
-		e.extractSearchMetrics(ch, c)
+	if e.options.InclModulesMetrics {
+		e.extractModuleMetrics(ch, c)
 	}
 
 	if len(e.options.LuaScript) > 0 {
