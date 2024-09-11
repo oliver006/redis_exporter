@@ -20,12 +20,12 @@ func TestSearch(t *testing.T) {
 	}{
 		{addr: os.Getenv("TEST_REDIS_SEARCH_URI"), isSearch: true, wantSearchMetrics: true},
 		{addr: os.Getenv("TEST_REDIS_SEARCH_URI"), isSearch: false, wantSearchMetrics: false},
-		{addr: os.Getenv("TEST_REDIS_SEARCH_URI"), isSearch: true, wantSearchMetrics: false},
-		{addr: os.Getenv("TEST_REDIS_SEARCH_URI"), isSearch: false, wantSearchMetrics: false},
+		{addr: os.Getenv("TEST_REDIS_URI"), isSearch: true, wantSearchMetrics: false},
+		{addr: os.Getenv("TEST_REDIS_URI"), isSearch: false, wantSearchMetrics: false},
 	}
 
 	for _, tst := range tsts {
-		e, _ := NewRedisExporter(tst.addr, Options{Namespace: "test", IsTile38: tst.isSearch})
+		e, _ := NewRedisExporter(tst.addr, Options{Namespace: "test", IsSearch: tst.isSearch})
 
 		chM := make(chan prometheus.Metric)
 		go func() {

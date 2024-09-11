@@ -87,4 +87,4 @@ services:
   redis-search:
     image: redis/redis-stack-server:7.4.0-v0
     ports:
-      - "7379:6379"
+      - "36379:6379"

@@ -45,7 +45,7 @@ test:
 	TEST_REDIS_CLUSTER_PASSWORD_URI="redis://localhost:17006" \
 	TEST_TILE38_URI="redis://localhost:19851" \
 	TEST_REDIS_SENTINEL_URI="redis://localhost:26379" \
-	TEST_REDIS_SEARCH_URI="redis://redis-search:6379" \
+	TEST_REDIS_SEARCH_URI="redis://localhost:36379" \
 	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
 
 .PHONY: lint
