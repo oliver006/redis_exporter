@@ -272,7 +272,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			// Redis Modules metrics
 			// RediSearch module
 			"search_number_of_indexes":   "search_number_of_indexes",
-			"search_used_memory_indexes": "search_used_memory_indexes",
+			"search_used_memory_indexes": "search_used_memory_indexes_bytes",
 			"search_total_indexing_time": "search_total_indexing_time",
 			"search_global_idle":         "search_global_idle",
 			"search_global_total":        "search_global_total",
