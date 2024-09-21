@@ -59,7 +59,7 @@ lint:
 checks:
 	go vet ./...
 	echo "checking gofmt"
-	echo " ! gofmt -d *.go       2>&1 | read " | bash
+	@if [ "$(shell gofmt -e -l . | wc -l)" -ne 0 ]; then exit 1; fi
 	echo "checking gofmt - DONE"
 
 .PHONY: mixin
