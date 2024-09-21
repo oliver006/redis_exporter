@@ -438,7 +438,6 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
 		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
-		"search_version":                                     {txt: "Information about the RediSearch module", lbls: []string{"version"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}

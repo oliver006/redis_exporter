@@ -35,7 +35,6 @@ func TestModules(t *testing.T) {
 
 		wantedMetrics := map[string]bool{
 			"module_info":                      false,
-			"search_version":                   false,
 			"search_number_of_indexes":         false,
 			"search_used_memory_indexes_bytes": false,
 			"search_total_indexing_time":       false,

@@ -33,9 +33,6 @@ func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Co
 				strings.Split(module[5], "=")[1],
 			)
 			continue
-		case split[0] == "search_version":
-			e.registerConstMetricGauge(ch, "search_version", 1, split[1])
-			continue
 		case len(split) != 2:
 			continue
 		}
