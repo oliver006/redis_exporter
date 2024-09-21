@@ -20,11 +20,17 @@ func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Co
 		log.Debugf("info: %s", line)
 
 		split := strings.Split(line, ":")
-		switch {
-		case split[0] == "module":
+		if len(split) != 2 {
+			continue
+		}
+
+		if split[0] == "module" {
+			// module format: 'module:name=search,ver=21005,api=1,filters=0,usedby=[],using=[ReJSON],options=[handle-io-errors]'
 			module := strings.Split(split[1], ",")
+			if len(module) != 7 {
+				continue
+			}
 			e.registerConstMetricGauge(ch, "module_info", 1,
-				// response format: 'module:name=search,ver=21005,api=1,filters=0,usedby=[],using=[ReJSON],options=[handle-io-errors]'
 				strings.Split(module[0], "=")[1],
 				strings.Split(module[1], "=")[1],
 				strings.Split(module[2], "=")[1],
@@ -32,8 +38,6 @@ func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Co
 				strings.Split(module[4], "=")[1],
 				strings.Split(module[5], "=")[1],
 			)
-			continue
-		case len(split) != 2:
 			continue
 		}
 
