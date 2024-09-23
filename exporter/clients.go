@@ -80,75 +80,25 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 		case "db":
 			connectedClient.Db = vPart[1]
 		case "sub":
-			Sub, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'sub' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Sub = Sub
+			connectedClient.Sub, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "psub":
-			Psub, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'psub' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Psub = Psub
+			connectedClient.Psub, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "ssub":
-			Ssub, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'ssub' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Ssub = Ssub
+			connectedClient.Ssub, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "watch":
-			Watch, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'watch' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Watch = Watch
+			connectedClient.Watch, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "qbuf":
-			Qbuf, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'qbuf' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Qbuf = Qbuf
+			connectedClient.Qbuf, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "qbuf-free":
-			QbufFree, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'qbuf-free' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.QbufFree = QbufFree
+			connectedClient.QbufFree, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "obl":
-			Obl, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'obl' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Obl = Obl
+			connectedClient.Obl, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "oll":
-			Oll, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'oll' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.Oll = Oll
+			connectedClient.Oll, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "omem":
-			OMem, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'omem' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.OMem = OMem
+			connectedClient.OMem, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "tot-mem":
-			TotMem, err := strconv.ParseInt(vPart[1], 10, 64)
-			if err != nil {
-				log.Debugf("could not parse 'tot-mem' field(%s): %s", vPart[1], err.Error())
-				return nil, false
-			}
-			connectedClient.TotMem = TotMem
+			connectedClient.TotMem, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "addr":
 			hostPortString := strings.Split(vPart[1], ":")
 			if len(hostPortString) < 2 {
