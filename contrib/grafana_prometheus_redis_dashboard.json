@@ -856,7 +856,7 @@
               }
             ]
           },
-          "unit": "none",
+          "unit": "short",
           "unitScale": true
         },
         "overrides": [
