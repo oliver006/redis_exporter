@@ -25,7 +25,7 @@ func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Co
 		}
 
 		if split[0] == "module" {
-			// module format: 'module:name=search,ver=21005,api=1,filters=0,usedby=[],using=[ReJSON],options=[handle-io-errors]'
+			// module format: 'module:name=<module-name>,ver=21005,api=1,filters=0,usedby=[],using=[],options=[]'
 			module := strings.Split(split[1], ",")
 			if len(module) != 7 {
 				continue
