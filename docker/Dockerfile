@@ -2,7 +2,7 @@ ARG GOARCH
 #
 # build container
 #
-FROM --platform=linux/amd64 golang:1.23-alpine as builder
+FROM --platform=linux/amd64 golang:1.23-alpine AS builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
@@ -22,7 +22,7 @@ RUN [ "$GOARCH" = "amd64" ]  && /redis_exporter -version || ls -la /redis_export
 #
 # scratch release container
 #
-FROM --platform=linux/$GOARCH scratch as scratch
+FROM --platform=linux/$GOARCH scratch AS scratch-release
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
@@ -38,7 +38,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM --platform=linux/$GOARCH alpine:3.20 as alpine
+FROM --platform=linux/$GOARCH alpine:3.20 AS alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs

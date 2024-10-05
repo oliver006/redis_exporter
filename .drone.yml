@@ -22,7 +22,7 @@ steps:
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
       dockerfile: ./docker/Dockerfile
       repo: oliver006/redis_exporter
-      target: scratch
+      target: scratch-release
       no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
@@ -193,7 +193,7 @@ steps:
       repo: "quay.io/oliver006/redis_exporter"
       tags: "latest,latest-amd64,${DRONE_TAG},${DRONE_TAG}-amd64"
       dockerfile: ./docker/Dockerfile
-      target: scratch
+      target: scratch-release
       no_cache: true
       build_args:
         - 'TAG=${DRONE_TAG}'
