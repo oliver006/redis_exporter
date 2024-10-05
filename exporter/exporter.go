@@ -65,6 +65,7 @@ type Options struct {
 	ClientKeyFile                  string
 	CaCertFile                     string
 	InclConfigMetrics              bool
+	InclModulesMetrics             bool
 	DisableExportingKeyValues      bool
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
@@ -267,6 +268,21 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"server_threads":        "server_threads_total",
 			"long_lock_waits":       "long_lock_waits_total",
 			"current_client_thread": "current_client_thread",
+
+			// Redis Modules metrics
+			// RediSearch module
+			"search_number_of_indexes":   "search_number_of_indexes",
+			"search_used_memory_indexes": "search_used_memory_indexes_bytes",
+			"search_total_indexing_time": "search_total_indexing_time_ms",
+			"search_global_idle":         "search_global_idle",
+			"search_global_total":        "search_global_total",
+			"search_bytes_collected":     "search_collected_bytes",
+			"search_total_cycles":        "search_total_cycles",
+			"search_total_ms_run":        "search_total_run_ms",
+			"search_dialect_1":           "search_dialect_1",
+			"search_dialect_2":           "search_dialect_2",
+			"search_dialect_3":           "search_dialect_3",
+			"search_dialect_4":           "search_dialect_4",
 		},
 
 		metricMapCounters: map[string]string{
@@ -421,6 +437,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_keys":                             {txt: `Radix tree keys count"`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
+		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -696,6 +713,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	if e.options.IsTile38 {
 		e.extractTile38Metrics(ch, c)
+	}
+
+	if e.options.InclModulesMetrics {
+		e.extractModulesMetrics(ch, c)
 	}
 
 	if len(e.options.LuaScript) > 0 {
