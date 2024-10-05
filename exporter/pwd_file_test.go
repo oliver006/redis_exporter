@@ -74,6 +74,10 @@ func TestPasswordMap(t *testing.T) {
 }
 
 func TestHTTPScrapeWithPasswordFile(t *testing.T) {
+	if os.Getenv("TEST_PWD_REDIS_URI") == "" {
+		t.Skipf("Skipping TestHTTPScrapeWithPasswordFile, missing env variables")
+	}
+
 	pwdFile := "../contrib/sample-pwd-file.json"
 	passwordMap, err := LoadPwdFile(pwdFile)
 	if err != nil {

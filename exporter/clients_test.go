@@ -159,29 +159,19 @@ func TestExportClientList(t *testing.T) {
 			in    string
 			found bool
 		}{
-			{
-				in: "connected_client_info",
-			}, {
-				in: "connected_client_output_buffer_memory_usage_bytes",
-			}, {
-				in: "connected_client_total_memory_consumed_bytes",
-			}, {
-				in: "connected_client_created_at_timestamp",
-			}, {
-				in: "connected_client_idle_since_timestamp",
-			}, {
-				in: "connected_client_channel_subscriptions_count",
-			}, {
-				in: "connected_client_pattern_matching_subscriptions_count",
-			}, {
-				in: "connected_client_query_buffer_length_bytes",
-			}, {
-				in: "connected_client_query_buffer_free_space_bytes",
-			}, {
-				in: "connected_client_output_buffer_length_bytes",
-			}, {
-				in: "connected_client_output_list_length",
-			},
+			{in: "connected_client_info"},
+			{in: "connected_client_output_buffer_memory_usage_bytes"},
+			{in: "connected_client_total_memory_consumed_bytes"},
+			{in: "connected_client_created_at_timestamp"},
+			{in: "connected_client_idle_since_timestamp"},
+			{in: "connected_client_channel_subscriptions_count"},
+			{in: "connected_client_pattern_matching_subscriptions_count"},
+			{in: "connected_client_query_buffer_length_bytes"},
+			{in: "connected_client_query_buffer_free_space_bytes"},
+			{in: "connected_client_output_buffer_length_bytes"},
+			{in: "connected_client_output_list_length"},
+			{in: "connected_client_shard_channel_subscriptions_count"},
+			{in: "connected_client_info"},
 		}
 		for m := range chM {
 			desc := m.Desc().String()
@@ -202,40 +192,16 @@ func TestExportClientList(t *testing.T) {
 	}
 }
 
-func TestExportClientListInclPort(t *testing.T) {
-	for _, inclPort := range []bool{true, false} {
-		e := getTestExporterWithOptions(Options{
-			Namespace: "test", Registry: prometheus.NewRegistry(),
-			ExportClientList:      true,
-			ExportClientsInclPort: inclPort,
-		})
-
-		chM := make(chan prometheus.Metric)
-		go func() {
-			e.Collect(chM)
-			close(chM)
-		}()
-
-		found := false
-		for m := range chM {
-			desc := m.Desc().String()
-			if strings.Contains(desc, "connected_client_info") {
-				if strings.Contains(desc, "port") {
-					found = true
-				}
-			}
-		}
-
-		if inclPort && !found {
-			t.Errorf(`connected_client_info did *not* include "port" in isExportClientList metrics but was expected`)
-		} else if !inclPort && found {
-			t.Errorf(`connected_client_info did *include* "port" in isExportClientList metrics but was *not* expected`)
-		}
-	}
-}
-
+/*
+some metrics are only in redis 7 but not yet in valkey 7.2
+like "connected_client_shard_channel_watched_keys"
+*/
 func TestExportClientListRedis7(t *testing.T) {
-	redisSevenAddr := os.Getenv("TEST_REDIS74_URI")
+	redisSevenAddr := os.Getenv("TEST_REDIS7_URI")
+	if redisSevenAddr == "" {
+		t.Skipf("Skipping TestExportClientListRedis7, env var TEST_REDIS7_URI not set")
+	}
+
 	e := getTestExporterWithAddrAndOptions(redisSevenAddr, Options{
 		Namespace: "test", Registry: prometheus.NewRegistry(),
 		ExportClientList: true,
@@ -273,30 +239,34 @@ func TestExportClientListRedis7(t *testing.T) {
 	}
 }
 
-func TestExportClientListResp(t *testing.T) {
-	redisSevenAddr := os.Getenv("TEST_VALKEY7_URI")
-	e := getTestExporterWithAddrAndOptions(redisSevenAddr, Options{
-		Namespace: "test", Registry: prometheus.NewRegistry(),
-		ExportClientList: true,
-	})
+func TestExportClientListInclPort(t *testing.T) {
+	for _, inclPort := range []bool{true, false} {
+		e := getTestExporterWithOptions(Options{
+			Namespace: "test", Registry: prometheus.NewRegistry(),
+			ExportClientList:      true,
+			ExportClientsInclPort: inclPort,
+		})
 
-	chM := make(chan prometheus.Metric)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+		chM := make(chan prometheus.Metric)
+		go func() {
+			e.Collect(chM)
+			close(chM)
+		}()
 
-	found := false
-	for m := range chM {
-		desc := m.Desc().String()
-		if strings.Contains(desc, "connected_client_info") {
-			if strings.Contains(desc, "resp") {
-				found = true
+		found := false
+		for m := range chM {
+			desc := m.Desc().String()
+			if strings.Contains(desc, "connected_client_info") {
+				if strings.Contains(desc, "port") {
+					found = true
+				}
 			}
 		}
-	}
 
-	if !found {
-		t.Errorf(`connected_client_info did *not* include "resp" in isExportClientList metrics but was expected`)
+		if inclPort && !found {
+			t.Errorf(`connected_client_info did *not* include "port" in isExportClientList metrics but was expected`)
+		} else if !inclPort && found {
+			t.Errorf(`connected_client_info did *include* "port" in isExportClientList metrics but was *not* expected`)
+		}
 	}
 }

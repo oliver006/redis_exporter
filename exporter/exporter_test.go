@@ -82,7 +82,7 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 		}
 	}
 
-	// setting to expire in 300 seconds, should be plenty for a test run
+	// set to expire in 300 seconds, should be plenty for a test run
 	for _, key := range keysExpiring {
 		if _, err := c.Do("SETEX", key, "300", TestValue); err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
@@ -416,6 +416,10 @@ func TestConnectionDurations(t *testing.T) {
 }
 
 func TestKeyDbMetrics(t *testing.T) {
+	if os.Getenv("TEST_KEYDB01_URI") == "" {
+		t.Skipf("Skipping due to missing TEST_KEYDB01_URI")
+	}
+
 	setupDBKeys(t, os.Getenv("TEST_KEYDB01_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_KEYDB01_URI"))
 

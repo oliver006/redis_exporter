@@ -90,6 +90,9 @@ func TestKeyValuesAsLabel(t *testing.T) {
 }
 
 func TestClusterKeyValuesAndSizes(t *testing.T) {
+	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
+		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
+	}
 	for _, exc := range []bool{true, false} {
 		e, _ := NewRedisExporter(
 			os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),

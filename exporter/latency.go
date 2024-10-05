@@ -50,6 +50,9 @@ func (e *Exporter) extractLatencyLatestMetrics(outChan chan<- prometheus.Metric,
 	}
 }
 
+/*
+https://redis.io/docs/latest/commands/latency-histogram/
+*/
 func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metric, infoAll string, redisConn redis.Conn) {
 	reply, err := redis.Values(doRedisCmd(redisConn, "LATENCY", "HISTOGRAM"))
 	if err != nil {

@@ -18,6 +18,10 @@ import (
 )
 
 func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
+	if os.Getenv("TEST_REDIS_URI") == "" || os.Getenv("TEST_PWD_REDIS_URI") == "" {
+		t.Skipf("Skipping TestHTTPScrapeMetricsEndpoints, missing env vars")
+	}
+
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 	setupDBKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
@@ -27,25 +31,32 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 	css := dbNumStrFull + "=" + TestStreamName           // check-single-streams
 	cntk := dbNumStrFull + "=" + keys[0] + "*"           // count-keys
 
-	testRedisIPAddress := ""
-	testRedisHostname := ""
-	if u, err := url.Parse(os.Getenv("TEST_REDIS_URI")); err == nil {
-		testRedisHostname = u.Hostname()
-		if testRedisHostname == "localhost" {
-			testRedisIPAddress = "127.0.0.1"
-		} else {
-			ips, err := net.LookupIP(testRedisHostname)
-			if err != nil {
-				t.Fatalf("Could not get IP address: %s", err)
-			}
-			if len(ips) == 0 {
-				t.Fatal("No IP addresses found")
-			}
-			testRedisIPAddress = ips[0].String()
-		}
-		t.Logf("testRedisIPAddress: %s", testRedisIPAddress)
-		t.Logf("testRedisHostname: %s", testRedisHostname)
+	u, err := url.Parse(os.Getenv("TEST_REDIS_URI"))
+	if err != nil {
+		t.Fatalf("url.Parse() err: %s", err)
 	}
+
+	testRedisIPAddress := ""
+	testRedisHostname := u.Hostname()
+
+	if testRedisHostname == "localhost" {
+		testRedisIPAddress = "127.0.0.1"
+	} else {
+		ips, err := net.LookupIP(testRedisHostname)
+		if err != nil {
+			t.Fatalf("Could not get IP address: %s", err)
+		}
+		if len(ips) == 0 {
+			t.Fatal("No IP addresses found")
+		}
+		testRedisIPAddress = ips[0].String()
+	}
+
+	testRedisIPAddress = fmt.Sprintf("%s:%s", testRedisIPAddress, u.Port())
+	testRedisHostname = fmt.Sprintf("%s:%s", testRedisHostname, u.Port())
+
+	t.Logf("testRedisIPAddress: %s", testRedisIPAddress)
+	t.Logf("testRedisHostname: %s", testRedisHostname)
 
 	for _, tst := range []struct {
 		name     string
@@ -194,6 +205,19 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 }
 
 func TestSimultaneousMetricsHttpRequests(t *testing.T) {
+	if os.Getenv("TEST_REDIS_URI") == "" ||
+		os.Getenv("TEST_REDIS_2_8_URI") == "" ||
+		os.Getenv("TEST_KEYDB01_URI") == "" ||
+		os.Getenv("TEST_KEYDB02_URI") == "" ||
+		os.Getenv("TEST_REDIS5_URI") == "" ||
+		os.Getenv("TEST_REDIS6_URI") == "" ||
+		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" ||
+		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI") == "" ||
+		os.Getenv("TEST_TILE38_URI") == "" ||
+		os.Getenv("TEST_REDIS_MODULES_URI") == "" {
+		t.Skipf("Skipping TestSimultaneousMetricsHttpRequests, missing env vars")
+	}
+
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
