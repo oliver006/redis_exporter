@@ -34,6 +34,7 @@ test:
 	TEST_REDIS_URI="redis://localhost:16384" \
 	TEST_REDIS5_URI="redis://localhost:16383" \
 	TEST_REDIS6_URI="redis://localhost:16379" \
+	TEST_REDIS74_URI="redis://localhost:16385" \
 	TEST_VALKEY7_URI="redis://localhost:16384" \
 	TEST_REDIS_2_8_URI="redis://localhost:16381" \
 	TEST_KEYDB01_URI="redis://localhost:16401" \

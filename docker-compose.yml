@@ -1,4 +1,3 @@
-version: '3'
 services:
 
   valkey7:
@@ -19,6 +18,12 @@ services:
     command: "redis-server --protected-mode no --dbfilename dump6.rdb"
     ports:
       - "16379:6379"
+
+  redis74:
+    image: redis:7.4
+    command: "redis-server --protected-mode no --dbfilename dump74.rdb"
+    ports:
+      - "16385:6379"
 
   pwd-redis5:
     image: redis:5
