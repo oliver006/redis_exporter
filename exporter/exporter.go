@@ -121,10 +121,15 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"io_threads_active": "io_threads_active",
 
 			// # Clients
-			"connected_clients":        "connected_clients",
-			"blocked_clients":          "blocked_clients",
-			"tracking_clients":         "tracking_clients",
-			"clients_in_timeout_table": "clients_in_timeout_table",
+			"connected_clients":            "connected_clients",
+			"blocked_clients":              "blocked_clients",
+			"tracking_clients":             "tracking_clients",
+			"clients_in_timeout_table":     "clients_in_timeout_table",
+			"pubsub_clients":               "pubsub_clients",               // Added in Redis 7.4
+			"watching_clients":             "watching_clients",             // Added in Redis 7.4
+			"total_watched_keys":           "total_watched_keys",           // Added in Redis 7.4
+			"total_blocking_keys":          "total_blocking_keys",          // Added in Redis 7.2
+			"total_blocking_keys_on_nokey": "total_blocking_keys_on_nokey", // Added in Redis 7.2
 
 			// redis 2,3,4.x
 			"client_longest_output_list": "client_longest_output_list",
@@ -147,11 +152,18 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"used_memory_rss":          "memory_used_rss_bytes",
 			"used_memory_peak":         "memory_used_peak_bytes",
 			"used_memory_lua":          "memory_used_lua_bytes",
+			"used_memory_vm_eval":      "memory_used_vm_eval_bytes",      // Added in Redis 7.0
+			"used_memory_scripts_eval": "memory_used_scripts_eval_bytes", // Added in Redis 7.0
 			"used_memory_overhead":     "memory_used_overhead_bytes",
 			"used_memory_startup":      "memory_used_startup_bytes",
 			"used_memory_dataset":      "memory_used_dataset_bytes",
-			"used_memory_scripts":      "memory_used_scripts_bytes",
-			"number_of_cached_scripts": "number_of_cached_scripts",
+			"number_of_cached_scripts": "number_of_cached_scripts",       // Added in Redis 7.0
+			"number_of_functions":      "number_of_functions",            // Added in Redis 7.0
+			"number_of_libraries":      "number_of_libraries",            // Added in Redis 7.4
+			"used_memory_vm_functions": "memory_used_vm_functions_bytes", // Added in Redis 7.0
+			"used_memory_scripts":      "memory_used_scripts_bytes",      // Added in Redis 7.0
+			"used_memory_functions":    "memory_used_functions_bytes",    // Added in Redis 7.0
+			"used_memory_vm_total":     "memory_used_vm_total",           // Added in Redis 7.0
 			"maxmemory":                "memory_max_bytes",
 
 			"maxmemory_reservation":         "memory_max_reservation_bytes",
@@ -169,8 +181,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
 			// ... the sum of AOF and slaves buffer ....
-			"mem_not_counted_for_evict":     "mem_not_counted_for_eviction_bytes",
-			"mem_total_replication_buffers": "mem_total_replication_buffers_bytes",
+			"mem_not_counted_for_evict":           "mem_not_counted_for_eviction_bytes",
+			"mem_total_replication_buffers":       "mem_total_replication_buffers_bytes",       // Added in Redis 7.0
+			"mem_overhead_db_hashtable_rehashing": "mem_overhead_db_hashtable_rehashing_bytes", // Added in Redis 7.4
 
 			"lazyfree_pending_objects": "lazyfree_pending_objects",
 			"active_defrag_running":    "active_defrag_running",
@@ -187,6 +200,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 
 			// # Persistence
 			"loading":                      "loading_dump_file",
+			"async_loading":                "async_loading", // Added in Redis 7.0
 			"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
 			"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
 			"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
@@ -195,8 +209,8 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"rdb_current_bgsave_time_sec":  "rdb_current_bgsave_duration_sec",
 			"rdb_saves":                    "rdb_saves_total",
 			"rdb_last_cow_size":            "rdb_last_cow_size_bytes",
-			"rdb_last_load_keys_expired":   "rdb_last_load_expired_keys",
-			"rdb_last_load_keys_loaded":    "rdb_last_load_loaded_keys",
+			"rdb_last_load_keys_expired":   "rdb_last_load_expired_keys", // Added in Redis 7.0
+			"rdb_last_load_keys_loaded":    "rdb_last_load_loaded_keys",  // Added in Redis 7.0
 			"aof_enabled":                  "aof_enabled",
 			"aof_rewrite_in_progress":      "aof_rewrite_in_progress",
 			"aof_rewrite_scheduled":        "aof_rewrite_scheduled",
@@ -207,7 +221,7 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"aof_base_size":                "aof_base_size_bytes",
 			"aof_pending_rewrite":          "aof_pending_rewrite",
 			"aof_buffer_length":            "aof_buffer_length",
-			"aof_rewrite_buffer_length":    "aof_rewrite_buffer_length",
+			"aof_rewrite_buffer_length":    "aof_rewrite_buffer_length", // Added in Redis 7.0
 			"aof_pending_bio_fsync":        "aof_pending_bio_fsync",
 			"aof_delayed_fsync":            "aof_delayed_fsync",
 			"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
@@ -216,13 +230,14 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
 			// # Stats
-			"pubsub_channels":         "pubsub_channels",
-			"pubsub_patterns":         "pubsub_patterns",
-			"pubsubshard_channels":    "pubsubshard_channels", // Added in Redis 7.0.3
-			"latest_fork_usec":        "latest_fork_usec",
-			"tracking_total_keys":     "tracking_total_keys",
-			"tracking_total_items":    "tracking_total_items",
-			"tracking_total_prefixes": "tracking_total_prefixes",
+			"current_eviction_exceeded_time": "current_eviction_exceeded_time_ms",
+			"pubsub_channels":                "pubsub_channels",
+			"pubsub_patterns":                "pubsub_patterns",
+			"pubsubshard_channels":           "pubsubshard_channels", // Added in Redis 7.0.3
+			"latest_fork_usec":               "latest_fork_usec",
+			"tracking_total_keys":            "tracking_total_keys",
+			"tracking_total_items":           "tracking_total_items",
+			"tracking_total_prefixes":        "tracking_total_prefixes",
 
 			// # Replication
 			"connected_slaves":               "connected_slaves",
@@ -296,11 +311,16 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"total_net_repl_input_bytes":  "net_repl_input_bytes_total",
 			"total_net_repl_output_bytes": "net_repl_output_bytes_total",
 
-			"expired_keys":    "expired_keys_total",
-			"cached_keys":     "cached_keys_total",
-			"evicted_keys":    "evicted_keys_total",
-			"keyspace_hits":   "keyspace_hits_total",
-			"keyspace_misses": "keyspace_misses_total",
+			"expired_subkeys":                "expired_subkeys_total",
+			"expired_keys":                   "expired_keys_total",
+			"expired_time_cap_reached_count": "expired_time_cap_reached_total",
+			"expire_cycle_cpu_milliseconds":  "expire_cycle_cpu_time_ms_total",
+			"evicted_keys":                   "evicted_keys_total",
+			"evicted_clients":                "evicted_clients_total", // Added in Redis 7.0
+			"evicted_scripts":                "evicted_scripts_total", // Added in Redis 7.4
+			"total_eviction_exceeded_time":   "eviction_exceeded_time_ms_total",
+			"keyspace_hits":                  "keyspace_hits_total",
+			"keyspace_misses":                "keyspace_misses_total",
 
 			"used_cpu_sys":              "cpu_sys_seconds_total",
 			"used_cpu_user":             "cpu_user_seconds_total",
@@ -309,14 +329,24 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"used_cpu_sys_main_thread":  "cpu_sys_main_thread_seconds_total",
 			"used_cpu_user_main_thread": "cpu_user_main_thread_seconds_total",
 
-			"unexpected_error_replies":     "unexpected_error_replies",
-			"total_error_replies":          "total_error_replies",
-			"total_reads_processed":        "total_reads_processed",
-			"total_writes_processed":       "total_writes_processed",
-			"io_threaded_reads_processed":  "io_threaded_reads_processed",
-			"io_threaded_writes_processed": "io_threaded_writes_processed",
-			"dump_payload_sanitizations":   "dump_payload_sanitizations",
+			"unexpected_error_replies":                  "unexpected_error_replies",
+			"total_error_replies":                       "total_error_replies",
+			"dump_payload_sanitizations":                "dump_payload_sanitizations",
+			"total_reads_processed":                     "total_reads_processed",
+			"total_writes_processed":                    "total_writes_processed",
+			"io_threaded_reads_processed":               "io_threaded_reads_processed",
+			"io_threaded_writes_processed":              "io_threaded_writes_processed",
+			"client_query_buffer_limit_disconnections":  "client_query_buffer_limit_disconnections_total",
+			"client_output_buffer_limit_disconnections": "client_output_buffer_limit_disconnections_total",
+			"reply_buffer_shrinks":                      "reply_buffer_shrinks_total",
+			"reply_buffer_expands":                      "reply_buffer_expands_total",
+			"acl_access_denied_auth":                    "acl_access_denied_auth_total",
+			"acl_access_denied_cmd":                     "acl_access_denied_cmd_total",
+			"acl_access_denied_key":                     "acl_access_denied_key_total",
+			"acl_access_denied_channel":                 "acl_access_denied_channel_total",
 
+			// addtl. KeyDB metrics
+			"cached_keys":                  "cached_keys_total",
 			"storage_provider_read_hits":   "storage_provider_read_hits",
 			"storage_provider_read_misses": "storage_provider_read_misses",
 		},
