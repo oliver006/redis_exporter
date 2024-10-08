@@ -284,11 +284,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"long_lock_waits":       "long_lock_waits_total",
 			"current_client_thread": "current_client_thread",
 
-			// Redis Modules metrics
-			// RediSearch module
+			// Redis Modules metrics, RediSearch module
 			"search_number_of_indexes":   "search_number_of_indexes",
 			"search_used_memory_indexes": "search_used_memory_indexes_bytes",
-			"search_total_indexing_time": "search_total_indexing_time_ms",
 			"search_global_idle":         "search_global_idle",
 			"search_global_total":        "search_global_total",
 			"search_bytes_collected":     "search_collected_bytes",
@@ -349,6 +347,9 @@ func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
 			"cached_keys":                  "cached_keys_total",
 			"storage_provider_read_hits":   "storage_provider_read_hits",
 			"storage_provider_read_misses": "storage_provider_read_misses",
+
+			// Redis Modules metrics, RediSearch module
+			"search_total_indexing_time": "search_indexing_time_ms_total",
 		},
 	}
 
