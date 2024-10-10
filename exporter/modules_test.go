@@ -37,7 +37,7 @@ func TestModules(t *testing.T) {
 			"module_info":                      false,
 			"search_number_of_indexes":         false,
 			"search_used_memory_indexes_bytes": false,
-			"search_total_indexing_time_ms":    false,
+			"search_indexing_time_ms_total":    false,
 			"search_global_idle":               false,
 			"search_global_total":              false,
 			"search_collected_bytes":           false,
