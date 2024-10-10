@@ -107,15 +107,15 @@ func resetLatency(t *testing.T, addr string) error {
 }
 
 func TestLatencyHistogram(t *testing.T) {
-	valKeySevenAddr := os.Getenv("TEST_VALKEY7_URI")
+	addr := os.Getenv("TEST_REDIS_URI")
 
-	// Since ValKey v7 we should have latency histogram stats
-	e := getTestExporterWithAddr(valKeySevenAddr)
-	setupDBKeys(t, valKeySevenAddr)
+	// Since Redis 7.0.0 we should have latency histogram stats
+	e := getTestExporterWithAddr(addr)
+	setupDBKeys(t, addr)
 
 	want := map[string]bool{"commands_latencies_usec": false}
 	commandStatsCheck(t, e, want)
-	deleteKeysFromDB(t, valKeySevenAddr)
+	deleteKeysFromDB(t, addr)
 }
 
 func TestExtractTotalUsecForCommand(t *testing.T) {
@@ -146,4 +146,16 @@ latency_percentiles_usec_config|set:p50=23.039,p99=27.007,p99.9=27.007`
 			t.Errorf("Incorrect usec extracted. Expected %d but got %d!", expected, res)
 		}
 	}
+}
+
+func TestLatencyStats(t *testing.T) {
+	redisSevenAddr := os.Getenv("TEST_REDIS_URI")
+
+	// Since Redis v7 we should have extended latency stats (summary of command latencies)
+	e := getTestExporterWithAddr(redisSevenAddr)
+	setupDBKeys(t, redisSevenAddr)
+
+	want := map[string]bool{"latency_percentiles_usec": false}
+	commandStatsCheck(t, e, want)
+	deleteKeysFromDB(t, redisSevenAddr)
 }

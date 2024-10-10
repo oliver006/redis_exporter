@@ -33,6 +33,9 @@ func TestHostVariations(t *testing.T) {
 
 func TestPasswordProtectedInstance(t *testing.T) {
 	userAddr := os.Getenv("TEST_USER_PWD_REDIS_URI")
+	if userAddr == "" {
+		t.Skipf("Skipping TestHTTPScrapeWithPasswordFile, missing env variables")
+	}
 
 	parsedPassword := ""
 	parsed, err := url.Parse(userAddr)

@@ -1,57 +1,63 @@
 services:
 
-  valkey7:
-    image: valkey/valkey:7.2
-    command: "redis-server --enable-debug-command yes --protected-mode no --dbfilename dump7.rdb"
+  redis74:
+    image: redis:7.4
+    command: "redis-server  --enable-debug-command yes --protected-mode no"
     ports:
-      - "16384:6379"
+      - "16385:6379"
       - "6379:6379"
 
-  redis5:
-    image: redis:5
-    command: "redis-server  --dbfilename dump5.rdb"
+  valkey8:
+    image: valkey/valkey:8
+    command: "valkey-server --enable-debug-command yes --protected-mode no"
     ports:
-      - "16383:6379"
+      - "16382:6379"
+
+  valkey7:
+    image: valkey/valkey:7.2
+    command: "valkey-server --enable-debug-command yes --protected-mode no"
+    ports:
+      - "16384:6379"
 
   redis6:
     image: redis:6.2
-    command: "redis-server --protected-mode no --dbfilename dump6.rdb"
+    command: "redis-server --protected-mode no"
     ports:
       - "16379:6379"
 
-  redis74:
-    image: redis:7.4
-    command: "redis-server --protected-mode no --dbfilename dump74.rdb"
+  redis5:
+    image: redis:5
+    command: "redis-server"
     ports:
-      - "16385:6379"
+      - "16383:6379"
 
   pwd-redis5:
     image: redis:5
-    command: "redis-server --requirepass redis-password --dbfilename dump5-pwd.rdb"
+    command: "redis-server --requirepass redis-password"
     ports:
       - "16380:6379"
 
   pwd-redis6:
     image: redis:6
-    command: "redis-server --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password' --dbfilename dump6-pwd.rdb"
+    command: "redis-server --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password'"
     ports:
       - "16390:6379"
 
   redis-2-8:
     image: redis:2.8
-    command: "redis-server --dbfilename dump2-8.rdb"
+    command: "redis-server"
     ports:
       - "16381:6379"
 
   keydb-01:
     image: "eqalpha/keydb:x86_64_v6.3.1"
-    command: "keydb-server --protected-mode no --dbfilename dump-keydb-01.rdb"
+    command: "keydb-server --protected-mode no"
     ports:
       - "16401:6379"
 
   keydb-02:
     image: "eqalpha/keydb:x86_64_v6.3.1"
-    command: "keydb-server --protected-mode no --active-replica yes --replicaof keydb-01 6379  --dbfilename dump-keydb-02.rdb"
+    command: "keydb-server --protected-mode no --active-replica yes --replicaof keydb-01 6379"
     ports:
       - "16402:6379"
 

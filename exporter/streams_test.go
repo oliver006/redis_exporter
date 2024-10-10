@@ -35,8 +35,8 @@ func isNotTestTimestamp(returned string) bool {
 }
 
 func TestStreamsGetStreamInfo(t *testing.T) {
-	if os.Getenv("TEST_REDIS_URI") == "" {
-		t.Skipf("TEST_REDIS_URI not set - skipping")
+	if os.Getenv("TEST_REDIS6_URI") == "" {
+		t.Skipf("TEST_REDIS6_URI not set - skipping")
 	}
 
 	addr := os.Getenv("TEST_REDIS6_URI")
@@ -399,7 +399,7 @@ func TestStreamsScanStreamGroupsConsumers(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_VALKEY7_URI")
+	addr := os.Getenv("TEST_REDIS_URI")
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
