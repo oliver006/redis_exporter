@@ -45,6 +45,13 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		uri = "redis://" + uri
 	}
 
+	switch {
+	case strings.HasPrefix(uri, "valkey://"):
+		uri = strings.Replace(uri, "valkey://", "redis://", 1)
+	case strings.HasPrefix(uri, "valkeys://"):
+		uri = strings.Replace(uri, "valkeys://", "rediss://", 1)
+	}
+
 	options, err := e.configureOptions(uri)
 	if err != nil {
 		return nil, err
