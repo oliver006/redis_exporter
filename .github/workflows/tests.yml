@@ -10,7 +10,6 @@ on:
 jobs:
   test-stuff:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,6 +19,12 @@ jobs:
 
       - name: Set up Docker Compose
         run: sudo apt-get install docker-compose
+
+      # need to do this before we start the services as they need the TLS creds
+      - name: Create test certs for TLS
+        run: |
+          make test-certs
+          chmod 777 ./contrib/tls/*
 
       - name: Start services
         run: docker-compose up -d
@@ -32,6 +37,12 @@ jobs:
 
       - name: Install Dependencies
         run: go mod tidy
+
+      - name: Docker logs
+        run: |
+          echo "${{ toJson(job) }}"
+          docker logs "redis_exporter_redis7-tls_1"
+          docker logs "redis_exporter_valkey8-tls_1"
 
       - name: Run tests
         env:

@@ -106,7 +106,7 @@ func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
 		t.Skipf("TEST_VALKEY7_URI not set - skipping")
 	}
 
-	addr := os.Getenv("TEST_VALKEY7_URI")
+	addr := strings.Replace(os.Getenv("TEST_VALKEY7_URI"), "valkey://", "redis://", 1)
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
@@ -285,7 +285,7 @@ func TestStreamsScanStreamGroupsUsingValKey7(t *testing.T) {
 	if os.Getenv("TEST_VALKEY7_URI") == "" {
 		t.Skipf("TEST_VALKEY7_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_VALKEY7_URI")
+	addr := strings.Replace(os.Getenv("TEST_VALKEY7_URI"), "valkey://", "redis://", 1)
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)

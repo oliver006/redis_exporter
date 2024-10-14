@@ -27,15 +27,17 @@ docker-test:
 	$(DOCKER_COMPOSE) -f docker-compose.yml run --rm tests bash -c 'make test'
 
 
+.PHONY: test-certs
+test-certs:
+	contrib/tls/gen-test-certs.sh
+
 
 .PHONY: test
 test:
-	contrib/tls/gen-test-certs.sh
-
 	TEST_VALKEY7_URI="valkey://localhost:16384" \
 	TEST_VALKEY8_URI="valkey://localhost:16382" \
 	TEST_VALKEY8_TLS_URI="valkeys://localhost:16386" \
-	TEST_REDIS7_TLS_URI="rediss://localhost:16386" \
+	TEST_REDIS7_TLS_URI="rediss://localhost:16387" \
 	TEST_REDIS_URI="redis://localhost:16385" \
 	TEST_REDIS7_URI="redis://localhost:16385" \
 	TEST_REDIS5_URI="redis://localhost:16383" \
