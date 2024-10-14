@@ -34,7 +34,7 @@ jobs:
           omitBodyDuringUpdate: true
 
 
-  docker-push-scratch-image-docker:
+  build-and-push-docker-images:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -100,6 +100,6 @@ jobs:
           target: alpine
           platforms: linux/amd64,linux/arm,linux/arm64
           push: true
-          tags: ${{ steps.meta.outputs.tags }},alpine
+          tags: oliver006/redis_exporter:${{ github.ref_name }}-alpine,ghcr.io/oliver006/redis_exporter:${{ github.ref_name }}-alpine,quay.io/oliver006/redis_exporter:${{ github.ref_name }}-alpine,oliver006/redis_exporter:alpine,ghcr.io/oliver006/redis_exporter:alpine,quay.io/oliver006/redis_exporter:alpine
           labels: ${{ steps.meta.outputs.labels }}
           build-args: "TAG=${{ github.ref_name }},SHA1=${{ github.sha }}"
