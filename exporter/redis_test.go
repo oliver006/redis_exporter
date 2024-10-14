@@ -31,7 +31,6 @@ func TestHostVariations(t *testing.T) {
 	}
 }
 
-// todo: also test valkeys://...
 func TestValkeyScheme(t *testing.T) {
 	host := os.Getenv("TEST_VALKEY8_URI")
 

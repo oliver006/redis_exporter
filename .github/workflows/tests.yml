@@ -42,10 +42,11 @@ jobs:
           make test
 
 
-      - name: Run tests - valkey 7
+      - name: Run tests - valkey 8
         env:
           LOG_LEVEL: "info"
-          TEST_REDIS_URI: "redis://localhost:16384"
+          TEST_REDIS_URI: "redis://localhost:16382"
+          TEST_VALKEY8_TLS_URI: "valkeys://localhost:16386"
           TEST_PWD_REDIS_URI: "redis://:redis-password@localhost:16380"
         run: |
           go test -v -race -p 1 ./...
@@ -120,7 +121,7 @@ jobs:
           push: false
           target: alpine
           tags: user/app:tst
-          file: docker/Dockerfile
+          file: Dockerfile
           build-args: "GOARCH=amd64"
 
       - name: Test Docker Image Build - Scratch
@@ -129,5 +130,5 @@ jobs:
           push: false
           target: scratch-release
           tags: user/app:tst
-          file: docker/Dockerfile
+          file: Dockerfile
           build-args: "GOARCH=amd64"

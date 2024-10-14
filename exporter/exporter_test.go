@@ -160,7 +160,7 @@ func setupDBKeys(t *testing.T, uri string) error {
 }
 
 func setupDBKeysCluster(t *testing.T, uri string) error {
-	e := Exporter{redisAddr: uri}
+	e, _ := NewRedisExporter(uri, Options{})
 	c, err := e.connectToRedisCluster()
 	if err != nil {
 		return err
@@ -193,7 +193,7 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 }
 
 func deleteKeysFromDBCluster(addr string) error {
-	e := Exporter{redisAddr: addr}
+	e, _ := NewRedisExporter(addr, Options{})
 	c, err := e.connectToRedisCluster()
 	if err != nil {
 		return err

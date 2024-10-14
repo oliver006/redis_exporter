@@ -7,11 +7,37 @@ services:
       - "16385:6379"
       - "6379:6379"
 
+  redis74-tls:
+    image: redis:7.4
+    volumes:
+      - ./contrib/tls:/tls
+    command: |
+      valkey-server --enable-debug-command yes --protected-mode no 
+      --tls-port 6379 --port 0 
+      --tls-cert-file     /tls/redis.crt 
+      --tls-key-file      /tls/redis.key 
+      --tls-ca-cert-file  /tls/ca.crt
+    ports:
+      - "16387:6379"
+
   valkey8:
     image: valkey/valkey:8
     command: "valkey-server --enable-debug-command yes --protected-mode no"
     ports:
       - "16382:6379"
+
+  valkey8-tls:
+    image: valkey/valkey:8
+    volumes:
+      - ./contrib/tls:/tls
+    command: |
+      valkey-server --enable-debug-command yes --protected-mode no 
+      --tls-port 6379 --port 0 
+      --tls-cert-file     /tls/redis.crt 
+      --tls-key-file      /tls/redis.key 
+      --tls-ca-cert-file  /tls/ca.crt
+    ports:
+      - "16386:6379"
 
   valkey7:
     image: valkey/valkey:7.2
