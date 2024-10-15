@@ -24,15 +24,12 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		redis.DialUseTLS(strings.HasPrefix(e.redisAddr, "rediss://")),
 	}
 
-	if e.options.User != "" {
-		options = append(options, redis.DialUsername(e.options.User))
-	}
-
-	if e.options.Password != "" {
+	if e.options.Password != "" && e.options.PasswordMap[uri] != "" {
+		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	} else if e.options.Password != "" && e.options.User != "" {
 		options = append(options, redis.DialPassword(e.options.Password))
-	}
-
-	if e.options.PasswordMap[uri] != "" {
+		options = append(options, redis.DialUsername(e.options.User))
+	} else if e.options.PasswordMap[uri] != "" {
 		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
 	}
 
