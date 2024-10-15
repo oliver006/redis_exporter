@@ -168,7 +168,6 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 				// labels and label values
 				`redis_mode`,
-				`standalone`,
 				`cmd="config`,
 				"maxmemory_policy",
 
@@ -228,6 +227,11 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 	uris := []string{
 		os.Getenv("TEST_REDIS_URI"),
 		os.Getenv("TEST_REDIS_2_8_URI"),
+
+		os.Getenv("TEST_REDIS7_URI"),
+
+		os.Getenv("TEST_VALKEY7_URI"),
+		os.Getenv("TEST_VALKEY8_URI"),
 
 		os.Getenv("TEST_KEYDB01_URI"),
 		os.Getenv("TEST_KEYDB02_URI"),

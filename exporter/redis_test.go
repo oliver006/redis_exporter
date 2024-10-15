@@ -31,6 +31,22 @@ func TestHostVariations(t *testing.T) {
 	}
 }
 
+func TestValkeyScheme(t *testing.T) {
+	host := os.Getenv("TEST_VALKEY8_URI")
+
+	e, _ := NewRedisExporter(host, Options{SkipTLSVerification: true})
+	c, err := e.connectToRedis()
+	if err != nil {
+		t.Fatalf("connectToRedis() err: %s", err)
+	}
+
+	if _, err := c.Do("PING", ""); err != nil {
+		t.Errorf("PING err: %s", err)
+	}
+
+	c.Close()
+}
+
 func TestPasswordProtectedInstance(t *testing.T) {
 	userAddr := os.Getenv("TEST_USER_PWD_REDIS_URI")
 	if userAddr == "" {

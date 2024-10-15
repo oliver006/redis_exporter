@@ -1,7 +1,11 @@
 package exporter
 
 import (
+	"os"
+	"strings"
 	"testing"
+
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestCreateClientTLSConfig(t *testing.T) {
@@ -36,6 +40,59 @@ func TestCreateClientTLSConfig(t *testing.T) {
 				t.Errorf("Expected success for test: %s, got err: %s", test.name, err)
 				return
 			}
+		})
+	}
+}
+
+func TestValkeyTLSScheme(t *testing.T) {
+	for _, host := range []string{
+		os.Getenv("TEST_REDIS7_TLS_URI"),
+		os.Getenv("TEST_VALKEY8_TLS_URI"),
+	} {
+		t.Run(host, func(t *testing.T) {
+
+			e, _ := NewRedisExporter(host,
+				Options{
+					SkipTLSVerification: true,
+					ClientCertFile:      "../contrib/tls/redis.crt",
+					ClientKeyFile:       "../contrib/tls/redis.key",
+				},
+			)
+			c, err := e.connectToRedis()
+			if err != nil {
+				t.Fatalf("connectToRedis() err: %s", err)
+			}
+
+			if _, err := c.Do("PING", ""); err != nil {
+				t.Errorf("PING err: %s", err)
+			}
+
+			c.Close()
+
+			chM := make(chan prometheus.Metric)
+			go func() {
+				e.Collect(chM)
+				close(chM)
+			}()
+
+			tsts := []struct {
+				in    string
+				found bool
+			}{
+				{in: "db_keys"},
+				{in: "commands_total"},
+				{in: "total_connections_received"},
+				{in: "used_memory"},
+			}
+			for m := range chM {
+				desc := m.Desc().String()
+				for i := range tsts {
+					if strings.Contains(desc, tsts[i].in) {
+						tsts[i].found = true
+					}
+				}
+			}
+
 		})
 	}
 }

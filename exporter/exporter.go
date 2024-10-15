@@ -86,11 +86,20 @@ type Options struct {
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
-func NewRedisExporter(redisURI string, opts Options) (*Exporter, error) {
+func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	log.Debugf("NewRedisExporter options: %#v", opts)
 
+	switch {
+	case strings.HasPrefix(uri, "valkey://"):
+		uri = strings.Replace(uri, "valkey://", "redis://", 1)
+	case strings.HasPrefix(uri, "valkeys://"):
+		uri = strings.Replace(uri, "valkeys://", "rediss://", 1)
+	}
+
+	log.Debugf("NewRedisExporter = using redis uri: %s", uri)
+
 	e := &Exporter{
-		redisAddr: redisURI,
+		redisAddr: uri,
 		options:   opts,
 		namespace: opts.Namespace,
 
