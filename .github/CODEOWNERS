@@ -1,0 +1,19 @@
+# Each line is a file pattern followed by one or more owners.
+# The LAST matched pattern takes precedence, so
+
+# specific items should be placed later in the file.
+
+# Format for owners is
+# Username @user
+# Team @snowflakedb/team
+# Email email@snowflake.com
+
+# * @global-owner-of-last-resort
+
+# You can also use email addresses if you prefer. They'll be
+# used to look up users just like we do for commit author
+# emails.
+
+# *.foo foo@snowflake.com
+
+# Jenkinsfile @snowflakedb/repository-test-owner
