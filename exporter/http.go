@@ -12,6 +12,17 @@ import (
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+
+	if e.options.BasicAuthUsername != "" || e.options.BasicAuthPassword != "" {
+		user, pass, _ := r.BasicAuth()
+
+		if user != e.options.BasicAuthUsername || pass != e.options.BasicAuthPassword {
+			w.Header().Set("WWW-Authenticate", `Basic realm="redis-exporter, charset=UTF-8"`)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+	}
+
 	e.mux.ServeHTTP(w, r)
 }
 

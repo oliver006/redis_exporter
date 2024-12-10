@@ -83,6 +83,8 @@ type Options struct {
 	RedisPwdFile                   string
 	Registry                       *prometheus.Registry
 	BuildInfo                      BuildInfo
+	BasicAuthUsername              string
+	BasicAuthPassword              string
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
