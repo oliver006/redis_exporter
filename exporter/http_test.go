@@ -393,6 +393,135 @@ func TestReloadHandlers(t *testing.T) {
 	}
 }
 
+func TestIsBasicAuthConfigured(t *testing.T) {
+	tests := []struct {
+		name     string
+		username string
+		password string
+		want     bool
+	}{
+		{
+			name:     "no credentials configured",
+			username: "",
+			password: "",
+			want:     false,
+		},
+		{
+			name:     "only username configured",
+			username: "user",
+			password: "",
+			want:     false,
+		},
+		{
+			name:     "only password configured",
+			username: "",
+			password: "pass",
+			want:     false,
+		},
+		{
+			name:     "both credentials configured",
+			username: "user",
+			password: "pass",
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, _ := NewRedisExporter("", Options{
+				BasicAuthUsername: tt.username,
+				BasicAuthPassword: tt.password,
+			})
+
+			if got := e.isBasicAuthConfigured(); got != tt.want {
+				t.Errorf("isBasicAuthConfigured() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestVerifyBasicAuth(t *testing.T) {
+	tests := []struct {
+		name          string
+		configUser    string
+		configPass    string
+		providedUser  string
+		providedPass  string
+		authHeaderSet bool
+		wantErr       bool
+		wantErrString string
+	}{
+		{
+			name:          "no auth configured - no credentials provided",
+			configUser:    "",
+			configPass:    "",
+			providedUser:  "",
+			providedPass:  "",
+			authHeaderSet: false,
+			wantErr:       false,
+		},
+		{
+			name:          "auth configured - no auth header",
+			configUser:    "user",
+			configPass:    "pass",
+			providedUser:  "",
+			providedPass:  "",
+			authHeaderSet: false,
+			wantErr:       true,
+			wantErrString: "Unauthorized",
+		},
+		{
+			name:          "auth configured - correct credentials",
+			configUser:    "user",
+			configPass:    "pass",
+			providedUser:  "user",
+			providedPass:  "pass",
+			authHeaderSet: true,
+			wantErr:       false,
+		},
+		{
+			name:          "auth configured - wrong username",
+			configUser:    "user",
+			configPass:    "pass",
+			providedUser:  "wronguser",
+			providedPass:  "pass",
+			authHeaderSet: true,
+			wantErr:       true,
+			wantErrString: "Unauthorized",
+		},
+		{
+			name:          "auth configured - wrong password",
+			configUser:    "user",
+			configPass:    "pass",
+			providedUser:  "user",
+			providedPass:  "wrongpass",
+			authHeaderSet: true,
+			wantErr:       true,
+			wantErrString: "Unauthorized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e, _ := NewRedisExporter("", Options{
+				BasicAuthUsername: tt.configUser,
+				BasicAuthPassword: tt.configPass,
+			})
+
+			err := e.verifyBasicAuth(tt.providedUser, tt.providedPass, tt.authHeaderSet)
+
+			if (err != nil) != tt.wantErr {
+				t.Errorf("verifyBasicAuth() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
+			if err != nil && err.Error() != tt.wantErrString {
+				t.Errorf("verifyBasicAuth() error = %v, wantErrString %v", err, tt.wantErrString)
+			}
+		})
+	}
+}
+
 func downloadURL(t *testing.T, u string) string {
 	_, res := downloadURLWithStatusCode(t, u)
 	return res
