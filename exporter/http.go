@@ -14,7 +14,6 @@ import (
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
 	err := e.verifyBasicAuth(r.BasicAuth())
 	if err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="redis-exporter, charset=UTF-8"`)
