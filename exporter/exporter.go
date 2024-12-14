@@ -299,8 +299,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_global_idle":         "search_global_idle",
 			"search_global_total":        "search_global_total",
 			"search_bytes_collected":     "search_collected_bytes",
-			"search_total_cycles":        "search_total_cycles",
-			"search_total_ms_run":        "search_total_run_ms",
 			"search_dialect_1":           "search_dialect_1",
 			"search_dialect_2":           "search_dialect_2",
 			"search_dialect_3":           "search_dialect_3",
@@ -359,6 +357,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 			// Redis Modules metrics, RediSearch module
 			"search_total_indexing_time": "search_indexing_time_ms_total",
+			"search_total_cycles":        "search_cycles_total",
+			"search_total_ms_run":        "search_run_ms_total",
 		},
 	}
 
