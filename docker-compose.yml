@@ -76,7 +76,7 @@ services:
       - "16381:6379"
 
   keydb-01:
-    image: "eqalpha/keydb:x86_64_v6.3.1"
+    image: "eqalpha/keydb:x86_64_v6.3.4"
     command: "keydb-server --protected-mode no"
     ports:
       - "16401:6379"
