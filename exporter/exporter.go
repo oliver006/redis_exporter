@@ -134,6 +134,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			// # Clients
 			"connected_clients":            "connected_clients",
 			"blocked_clients":              "blocked_clients",
+			"maxclients":                   "max_clients",
 			"tracking_clients":             "tracking_clients",
 			"clients_in_timeout_table":     "clients_in_timeout_table",
 			"pubsub_clients":               "pubsub_clients",               // Added in Redis 7.4
