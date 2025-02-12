@@ -1,9 +1,15 @@
 name: Release
 
 on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release"
+        required: true
+        type: string
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   release-binaries:
@@ -16,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: "1.23"
 
       - name: Build binaries
         run: |
@@ -32,7 +38,6 @@ jobs:
           artifacts: "dist/*"
           allowUpdates: true
           omitBodyDuringUpdate: true
-
 
   build-and-push-docker-images:
     runs-on: ubuntu-latest
@@ -62,9 +67,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # list of Docker images to use as base name for tags
-          images: |
-            FalkorDB/redis_exporter
+          images: falkordb/redis_exporter
 
       - name: Build and push scratch image
         uses: docker/build-push-action@v6
@@ -75,7 +78,7 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: "TAG=${{ github.ref_name }},SHA1=${{ github.sha }}"
+          build-args: "TAG=${{ github.event.inputs.tag || github.ref_name }},SHA1=${{ github.sha }}"
 
       - name: Build and push alpine image
         uses: docker/build-push-action@v6
@@ -84,6 +87,6 @@ jobs:
           target: alpine
           platforms: linux/amd64,linux/arm,linux/arm64
           push: true
-          tags: FalkorDB/redis_exporter:${{ github.ref_name }}-alpine,FalkorDB/redis_exporter:alpine
+          tags: falkordb/redis_exporter:${{ github.event.inputs.tag || github.ref_name }}-alpine,falkordb/redis_exporter:alpine
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: "TAG=${{ github.ref_name }},SHA1=${{ github.sha }}"
+          build-args: "TAG=${{ github.event.inputs.tag || github.ref_name }},SHA1=${{ github.sha }}"
