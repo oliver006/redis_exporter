@@ -26,6 +26,11 @@ jobs:
           make test-certs
           chmod 777 ./contrib/tls/*
 
+      - name: Create _data folder
+        run: | 
+          mkdir -p ./_data/appendonlydir
+          chmod -R a+rX ./_data/appendonlydir
+
       - name: Start services
         run: docker-compose up -d
         working-directory: ./

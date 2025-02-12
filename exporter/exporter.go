@@ -76,6 +76,8 @@ type Options struct {
 	IsCluster                      bool
 	ExportClientList               bool
 	ExportClientsInclPort          bool
+	InclAofFileSize                bool
+	OverrideAofFilePath            string
 	ConnectionTimeouts             time.Duration
 	MetricsPath                    string
 	RedisMetricsOnly               bool
@@ -238,6 +240,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"aof_delayed_fsync":            "aof_delayed_fsync",
 			"aof_last_bgrewrite_status":    "aof_last_bgrewrite_status",
 			"aof_last_write_status":        "aof_last_write_status",
+			"aof_incr_file_size":           "aof_incr_file_size_bytes",
 			"module_fork_in_progress":      "module_fork_in_progress",
 			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
@@ -481,6 +484,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
 		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
+		"aof_file_size_bytes":                                {txt: "AOF file size in bytes", lbls: []string{"filename"}},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -760,6 +764,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	if e.options.InclModulesMetrics {
 		e.extractModulesMetrics(ch, c)
+	}
+
+	if e.options.InclAofFileSize {
+		e.extractAofFileSizeMetrics(ch, c, e.options.ConfigCommandName, e.options.OverrideAofFilePath)
 	}
 
 	if len(e.options.LuaScript) > 0 {
