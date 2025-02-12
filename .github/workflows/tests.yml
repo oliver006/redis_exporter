@@ -43,8 +43,8 @@ jobs:
       - name: Docker logs
         run: |
           echo "${{ toJson(job) }}"
-          docker logs "redis_exporter_redis7-tls_1"
-          docker logs "redis_exporter_valkey8-tls_1"
+          docker logs "redis_exporter-redis7-tls-1"
+          docker logs "redis_exporter-valkey8-tls-1"
 
       - name: Run tests
         env:
