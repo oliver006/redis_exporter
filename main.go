@@ -95,6 +95,8 @@ func main() {
 		pingOnConnect                  = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclConfigMetrics              = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
 		inclModulesMetrics             = flag.Bool("include-modules-metrics", getEnvBool("REDIS_EXPORTER_INCL_MODULES_METRICS", false), "Whether to collect Redis Modules metrics")
+		inclAofFileSize                = flag.Bool("include-aof-file-size", getEnvBool("REDIS_EXPORTER_INCL_AOF_FILE_SIZE", false), "Whether to collect AOF file size metrics")
+		overrideAofFilePath            = flag.String("override-aof-file-path", getEnv("REDIS_EXPORTER_OVERRIDE_AOF_FILE_PATH", ""), "Override the AOF file path in the metrics")
 		disableExportingKeyValues      = flag.Bool("disable-exporting-key-values", getEnvBool("REDIS_EXPORTER_DISABLE_EXPORTING_KEY_VALUES", false), "Whether to disable values of keys stored in redis as labels or not when using check-keys/check-single-key")
 		excludeLatencyHistogramMetrics = flag.Bool("exclude-latency-histogram-metrics", getEnvBool("REDIS_EXPORTER_EXCLUDE_LATENCY_HISTOGRAM_METRICS", false), "Do not try to collect latency histogram metrics")
 		redactConfigMetrics            = flag.Bool("redact-config-metrics", getEnvBool("REDIS_EXPORTER_REDACT_CONFIG_METRICS", true), "Whether to redact config settings that include potentially sensitive information like passwords")
@@ -186,6 +188,8 @@ func main() {
 			IsTile38:                       *isTile38,
 			IsCluster:                      *isCluster,
 			InclModulesMetrics:             *inclModulesMetrics,
+			InclAofFileSize:                *inclAofFileSize,
+			OverrideAofFilePath:            *overrideAofFilePath,
 			ExportClientList:               *exportClientList,
 			ExportClientsInclPort:          *exportClientPort,
 			SkipTLSVerification:            *skipTLSVerification,
