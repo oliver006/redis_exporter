@@ -23,7 +23,7 @@ func TestAof(t *testing.T) {
 	}
 
 	for _, tst := range tsts {
-		e, _ := NewRedisExporter(tst.addr, Options{InclAofFileSize: tst.enableAofFileSize, OverrideAofFilePath: "../data/appendonlydir"})
+		e, _ := NewRedisExporter(tst.addr, Options{InclAofFileSize: tst.enableAofFileSize, OverrideAofFilePath: "../_data/appendonlydir"})
 
 		chM := make(chan prometheus.Metric)
 

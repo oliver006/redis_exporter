@@ -127,7 +127,7 @@ services:
     ports:
       - "16501:6379"
     volumes:
-      - ./data:/data
+      - ./_data:/data
 
   redis-stack:
     image: redis/redis-stack-server:7.4.0-v0
