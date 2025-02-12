@@ -67,18 +67,21 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
+        continue-on-error: true
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: fa;se
           files: ./coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }} # required
           verbose: true
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           file: coverage.txt
 
       - name: Stop services
+        if: always()
         run: docker-compose down
         working-directory: ./
 
