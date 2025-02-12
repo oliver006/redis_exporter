@@ -83,7 +83,7 @@ GO_LDFLAGS:="-s -w -extldflags \"-static\" -X main.BuildVersion=${GITHUB_REF_NAM
 
 .PHONE: build-some-amd64-binaries
 build-some-amd64-binaries:
-	go install github.com/oliver006/gox@master
+	go install github.com/FalkorDB/gox@master
 
 	rm -rf .build | true
 
@@ -93,7 +93,7 @@ build-some-amd64-binaries:
 
 .PHONE: build-all-binaries
 build-all-binaries:
-	go install github.com/oliver006/gox@master
+	go install github.com/FalkorDB/gox@master
 
 	rm -rf .build | true
 

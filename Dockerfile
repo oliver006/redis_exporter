@@ -4,9 +4,9 @@ ARG TARGETPLATFORM
 # build container
 #
 FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
-WORKDIR /go/src/github.com/oliver006/redis_exporter/
+WORKDIR /go/src/github.com/FalkorDB/redis_exporter/
 
-ADD . /go/src/github.com/oliver006/redis_exporter/
+ADD . /go/src/github.com/FalkorDB/redis_exporter/
 
 ARG SHA1="[no-sha]"
 ARG TAG="[no-tag]"

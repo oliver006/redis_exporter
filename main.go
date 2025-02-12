@@ -16,7 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 
-	"github.com/oliver006/redis_exporter/exporter"
+	"github.com/FalkorDB/redis_exporter/exporter"
 )
 
 var (
