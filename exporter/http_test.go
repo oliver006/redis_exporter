@@ -205,7 +205,6 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" ||
-		os.Getenv("TEST_REDIS_2_8_URI") == "" ||
 		os.Getenv("TEST_KEYDB01_URI") == "" ||
 		os.Getenv("TEST_KEYDB02_URI") == "" ||
 		os.Getenv("TEST_REDIS5_URI") == "" ||
@@ -226,7 +225,6 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 
 	uris := []string{
 		os.Getenv("TEST_REDIS_URI"),
-		os.Getenv("TEST_REDIS_2_8_URI"),
 
 		os.Getenv("TEST_REDIS7_URI"),
 
