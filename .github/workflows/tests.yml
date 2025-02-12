@@ -17,20 +17,19 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Set up Docker Compose
-        run: sudo apt-get install docker-compose
-
       # need to do this before we start the services as they need the TLS creds
       - name: Create test certs for TLS
         run: |
           make test-certs
           chmod 777 ./contrib/tls/*
 
-      - name: Create data folder
-        run: mkdir -p ./data
+      - name: Create _data folder
+        run: | 
+          mkdir -p ./_data/appendonlydir
+          chmod -R a+rX ./_data/appendonlydir
 
       - name: Start services
-        run: docker-compose up -d
+        run: docker compose up -d
         working-directory: ./
 
       - name: Setup Go
@@ -44,8 +43,8 @@ jobs:
       - name: Docker logs
         run: |
           echo "${{ toJson(job) }}"
-          docker logs "redis_exporter_redis7-tls_1"
-          docker logs "redis_exporter_valkey8-tls_1"
+          docker logs "redis_exporter-redis7-tls-1"
+          docker logs "redis_exporter-valkey8-tls-1"
 
       - name: Run tests
         env:
@@ -68,19 +67,22 @@ jobs:
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
+        continue-on-error: true
         with:
-          fail_ci_if_error: true
+          fail_ci_if_error: fa;se
           files: ./coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }} # required
           verbose: true
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
+        continue-on-error: true
         with:
           file: coverage.txt
 
       - name: Stop services
-        run: docker-compose down
+        if: always()
+        run: docker compose down
         working-directory: ./
 
 

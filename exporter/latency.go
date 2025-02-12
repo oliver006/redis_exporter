@@ -27,7 +27,7 @@ func (e *Exporter) extractLatencyLatestMetrics(outChan chan<- prometheus.Metric,
 	reply, err := redis.Values(doRedisCmd(redisConn, "LATENCY", "LATEST"))
 	if err != nil {
 		/*
-			this can be a little too verbose, see e.g. https://github.com/oliver006/redis_exporter/issues/495
+			this can be a little too verbose, see e.g. https://github.com/FalkorDB/redis_exporter/issues/495
 			we're logging this only once as an Error and always as Debugf()
 		*/
 		logLatestErrOnce.Do(func() {

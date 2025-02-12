@@ -69,12 +69,6 @@ services:
     ports:
       - "16390:6379"
 
-  redis-2-8:
-    image: redis:2.8
-    command: "redis-server"
-    ports:
-      - "16381:6379"
-
   keydb-01:
     image: "eqalpha/keydb:x86_64_v6.3.1"
     command: "keydb-server --protected-mode no"
@@ -126,9 +120,8 @@ services:
     command: "redis-server  --enable-debug-command yes --protected-mode no --appendonly yes"
     ports:
       - "16501:6379"
-      - "6379:6379"
     volumes:
-      - ./data:/data
+      - ./_data:/data
 
   redis-stack:
     image: redis/redis-stack-server:7.4.0-v0
