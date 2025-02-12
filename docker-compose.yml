@@ -121,6 +121,15 @@ services:
     ports:
       - "19851:9851"
 
+  redis-aof:
+    image: redis:7.4
+    command: "redis-server  --enable-debug-command yes --protected-mode no --appendonly yes"
+    ports:
+      - "16501:6379"
+      - "6379:6379"
+    volumes:
+      - ./data:/data
+
   redis-stack:
     image: redis/redis-stack-server:7.4.0-v0
     ports:
