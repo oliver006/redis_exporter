@@ -1,6 +1,8 @@
 package exporter
 
 import (
+	"crypto/subtle"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -12,6 +14,12 @@ import (
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := e.verifyBasicAuth(r.BasicAuth()); err != nil {
+		w.Header().Set("WWW-Authenticate", `Basic realm="redis-exporter, charset=UTF-8"`)
+		http.Error(w, err.Error(), http.StatusUnauthorized)
+		return
+	}
+
 	e.mux.ServeHTTP(w, r)
 }
 
@@ -106,4 +114,28 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 	e.options.PasswordMap = passwordMap
 	e.Unlock()
 	_, _ = w.Write([]byte(`ok`))
+}
+
+func (e *Exporter) isBasicAuthConfigured() bool {
+	return e.options.BasicAuthUsername != "" && e.options.BasicAuthPassword != ""
+}
+
+func (e *Exporter) verifyBasicAuth(user, password string, authHeaderSet bool) error {
+
+	if !e.isBasicAuthConfigured() {
+		return nil
+	}
+
+	if !authHeaderSet {
+		return errors.New("Unauthorized")
+	}
+
+	userCorrect := subtle.ConstantTimeCompare([]byte(user), []byte(e.options.BasicAuthUsername))
+	passCorrect := subtle.ConstantTimeCompare([]byte(password), []byte(e.options.BasicAuthPassword))
+
+	if userCorrect == 0 || passCorrect == 0 {
+		return errors.New("Unauthorized")
+	}
+
+	return nil
 }
