@@ -34,15 +34,41 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	case "none":
 		return info, errKeyTypeNotFound
 	case "string":
-		// Use PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
+		// Check PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
 		// while PFCOUNT only works on HLL strings and returns an error on regular strings.
-		if size, err := redis.Int64(doRedisCmd(c, "PFCOUNT", key)); err == nil {
-			// hyperloglog
-			info.size = float64(size)
-			info.keyType = "HLL" // this will prevent treating the result as a string by the caller
-		} else if size, err := redis.Int64(doRedisCmd(c, "STRLEN", key)); err == nil {
-			info.size = float64(size)
+
+		//
+		// the following two commands are pipelined/batched to improve performance
+		// by removing one roundtrip to the redis instance
+		// see https://github.com/oliver006/redis_exporter/issues/980
+		//
+		if err := c.Send("PFCOUNT", key); err != nil {
+			return info, err
 		}
+		if err := c.Send("STRLEN", key); err != nil {
+			return info, err
+		}
+		if err := c.Flush(); err != nil {
+			return info, err
+		}
+
+		hllSize, hllErr := redis.Int64(c.Receive())
+		strSize, strErr := redis.Int64(c.Receive())
+		if hllErr == nil {
+			// hyperloglog
+			info.size = float64(hllSize)
+
+			// "TYPE" reports hll as string
+			// this will prevent treating the result as a string by the caller (e.g. call GET)
+			info.keyType = "HLL"
+		} else if strErr == nil {
+			// not hll so possibly a string?
+			info.size = float64(strSize)
+		} else {
+			// something went wrong, return the error(s)
+			return info, fmt.Errorf("hllErr: %w strErr: %w", hllErr, strErr)
+		}
+
 	case "list":
 		if size, err := redis.Int64(doRedisCmd(c, "LLEN", key)); err == nil {
 			info.size = float64(size)
