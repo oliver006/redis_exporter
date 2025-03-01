@@ -13,7 +13,8 @@ import (
 )
 
 type dbKeyPair struct {
-	db, key string
+	db  string
+	key string
 }
 
 type keyInfo struct {
@@ -38,6 +39,7 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 		if size, err := redis.Int64(doRedisCmd(c, "PFCOUNT", key)); err == nil {
 			// hyperloglog
 			info.size = float64(size)
+			info.keyType = "HLL" // this will prevent treating the result as a string by the caller
 		} else if size, err := redis.Int64(doRedisCmd(c, "STRLEN", key)); err == nil {
 			info.size = float64(size)
 		}
@@ -94,14 +96,19 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	}
 
 	log.Debugf("allKeys: %#v", allKeys)
+	lastDb := ""
 	for _, k := range allKeys {
 		if e.options.IsCluster {
 			// Cluster mode only has one db
+			// no need to run `SELECT" but got to set it to "0" here cause it's used further down as a label
 			k.db = "0"
 		} else {
-			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-				log.Errorf("Couldn't select database %#v when getting key info.", k.db)
-				continue
+			if k.db != lastDb {
+				if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+					log.Errorf("Couldn't select database [%s] when getting key info.", k.db)
+					continue
+				}
+				lastDb = k.db
 			}
 		}
 

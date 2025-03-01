@@ -115,7 +115,7 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (interface{}, error) {
-	log.Debugf("c.Do() - running command: %s %s", cmd, args)
+	log.Debugf("c.Do() - running command: %s args: [%v]", cmd, args)
 	res, err := c.Do(cmd, args...)
 	if err != nil {
 		log.Debugf("c.Do() - err: %s", err)
