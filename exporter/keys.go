@@ -24,8 +24,75 @@ type keyInfo struct {
 
 var errKeyTypeNotFound = fmt.Errorf("key not found")
 
+func getStringInfoNotPipelined(c redis.Conn, key string) (keyInfo, error) {
+	var info keyInfo
+	var err error
+	var size int64
+
+	// Check PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
+	// while PFCOUNT only works on HLL strings and returns an error on regular strings.
+	//
+	// no pipelining / batching for cluster mode, it's not supported
+	if size, err = redis.Int64(doRedisCmd(c, "PFCOUNT", key)); err == nil {
+		// hyperloglog
+		info.size = float64(size)
+		info.keyType = "HLL"
+		return info, nil
+	} else if size, err = redis.Int64(doRedisCmd(c, "STRLEN", key)); err == nil {
+		info.size = float64(size)
+		info.keyType = "string"
+		return info, nil
+	}
+	return info, err
+}
+
+func getStringInfoPipelined(c redis.Conn, key string) (keyInfo, error) {
+	var info keyInfo
+	//
+	// the following two commands are pipelined/batched to improve performance
+	// by removing one roundtrip to the redis instance
+	// see https://github.com/oliver006/redis_exporter/issues/980
+	//
+	// This will send both PFCOUNT and STRLEN and then check PFCOUNT first
+	// For hyperloglog keys this will call STRLEN anyway but it saves the roundtrip
+	//
+	// STRLEN on HyperLogLog strings returns the wrong length while PFCOUNT only
+	// works on HLL strings and returns an error on regular strings.
+	if err := c.Send("PFCOUNT", key); err != nil {
+		return info, err
+	}
+	if err := c.Send("STRLEN", key); err != nil {
+		return info, err
+	}
+	if err := c.Flush(); err != nil {
+		return info, err
+	}
+
+	hllSize, hllErr := redis.Int64(c.Receive())
+	strSize, strErr := redis.Int64(c.Receive())
+	if hllErr == nil {
+		// hyperloglog
+		info.size = float64(hllSize)
+
+		// "TYPE" reports hll as string
+		// this will prevent treating the result as a string by the caller (e.g. call GET)
+		info.keyType = "HLL"
+	} else if strErr == nil {
+		// not hll so possibly a string?
+		info.size = float64(strSize)
+		info.keyType = "string"
+	} else {
+		// something went wrong, return the error(s)
+		return info, fmt.Errorf("hllErr: %w strErr: %w", hllErr, strErr)
+	}
+	return info, nil
+}
+
 // getKeyInfo takes a key and returns the type, and the size or length of the value stored at that key.
-func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
+func getKeyInfo(c redis.Conn, key string, isCluster bool) (keyInfo, error) {
+	var info keyInfo
+	var err error
+
 	if info.keyType, err = redis.String(doRedisCmd(c, "TYPE", key)); err != nil {
 		return info, err
 	}
@@ -34,41 +101,12 @@ func getKeyInfo(c redis.Conn, key string) (info keyInfo, err error) {
 	case "none":
 		return info, errKeyTypeNotFound
 	case "string":
-		// Check PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
-		// while PFCOUNT only works on HLL strings and returns an error on regular strings.
-
-		//
-		// the following two commands are pipelined/batched to improve performance
-		// by removing one roundtrip to the redis instance
-		// see https://github.com/oliver006/redis_exporter/issues/980
-		//
-		if err := c.Send("PFCOUNT", key); err != nil {
-			return info, err
-		}
-		if err := c.Send("STRLEN", key); err != nil {
-			return info, err
-		}
-		if err := c.Flush(); err != nil {
-			return info, err
-		}
-
-		hllSize, hllErr := redis.Int64(c.Receive())
-		strSize, strErr := redis.Int64(c.Receive())
-		if hllErr == nil {
-			// hyperloglog
-			info.size = float64(hllSize)
-
-			// "TYPE" reports hll as string
-			// this will prevent treating the result as a string by the caller (e.g. call GET)
-			info.keyType = "HLL"
-		} else if strErr == nil {
-			// not hll so possibly a string?
-			info.size = float64(strSize)
+		if isCluster {
+			// can't pipeline for clusters because redisc doesn't support pipelined calls for clusters
+			info, err = getStringInfoNotPipelined(c, key)
 		} else {
-			// something went wrong, return the error(s)
-			return info, fmt.Errorf("hllErr: %w strErr: %w", hllErr, strErr)
+			info, err = getStringInfoPipelined(c, key)
 		}
-
 	case "list":
 		if size, err := redis.Int64(doRedisCmd(c, "LLEN", key)); err == nil {
 			info.size = float64(size)
@@ -139,7 +177,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 		}
 
 		dbLabel := "db" + k.db
-		info, err := getKeyInfo(c, k.key)
+		info, err := getKeyInfo(c, k.key, e.options.IsCluster)
 		switch err {
 		case errKeyTypeNotFound:
 			log.Debugf("Key '%s' not found when trying to get type and size: using default '0.0'", k.key)

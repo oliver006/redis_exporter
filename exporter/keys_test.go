@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -516,7 +517,7 @@ func TestGetKeyInfo(t *testing.T) {
 
 	// Test all known types
 	for _, f := range fixtures {
-		info, err := getKeyInfo(c, f.key)
+		info, err := getKeyInfo(c, f.key, false)
 		if err != nil {
 			t.Errorf("Error getting key info for %#v.", f.key)
 		}
@@ -529,8 +530,8 @@ func TestGetKeyInfo(t *testing.T) {
 	}
 
 	// Test absent key returns the correct error
-	_, err = getKeyInfo(c, "absent_key")
-	if err != errKeyTypeNotFound {
+	_, err = getKeyInfo(c, "absent_key", false)
+	if !errors.Is(err, errKeyTypeNotFound) {
 		t.Error("Expected `errKeyTypeNotFound` for absent key.  Got a different error.")
 	}
 }
