@@ -58,18 +58,26 @@ func getStringInfoPipelined(c redis.Conn, key string) (keyInfo, error) {
 	//
 	// STRLEN on HyperLogLog strings returns the wrong length while PFCOUNT only
 	// works on HLL strings and returns an error on regular strings.
+
+	log.Debugf("c.Send() PFCOUNT  args: [%v]", key)
 	if err := c.Send("PFCOUNT", key); err != nil {
 		return info, err
 	}
+
+	log.Debugf("c.Send() STRLEN  args: [%v]", key)
 	if err := c.Send("STRLEN", key); err != nil {
 		return info, err
 	}
+
+	log.Debugf("c.Flush()")
 	if err := c.Flush(); err != nil {
 		return info, err
 	}
 
 	hllSize, hllErr := redis.Int64(c.Receive())
 	strSize, strErr := redis.Int64(c.Receive())
+	log.Debugf("Done with c.Receive() x 2, hllErr: %s   strErr: %s", hllErr, strErr)
+
 	if hllErr == nil {
 		// hyperloglog
 		info.size = float64(hllSize)
@@ -102,7 +110,8 @@ func getKeyInfo(c redis.Conn, key string, isCluster bool) (keyInfo, error) {
 		return info, errKeyTypeNotFound
 	case "string":
 		if isCluster {
-			// can't pipeline for clusters because redisc doesn't support pipelined calls for clusters
+			// can't use pipelining for clusters
+			// because redisc doesn't support pipelined calls for clusters
 			info, err = getStringInfoNotPipelined(c, key)
 		} else {
 			info, err = getStringInfoPipelined(c, key)

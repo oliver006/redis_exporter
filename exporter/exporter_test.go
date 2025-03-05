@@ -33,7 +33,6 @@ var (
 	keysExpiring    []string
 	listKeys        []string
 	singleStringKey string
-	ts              = int32(time.Now().Unix())
 
 	dbNumStr        = "11"
 	altDBNumStr     = "12"
@@ -44,6 +43,7 @@ var (
 const (
 	TestSetName    = "test-set"
 	TestStreamName = "test-stream"
+	TestHllName    = "test-hll"
 )
 
 func getTestExporter() *Exporter {
@@ -99,6 +99,10 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 		}
 	}
 
+	c.Do("PFADD", TestHllName, "val1")
+	c.Do("PFADD", TestHllName, "val22")
+	c.Do("PFADD", TestHllName, "val333")
+
 	c.Do("SADD", TestSetName, "test-val-1")
 	c.Do("SADD", TestSetName, "test-val-2")
 
@@ -109,6 +113,7 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 	c.Do("XGROUP", "CREATE", TestStreamName, "test_group_2", "$", "MKSTREAM")
 	c.Do("XADD", TestStreamName, TestStreamTimestamps[0], "field_1", "str_1")
 	c.Do("XADD", TestStreamName, TestStreamTimestamps[1], "field_2", "str_2")
+
 	// Process messages to assign Consumers to their groups
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", TestStreamName, ">")
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestStreamName, ">")
@@ -135,6 +140,7 @@ func deleteKeys(c redis.Conn, dbNumStr string) {
 		c.Do("DEL", key)
 	}
 
+	c.Do("DEL", TestHllName)
 	c.Do("DEL", TestSetName)
 	c.Do("DEL", TestStreamName)
 	c.Do("DEL", singleStringKey)
@@ -450,15 +456,17 @@ func init() {
 		log.SetLevel(log.InfoLevel)
 	}
 
+	testTimestamp := time.Now().Unix()
+
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
-		keys = append(keys, fmt.Sprintf("key_%s_%d", n, ts))
+		keys = append(keys, fmt.Sprintf("key_%s_%d", n, testTimestamp))
 	}
 
-	singleStringKey = fmt.Sprintf("key_string_%d", ts)
+	singleStringKey = fmt.Sprintf("key_string_%d", testTimestamp)
 
 	listKeys = append(listKeys, "beatles_list")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
-		keysExpiring = append(keysExpiring, fmt.Sprintf("key_exp_%s_%d", n, ts))
+		keysExpiring = append(keysExpiring, fmt.Sprintf("key_exp_%s_%d", n, testTimestamp))
 	}
 }

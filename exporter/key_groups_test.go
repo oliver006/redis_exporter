@@ -71,7 +71,7 @@ func TestKeyGroupMetrics(t *testing.T) {
 			wantedCount: map[string]int{
 				"key_ringo":    1,
 				"key_paul":     1,
-				"unclassified": 6,
+				"unclassified": 7,
 				"key_exp":      5,
 			},
 			wantedMemory: map[string]bool{
@@ -92,13 +92,13 @@ func TestKeyGroupMetrics(t *testing.T) {
 			// updates of the init() function
 			wantedCount: map[string]int{
 				"test-stream": 1,
-				"overflow":    12,
+				"overflow":    13,
 			},
 			wantedMemory: map[string]bool{
 				"test-stream": true,
 				"overflow":    true,
 			},
-			wantedDistintKeyGroups: 13,
+			wantedDistintKeyGroups: 14,
 		},
 	}
 

@@ -97,7 +97,10 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 	for _, exc := range []bool{true, false} {
 		e, _ := NewRedisExporter(
 			os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
-			Options{Namespace: "test", DisableExportingKeyValues: exc, CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]), IsCluster: true},
+			Options{
+				Namespace: "test", DisableExportingKeyValues: exc,
+				CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]),
+				IsCluster:       true},
 		)
 
 		uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
@@ -466,7 +469,6 @@ func TestGetKeysFromPatterns(t *testing.T) {
 			t.Errorf("Error expected with invalid database %#v, got valid response: %#v", invalidKeys, got)
 		}
 	}
-
 }
 
 func TestGetKeyInfo(t *testing.T) {
@@ -486,6 +488,7 @@ func TestGetKeyInfo(t *testing.T) {
 		{"SET", "key_info_test_string", []interface{}{"Woohoo!"}},
 		{"HSET", "key_info_test_hash", []interface{}{"hashkey1", "hashval1"}},
 		{"PFADD", "key_info_test_hll", []interface{}{"hllval1", "hllval2"}},
+		{"PFADD", "key_info_test_hll2", []interface{}{"hll2val_1", "hll2val_2", "hll2val_3"}},
 		{"LPUSH", "key_info_test_list", []interface{}{"listval1", "listval2", "listval3"}},
 		{"SADD", "key_info_test_set", []interface{}{"setval1", "setval2", "setval3", "setval4"}},
 		{"ZADD", "key_info_test_zset", []interface{}{
@@ -509,6 +512,7 @@ func TestGetKeyInfo(t *testing.T) {
 		"key_info_test_string": 7,
 		"key_info_test_hash":   1,
 		"key_info_test_hll":    2,
+		"key_info_test_hll2":   3,
 		"key_info_test_list":   3,
 		"key_info_test_set":    4,
 		"key_info_test_zset":   5,
