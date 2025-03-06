@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -90,19 +91,30 @@ func TestKeyValuesAsLabel(t *testing.T) {
 }
 
 func TestClusterKeyValuesAndSizes(t *testing.T) {
-	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
+	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	if clusterUri == "" {
 		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
 	}
+
 	for _, exc := range []bool{true, false} {
+
 		e, _ := NewRedisExporter(
-			os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
-			Options{Namespace: "test", DisableExportingKeyValues: exc, CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]), IsCluster: true},
+			clusterUri,
+			Options{
+				Namespace: "test", DisableExportingKeyValues: exc,
+				CheckSingleKeys: fmt.Sprintf(
+					"%s=%s,%s=%s",
+					dbNumStrFull, url.QueryEscape(keys[0]),
+					dbNumStrFull, url.QueryEscape(TestKeysSetName),
+				),
+				IsCluster: true,
+			},
 		)
 
-		uri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
-
-		setupDBKeysCluster(t, uri)
-		defer deleteKeysFromDBCluster(uri)
+		if err := setupDBKeysCluster(t, clusterUri); err != nil {
+			t.Fatalf("setupDBKeysCluster() err: %s", err)
+		}
+		defer deleteKeysFromDBCluster(clusterUri)
 
 		chM := make(chan prometheus.Metric)
 		go func() {
@@ -465,7 +477,6 @@ func TestGetKeysFromPatterns(t *testing.T) {
 			t.Errorf("Error expected with invalid database %#v, got valid response: %#v", invalidKeys, got)
 		}
 	}
-
 }
 
 func TestGetKeyInfo(t *testing.T) {
@@ -485,6 +496,7 @@ func TestGetKeyInfo(t *testing.T) {
 		{"SET", "key_info_test_string", []interface{}{"Woohoo!"}},
 		{"HSET", "key_info_test_hash", []interface{}{"hashkey1", "hashval1"}},
 		{"PFADD", "key_info_test_hll", []interface{}{"hllval1", "hllval2"}},
+		{"PFADD", "key_info_test_hll2", []interface{}{"hll2val_1", "hll2val_2", "hll2val_3"}},
 		{"LPUSH", "key_info_test_list", []interface{}{"listval1", "listval2", "listval3"}},
 		{"SADD", "key_info_test_set", []interface{}{"setval1", "setval2", "setval3", "setval4"}},
 		{"ZADD", "key_info_test_zset", []interface{}{
@@ -508,6 +520,7 @@ func TestGetKeyInfo(t *testing.T) {
 		"key_info_test_string": 7,
 		"key_info_test_hash":   1,
 		"key_info_test_hll":    2,
+		"key_info_test_hll2":   3,
 		"key_info_test_list":   3,
 		"key_info_test_set":    4,
 		"key_info_test_zset":   5,
@@ -516,7 +529,7 @@ func TestGetKeyInfo(t *testing.T) {
 
 	// Test all known types
 	for _, f := range fixtures {
-		info, err := getKeyInfo(c, f.key)
+		info, err := getKeyInfo(c, f.key, false)
 		if err != nil {
 			t.Errorf("Error getting key info for %#v.", f.key)
 		}
@@ -529,8 +542,8 @@ func TestGetKeyInfo(t *testing.T) {
 	}
 
 	// Test absent key returns the correct error
-	_, err = getKeyInfo(c, "absent_key")
-	if err != errKeyTypeNotFound {
+	_, err = getKeyInfo(c, "absent_key", false)
+	if !errors.Is(err, errKeyTypeNotFound) {
 		t.Error("Expected `errKeyTypeNotFound` for absent key.  Got a different error.")
 	}
 }
@@ -639,6 +652,40 @@ func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, `test_key_size{db="db0",key="single"} 0`) {
 		t.Errorf("Expected metric `test_key_size` with key=`single` and value 0 but got:\n%s", body)
+	}
+}
+
+func TestClusterGetKeyInfo(t *testing.T) {
+	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	if clusterUri == "" {
+		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
+	}
+
+	e, _ := NewRedisExporter(
+		clusterUri,
+		Options{
+			Namespace:       "test",
+			CheckSingleKeys: TestKeysHllName, Registry: prometheus.NewRegistry(),
+			IsCluster: true,
+		},
+	)
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	if err := setupDBKeysCluster(t, clusterUri); err != nil {
+		t.Fatalf("setupDBKeysCluster() err: %s", err)
+	}
+	defer deleteKeysFromDBCluster(clusterUri)
+
+	chM := make(chan prometheus.Metric, 10000)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	body := downloadURL(t, ts.URL+"/metrics")
+	if !strings.Contains(body, `test_key_size{db="db0",key="test-hll"} 3`) {
+		t.Errorf("Expected metric `test_key_size` with key=`test-hll` and value 3 but got:\n%s", body)
 	}
 }
 
