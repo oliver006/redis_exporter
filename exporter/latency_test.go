@@ -13,6 +13,10 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
+const (
+	latencyTestTimeToSleepInMillis = 200
+)
+
 func TestLatencySpike(t *testing.T) {
 	e := getTestExporter()
 
@@ -36,8 +40,8 @@ func TestLatencySpike(t *testing.T) {
 			// Because we're dealing with latency, there might be a slight delay
 			// even after sleeping for a specific amount of time so checking
 			// to see if we're between +-5 of our expected value
-			if math.Abs(float64(TimeToSleep)-val) > 5 {
-				t.Errorf("values not matching, %f != %f", float64(TimeToSleep), val)
+			if math.Abs(float64(latencyTestTimeToSleepInMillis)-val) > 5 {
+				t.Errorf("values not matching, %f != %f", float64(latencyTestTimeToSleepInMillis), val)
 			}
 		}
 	}
@@ -76,7 +80,7 @@ func setupLatency(t *testing.T, addr string) error {
 
 	// Have to pass in the sleep time in seconds so we have to divide
 	// the number of milliseconds by 1000 to get number of seconds
-	_, err = c.Do("DEBUG", "SLEEP", TimeToSleep/1000.0)
+	_, err = c.Do("DEBUG", "SLEEP", latencyTestTimeToSleepInMillis/1000.0)
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
 		return err
