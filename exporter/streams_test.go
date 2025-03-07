@@ -585,7 +585,7 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 		"stream_group_lag":               false,
 	}
 
-	dont_want := map[string]bool{
+	dontWant := map[string]bool{
 		"stream_group_consumer_messages_pending": false,
 		"stream_group_consumer_idle_seconds":     false,
 	}
@@ -599,12 +599,12 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 				want[k] = true
 			}
 		}
-		for k := range dont_want {
+		for k := range dontWant {
 			log.Debugf("metric: %s", m.Desc().String())
 			log.Debugf("don't want: %s", k)
 
 			if strings.Contains(m.Desc().String(), k) {
-				dont_want[k] = true
+				dontWant[k] = true
 			}
 		}
 	}
@@ -614,7 +614,7 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 			t.Errorf("didn't find %s metric, which should be collected", k)
 		}
 	}
-	for k, found := range dont_want {
+	for k, found := range dontWant {
 		if found {
 			t.Errorf("found %s metric, which shouldn't be collected", k)
 		}

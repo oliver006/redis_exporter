@@ -133,6 +133,7 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
 	c.Do("XREADGROUP", "GROUP", "test_group_2", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, "0")
 
+	time.Sleep(time.Millisecond * 100)
 	return nil
 }
 
@@ -160,42 +161,33 @@ func deleteKeys(c redis.Conn, dbNumStr string) {
 	c.Do("DEL", singleStringKey)
 }
 
-func setupDBKeys(t *testing.T, uri string) error {
+func setupDBKeys(t *testing.T, uri string) {
 	c, err := redis.DialURL(uri)
 	if err != nil {
-		t.Errorf("couldn't setup redis for uri %s, err: %s ", uri, err)
-		return err
+		t.Fatalf("couldn't setup redis for uri %s, err: %s ", uri, err)
+		return
 	}
 	defer c.Close()
 
-	err = setupKeys(t, c, dbNumStr)
-	if err != nil {
-		t.Errorf("couldn't setup redis, err: %s ", err)
-		return err
+	if err = setupKeys(t, c, dbNumStr); err != nil {
+		t.Fatalf("couldn't setup redis, err: %s ", err)
 	}
-
-	time.Sleep(time.Millisecond * 50)
-
-	return nil
 }
 
-func setupDBKeysCluster(t *testing.T, uri string) error {
+func setupDBKeysCluster(t *testing.T, uri string) {
 	e, _ := NewRedisExporter(uri, Options{})
 	c, err := e.connectToRedisCluster()
 	if err != nil {
-		return err
+		t.Fatalf("connectToRedisCluster() err: %s ", err)
+		return
 	}
 
 	defer c.Close()
 
 	if err = setupKeys(t, c, "0"); err != nil {
-		t.Errorf("couldn't setup redis, err: %s ", err)
-		return err
+		t.Fatalf("couldn't setup redis, err: %s ", err)
+		return
 	}
-
-	time.Sleep(time.Millisecond * 50)
-
-	return nil
 }
 
 func deleteKeysFromDB(t *testing.T, addr string) error {

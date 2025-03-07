@@ -64,7 +64,7 @@ services:
       - "16380:6379"
 
   pwd-redis6:
-    image: redis:6
+    image: redis:6.2
     command: "redis-server --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password'"
     ports:
       - "16390:6379"
@@ -100,7 +100,7 @@ services:
       - "17005:7005"
 
   redis-cluster-password:
-    image: bitnami/redis-cluster
+    image: bitnami/redis-cluster:7.4
     environment:
       - REDIS_PORT_NUMBER=7006
       - REDIS_PASSWORD=redis-password

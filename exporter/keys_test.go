@@ -55,6 +55,9 @@ func TestKeyValuesAndSizes(t *testing.T) {
 }
 
 func TestKeyValuesAsLabel(t *testing.T) {
+	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+
 	for _, exc := range []bool{true, false} {
 		e, _ := NewRedisExporter(
 			os.Getenv("TEST_REDIS_URI"),
@@ -65,10 +68,6 @@ func TestKeyValuesAsLabel(t *testing.T) {
 				Registry:                  prometheus.NewRegistry()},
 		)
 		ts := httptest.NewServer(e)
-		defer ts.Close()
-
-		setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-		defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
 		chM := make(chan prometheus.Metric, 10000)
 		go func() {
@@ -87,6 +86,7 @@ func TestKeyValuesAsLabel(t *testing.T) {
 				t.Fatalf("didn't find %s with DisableExportingKeyValues disabled, body: %s", match, body)
 			}
 		}
+		ts.Close()
 	}
 }
 
@@ -95,9 +95,10 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 	if clusterUri == "" {
 		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
 	}
+	setupDBKeysCluster(t, clusterUri)
+	defer deleteKeysFromDBCluster(clusterUri)
 
 	for _, exc := range []bool{true, false} {
-
 		e, _ := NewRedisExporter(
 			clusterUri,
 			Options{
@@ -110,11 +111,6 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 				IsCluster: true,
 			},
 		)
-
-		if err := setupDBKeysCluster(t, clusterUri); err != nil {
-			t.Fatalf("setupDBKeysCluster() err: %s", err)
-		}
-		defer deleteKeysFromDBCluster(clusterUri)
 
 		chM := make(chan prometheus.Metric)
 		go func() {
@@ -531,13 +527,13 @@ func TestGetKeyInfo(t *testing.T) {
 	for _, f := range fixtures {
 		info, err := getKeyInfo(c, f.key, false)
 		if err != nil {
-			t.Errorf("Error getting key info for %#v.", f.key)
+			t.Fatalf("Error getting key info for %#v.", f.key)
 		}
 
 		expected := expectedSizes[f.key]
 		if info.size != expected {
-			t.Logf("%#v", info)
 			t.Errorf("Wrong size for key: %#v. Expected: %#v; Actual: %#v", f.key, expected, info.size)
+			t.Logf("info: %#v", info)
 		}
 	}
 
@@ -672,9 +668,7 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	if err := setupDBKeysCluster(t, clusterUri); err != nil {
-		t.Fatalf("setupDBKeysCluster() err: %s", err)
-	}
+	setupDBKeysCluster(t, clusterUri)
 	defer deleteKeysFromDBCluster(clusterUri)
 
 	chM := make(chan prometheus.Metric, 10000)

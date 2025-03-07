@@ -3,7 +3,7 @@ ARG TARGETPLATFORM
 #
 # build container
 #
-FROM --platform=$BUILDPLATFORM golang:1.23-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.24-alpine AS builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
@@ -40,7 +40,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM alpine:3.20 AS alpine
+FROM alpine:3.21 AS alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
