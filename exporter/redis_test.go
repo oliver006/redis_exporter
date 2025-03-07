@@ -134,11 +134,11 @@ func TestPasswordInvalid(t *testing.T) {
 }
 
 func TestConnectToClusterUsingPasswordFile(t *testing.T) {
-	cluster_host := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
-	if cluster_host == "" {
+	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
+	if clusterUri == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_PASSWORD_URI is not set")
 	}
-	passMap := map[string]string{cluster_host: "redis-password"}
+	passMap := map[string]string{clusterUri: "redis-password"}
 	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}
 
 	tsts := []struct {
@@ -147,13 +147,13 @@ func TestConnectToClusterUsingPasswordFile(t *testing.T) {
 		passMap      map[string]string
 		refreshError bool
 	}{
-		{name: "ConnectToCluster using passord file witch cluster mode", isCluster: true, passMap: passMap, refreshError: false},
+		{name: "ConnectToCluster using password file with cluster mode", isCluster: true, passMap: passMap, refreshError: false},
 		{name: "ConnectToCluster using password file without cluster mode", isCluster: false, passMap: passMap, refreshError: false},
-		{name: "ConnectToCluster using password file witch cluster mode failed", isCluster: false, passMap: wrongPassMap, refreshError: true},
+		{name: "ConnectToCluster using password file with cluster mode failed", isCluster: false, passMap: wrongPassMap, refreshError: true},
 	}
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
-			e, _ := NewRedisExporter(cluster_host, Options{
+			e, _ := NewRedisExporter(clusterUri, Options{
 				SkipTLSVerification: true,
 				PasswordMap:         tst.passMap,
 				IsCluster:           tst.isCluster,

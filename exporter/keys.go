@@ -173,7 +173,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	for _, k := range allKeys {
 		if e.options.IsCluster {
 			// Cluster mode only has one db
-			// no need to run `SELECT" but got to set it to "0" here cause it's used further down as a label
+			// no need to run `SELECT" but got to set it to "0" here because it's used further down as a label
 			k.db = "0"
 		} else {
 			if k.db != lastDb {
