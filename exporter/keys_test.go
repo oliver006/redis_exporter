@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"errors"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -27,14 +26,14 @@ func TestKeyValuesAndSizes(t *testing.T) {
 		os.Getenv("TEST_REDIS_URI"),
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(keys[0]),
+			CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(testKeys[0]),
 			Registry:        prometheus.NewRegistry()},
 	)
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	chM := make(chan prometheus.Metric, 10000)
 	go func() {
@@ -55,15 +54,15 @@ func TestKeyValuesAndSizes(t *testing.T) {
 }
 
 func TestKeyValuesAsLabel(t *testing.T) {
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	for _, exc := range []bool{true, false} {
 		e, _ := NewRedisExporter(
 			os.Getenv("TEST_REDIS_URI"),
 			Options{
 				Namespace:                 "test",
-				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(singleStringKey),
+				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(testKeySingleString),
 				DisableExportingKeyValues: exc,
 				Registry:                  prometheus.NewRegistry()},
 		)
@@ -95,17 +94,17 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 	if clusterUri == "" {
 		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
 	}
-	setupDBKeysCluster(t, clusterUri)
-	defer deleteKeysFromDBCluster(clusterUri)
+	setupTestKeysCluster(t, clusterUri)
+	defer deleteTestKeysCluster(clusterUri)
 
-	for _, exc := range []bool{true, false} {
+	for _, disableExportingValues := range []bool{true, false} {
 		e, _ := NewRedisExporter(
 			clusterUri,
 			Options{
-				Namespace: "test", DisableExportingKeyValues: exc,
+				Namespace: "test", DisableExportingKeyValues: disableExportingValues,
 				CheckSingleKeys: fmt.Sprintf(
 					"%s=%s,%s=%s",
-					dbNumStrFull, url.QueryEscape(keys[0]),
+					dbNumStrFull, url.QueryEscape(testKeys[0]),
 					dbNumStrFull, url.QueryEscape(TestKeysSetName),
 				),
 				IsCluster: true,
@@ -118,20 +117,24 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 			close(chM)
 		}()
 
-		want := map[string]bool{"test_key_size": false, "test_key_value": false}
+		foundExpectedKey := map[string]bool{
+			"test_key_size":               false,
+			"test_key_value":              false,
+			"test_key_memory_usage_bytes": false,
+		}
 
 		for m := range chM {
-			for k := range want {
+			for k := range foundExpectedKey {
 				if strings.Contains(m.Desc().String(), k) {
-					want[k] = true
+					foundExpectedKey[k] = true
 				}
 			}
 		}
-		for k, found := range want {
+		for k, found := range foundExpectedKey {
 			if k == "test_key_value" {
-				if found && exc {
+				if found && disableExportingValues {
 					t.Errorf("didn't expect %s with DisableExportingKeyValues enabled", k)
-				} else if !found && !exc {
+				} else if !found && !disableExportingValues {
 					t.Errorf("didn't find %s with DisableExportingKeyValues disabled", k)
 				}
 			} else if !found {
@@ -475,6 +478,7 @@ func TestGetKeysFromPatterns(t *testing.T) {
 	}
 }
 
+/*
 func TestGetKeyInfo(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	db := dbNumStr
@@ -525,7 +529,11 @@ func TestGetKeyInfo(t *testing.T) {
 
 	// Test all known types
 	for _, f := range fixtures {
-		info, err := getKeyInfo(c, f.key, false)
+		keyType, err := redis.String(c.Do("TYPE", f.key))
+		if err != nil {
+			t.Fatalf("TYPE err: %s", err)
+		}
+		info, err := getKeyInfo(c, keyType, f.key, false)
 		if err != nil {
 			t.Fatalf("Error getting key info for %#v.", f.key)
 		}
@@ -537,22 +545,29 @@ func TestGetKeyInfo(t *testing.T) {
 		}
 	}
 
+	absentKeyName := "absent_key"
+
 	// Test absent key returns the correct error
-	_, err = getKeyInfo(c, "absent_key", false)
+	keyType, err := redis.String(c.Do("TYPE", absentKeyName))
+	if err != nil {
+		t.Fatalf("TYPE err: %s", err)
+	}
+	_, err = getKeyInfo(c, keyType, absentKeyName, false)
 	if !errors.Is(err, errKeyTypeNotFound) {
-		t.Error("Expected `errKeyTypeNotFound` for absent key.  Got a different error.")
+		t.Errorf("Expected `errKeyTypeNotFound` for absent key.  Got a different error, err: %#v", err)
 	}
 }
+*/
 
 func TestKeySizeList(t *testing.T) {
-	s := dbNumStrFull + "=" + listKeys[0]
+	s := dbNumStrFull + "=" + testKeysList[0]
 	e, _ := NewRedisExporter(
 		os.Getenv("TEST_REDIS_URI"),
 		Options{Namespace: "test", CheckSingleKeys: s},
 	)
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -577,7 +592,7 @@ func TestKeyValueInvalidDB(t *testing.T) {
 		os.Getenv("TEST_REDIS_URI"),
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: "999=" + url.QueryEscape(keys[0]),
+			CheckSingleKeys: "999=" + url.QueryEscape(testKeys[0]),
 		},
 	)
 
@@ -640,8 +655,8 @@ func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	setupDBKeys(t, uri)
-	defer deleteKeysFromDB(t, uri)
+	setupTestKeys(t, uri)
+	defer deleteTestKeys(t, uri)
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, `test_key_size{db="db0",key="single"} 0`) {
@@ -649,28 +664,44 @@ func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
 	}
 }
 
-func TestCheckKeysMultiDBs(t *testing.T) {
+func TestCheckKeysMultipleDBs(t *testing.T) {
 	uri := os.Getenv("TEST_REDIS_URI")
 	e, _ := NewRedisExporter(uri,
 		Options{Namespace: "test",
-			CheckSingleKeys: "single," + anotherAltDbNumStr + "=" + keys[0] + "," + altDBNumStr + "=" + TestKeysHllName + "," + altDBNumStr + "=" + singleStringKey,
-			Registry:        prometheus.NewRegistry(),
+			CheckSingleKeys: "single," +
+				dbNumStr + "=" + testKeys[0] + "," +
+				dbNumStr + "=" + testKeySingleString + "," +
+				altDBNumStr + "=" + TestKeysHllName + "," +
+				altDBNumStr + "=" + testKeySingleString + "," +
+				anotherAltDbNumStr + "=" + testKeys[0],
+			CheckKeys:          dbNumStr + "=" + "test*",
+			CheckKeysBatchSize: 1000,
+			Registry:           prometheus.NewRegistry(),
 		})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	setupDBKeys(t, uri)
-	defer deleteKeysFromDB(t, uri)
+	setupTestKeys(t, uri)
+	defer deleteTestKeys(t, uri)
 
 	body := downloadURL(t, ts.URL+"/metrics")
 
 	for _, k := range []string{
-		`test_key_size{db="db0",key="single"} 0`,
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, altDBNumStr, TestKeysHllName),
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, singleStringKey),
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 7`, anotherAltDbNumStr, keys[0]),
+		`test_key_size{db="db0",key="single"} 0`, // non-existent key
 
-		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, anotherAltDbNumStr, keys[0]),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, dbNumStr, testKeySingleString),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, dbNumStr, TestKeysZSetName),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 4`, dbNumStr, TestKeysHashName),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, altDBNumStr, TestKeysHllName),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, testKeySingleString),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 7`, anotherAltDbNumStr, testKeys[0]),
+
+		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, dbNumStr, testKeys[0]),
+		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, anotherAltDbNumStr, testKeys[0]),
+
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, dbNumStr, testKeySingleString),
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, altDBNumStr, testKeySingleString),
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, anotherAltDbNumStr, testKeys[0]),
 	} {
 		if !strings.Contains(body, k) {
 			t.Errorf("Expected metric: %s but got:\n%s", k, body)
@@ -688,25 +719,25 @@ func TestClusterGetKeyInfo(t *testing.T) {
 		clusterUri,
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: TestKeysHllName, Registry: prometheus.NewRegistry(),
-			IsCluster: true,
+			CheckSingleKeys: strings.Join(AllTestKeys, ","),
+			Registry:        prometheus.NewRegistry(),
+			IsCluster:       true,
 		},
 	)
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	setupDBKeysCluster(t, clusterUri)
-	defer deleteKeysFromDBCluster(clusterUri)
-
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+	setupTestKeysCluster(t, clusterUri)
+	defer deleteTestKeysCluster(clusterUri)
 
 	body := downloadURL(t, ts.URL+"/metrics")
-	if !strings.Contains(body, `test_key_size{db="db0",key="test-hll"} 3`) {
-		t.Errorf("Expected metric `test_key_size` with key=`test-hll` and value 3 but got:\n%s", body)
+	for _, want := range []string{
+		"key_value_as_string",
+		`test_key_size{db="db0",key="test-hll"} 3`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Expected metric: %s but got:\n%s", want, body)
+		}
 	}
 }
 

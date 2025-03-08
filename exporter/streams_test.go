@@ -46,8 +46,8 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 	}
 	defer c.Close()
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	if _, err = c.Do("SELECT", dbNumStr); err != nil {
 		t.Errorf("Couldn't select database %#v", dbNumStr)
@@ -113,8 +113,8 @@ func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
 	}
 	defer c.Close()
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	if _, err = c.Do("SELECT", dbNumStr); err != nil {
 		t.Errorf("Couldn't select database %#v", dbNumStr)
@@ -503,8 +503,8 @@ func TestStreamsExtractStreamMetrics(t *testing.T) {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -561,8 +561,8 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	chM := make(chan prometheus.Metric)
 	go func() {

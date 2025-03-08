@@ -27,7 +27,6 @@ type Exporter struct {
 	sync.Mutex
 
 	redisAddr string
-	namespace string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -103,7 +102,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	e := &Exporter{
 		redisAddr: uri,
 		options:   opts,
-		namespace: opts.Namespace,
 
 		buildInfo: opts.BuildInfo,
 
@@ -433,6 +431,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"key_size":                                           {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
 		"key_value":                                          {txt: `The value of "key"`, lbls: []string{"db", "key"}},
 		"key_value_as_string":                                {txt: `The value of "key" as a string`, lbls: []string{"db", "key", "val"}},
+		"key_memory_usage_bytes":                             {txt: `The memory usage of "key" in bytes`, lbls: []string{"db", "key"}},
 		"keys_count":                                         {txt: `Count of keys`, lbls: []string{"db", "key"}},
 		"last_key_groups_scrape_duration_milliseconds":       {txt: `Duration of the last key group metrics scrape in milliseconds`},
 		"last_slow_execution_duration_seconds":               {txt: `The amount of time needed for last slow execution, in seconds`},

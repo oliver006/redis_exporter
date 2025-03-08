@@ -115,11 +115,11 @@ func TestLatencyHistogram(t *testing.T) {
 
 	// Since Redis 7.0.0 we should have latency histogram stats
 	e := getTestExporterWithAddr(addr)
-	setupDBKeys(t, addr)
+	setupTestKeys(t, addr)
 
 	want := map[string]bool{"commands_latencies_usec": false}
 	commandStatsCheck(t, e, want)
-	deleteKeysFromDB(t, addr)
+	deleteTestKeys(t, addr)
 }
 
 func TestExtractTotalUsecForCommand(t *testing.T) {
@@ -157,9 +157,9 @@ func TestLatencyStats(t *testing.T) {
 
 	// Since Redis v7 we should have extended latency stats (summary of command latencies)
 	e := getTestExporterWithAddr(redisSevenAddr)
-	setupDBKeys(t, redisSevenAddr)
+	setupTestKeys(t, redisSevenAddr)
 
 	want := map[string]bool{"latency_percentiles_usec": false}
 	commandStatsCheck(t, e, want)
-	deleteKeysFromDB(t, redisSevenAddr)
+	deleteTestKeys(t, redisSevenAddr)
 }
