@@ -162,6 +162,7 @@ func deleteKeys(c redis.Conn, dbNumStr string) {
 }
 
 func setupDBKeys(t *testing.T, uri string) {
+	log.Debugf("setupDBKeys uri: %s", uri)
 	c, err := redis.DialURL(uri)
 	if err != nil {
 		t.Fatalf("couldn't setup redis for uri %s, err: %s ", uri, err)

@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -32,11 +33,32 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		options = append(options, redis.DialPassword(e.options.Password))
 	}
 
-	if e.options.PasswordMap[uri] != "" {
-		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	if pwd, ok := e.lookupPasswordInPasswordMap(uri); ok && pwd != "" {
+		options = append(options, redis.DialPassword(pwd))
 	}
 
 	return options, nil
+}
+
+func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", false
+	}
+
+	if e.options.User != "" {
+		u.User = url.User(e.options.User)
+	}
+	uri = u.String()
+
+	// strip solo ":" if present in uri that has a username (and no pwd)
+	uri = strings.Replace(uri, fmt.Sprintf(":@%s", u.Host), fmt.Sprintf("@%s", u.Host), 1)
+
+	log.Debugf("looking up in pwd map, uri: %s", uri)
+	if pwd, ok := e.options.PasswordMap[uri]; ok && pwd != "" {
+		return pwd, true
+	}
+	return "", false
 }
 
 func (e *Exporter) connectToRedis() (redis.Conn, error) {
