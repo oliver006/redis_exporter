@@ -85,6 +85,7 @@ type Options struct {
 	BuildInfo                      BuildInfo
 	BasicAuthUsername              string
 	BasicAuthPassword              string
+	SkipCheckKeysForRoleMaster     bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -719,23 +720,18 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	log.Debugf("dbCount: %d", dbCount)
 
-	e.extractInfoMetrics(ch, infoAll, dbCount)
+	role := e.extractInfoMetrics(ch, infoAll, dbCount)
 
 	if !e.options.ExcludeLatencyHistogramMetrics {
 		e.extractLatencyMetrics(ch, infoAll, c)
 	}
 
-	if e.options.IsCluster {
-		clusterClient, err := e.connectToRedisCluster()
-		if err != nil {
-			log.Errorf("Couldn't connect to redis cluster")
-			return err
+	// skip for master?
+	// (can help with reducing work load on the master node)
+	if role != InstanceRoleSlave || e.options.SkipCheckKeysForRoleMaster {
+		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
+			log.Errorf("extractCheckKeyMetrics() err: %s", err)
 		}
-		defer clusterClient.Close()
-
-		e.extractCheckKeyMetrics(ch, clusterClient)
-	} else {
-		e.extractCheckKeyMetrics(ch, c)
 	}
 
 	e.extractSlowLogMetrics(ch, c)
