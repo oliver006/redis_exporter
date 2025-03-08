@@ -33,7 +33,12 @@ var reMasterDirect = regexp.MustCompile(`^(master(_[0-9]+)?_(last_io_seconds_ago
 slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
 slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
+
 var reSlave = regexp.MustCompile(`^slave\d+`)
+
+const (
+	InstanceRoleSlave = "slave"
+)
 
 func extractVal(s string) (val float64, err error) {
 	split := strings.Split(s, "=")
@@ -60,7 +65,7 @@ func extractPercentileVal(s string) (percentile float64, val float64, err error)
 	return
 }
 
-func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) {
+func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) string {
 	keyValues := map[string]string{}
 	handledDBs := map[string]bool{}
 	cmdCount := map[string]uint64{}
@@ -161,8 +166,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		}
 	}
 
+	instanceRole := keyValues["role"]
+
 	e.registerConstMetricGauge(ch, "instance_info", 1,
-		keyValues["role"],
+		instanceRole,
 		keyValues["redis_version"],
 		keyValues["redis_build_id"],
 		keyValues["redis_mode"],
@@ -174,12 +181,14 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		keyValues["master_replid"],
 	)
 
-	if keyValues["role"] == "slave" {
+	if instanceRole == InstanceRoleSlave {
 		e.registerConstMetricGauge(ch, "slave_info", 1,
 			keyValues["master_host"],
 			keyValues["master_port"],
 			keyValues["slave_read_only"])
 	}
+
+	return instanceRole
 }
 
 func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, cmdLatencyMap map[string]map[float64]float64, cmdCount map[string]uint64, cmdSum map[string]float64) {
