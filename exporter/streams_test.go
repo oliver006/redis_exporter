@@ -56,7 +56,7 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 	tsts := []scanStreamFixture{
 		{
 			name:   "Stream test",
-			stream: TestKeysStreamName,
+			stream: TestKeyNameStream,
 			streamInfo: streamInfo{
 				Length:         2,
 				RadixTreeKeys:  1,
@@ -123,7 +123,7 @@ func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
 	tsts := []scanStreamFixture{
 		{
 			name:   "Stream test",
-			stream: TestKeysStreamName,
+			stream: TestKeyNameStream,
 			streamInfo: streamInfo{
 				Length:         2,
 				RadixTreeKeys:  1,
@@ -496,7 +496,7 @@ func TestStreamsExtractStreamMetrics(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	e, _ := NewRedisExporter(
 		addr,
-		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestKeysStreamName},
+		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestKeyNameStream},
 	)
 	c, err := redis.DialURL(addr)
 	if err != nil {
@@ -554,7 +554,7 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	e, _ := NewRedisExporter(
 		addr,
-		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestKeysStreamName, StreamsExcludeConsumerMetrics: true},
+		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestKeyNameStream, StreamsExcludeConsumerMetrics: true},
 	)
 	c, err := redis.DialURL(addr)
 	if err != nil {

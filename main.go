@@ -100,7 +100,7 @@ func main() {
 		redactConfigMetrics            = flag.Bool("redact-config-metrics", getEnvBool("REDIS_EXPORTER_REDACT_CONFIG_METRICS", true), "Whether to redact config settings that include potentially sensitive information like passwords")
 		inclSystemMetrics              = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS", false), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
 		skipTLSVerification            = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to skip TLS verification")
-		skipCheckKeyForRoleMaster      = flag.Bool("skip-checkkeys-for-role-master", getEnvBool("REDIS_EXPORTER_SKIP_CHECKKEYS_FOR_ROLE_MASTER", false), "Whether to skip gathering the check-keys metrics (size, val) when the instance is of type master (reduce load on master nodes)")
+		skipCheckKeysForRoleMaster     = flag.Bool("skip-checkkeys-for-role-master", getEnvBool("REDIS_EXPORTER_SKIP_CHECKKEYS_FOR_ROLE_MASTER", false), "Whether to skip gathering the check-keys metrics (size, val) when the instance is of type master (reduce load on master nodes)")
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
 	)
@@ -189,7 +189,7 @@ func main() {
 			InclModulesMetrics:             *inclModulesMetrics,
 			ExportClientList:               *exportClientList,
 			ExportClientsInclPort:          *exportClientPort,
-			SkipCheckKeysForRoleMaster:     *skipCheckKeyForRoleMaster,
+			SkipCheckKeysForRoleMaster:     *skipCheckKeysForRoleMaster,
 			SkipTLSVerification:            *skipTLSVerification,
 			ClientCertFile:                 *tlsClientCertFile,
 			ClientKeyFile:                  *tlsClientKeyFile,

@@ -65,6 +65,7 @@ func extractPercentileVal(s string) (percentile float64, val float64, err error)
 	return
 }
 
+// returns the role of the instance we're scraping (master or slave)
 func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) string {
 	keyValues := map[string]string{}
 	handledDBs := map[string]bool{}

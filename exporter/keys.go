@@ -91,13 +91,14 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, redisClie
 		if err != nil {
 			return fmt.Errorf("Couldn't connect to redis cluster, err: %s", err)
 		}
+		defer cc.Close()
+
 		c = cc
-		defer c.Close()
 	}
 
 	keys, err := parseKeyArg(e.options.CheckKeys)
 	if err != nil {
-		return fmt.Errorf("Couldn't parse check-keys: w", err)
+		return fmt.Errorf("Couldn't parse check-keys: %w", err)
 	}
 	log.Debugf("keys: %#v", keys)
 

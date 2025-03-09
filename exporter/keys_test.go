@@ -35,12 +35,6 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	body := downloadURL(t, ts.URL+"/metrics")
 	for _, want := range []string{
 		"test_key_size",
@@ -62,17 +56,11 @@ func TestKeyValuesAsLabel(t *testing.T) {
 			os.Getenv("TEST_REDIS_URI"),
 			Options{
 				Namespace:                 "test",
-				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(testKeySingleString),
+				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(TestKeyNameSingleString),
 				DisableExportingKeyValues: exc,
 				Registry:                  prometheus.NewRegistry()},
 		)
 		ts := httptest.NewServer(e)
-
-		chM := make(chan prometheus.Metric, 10000)
-		go func() {
-			e.Collect(chM)
-			close(chM)
-		}()
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		for _, match := range []string{
@@ -104,8 +92,8 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 				Namespace: "test", DisableExportingKeyValues: disableExportingValues,
 				CheckSingleKeys: fmt.Sprintf(
 					"%s=%s,%s=%s",
-					dbNumStrFull, url.QueryEscape(testKeys[0]),
-					dbNumStrFull, url.QueryEscape(TestKeysSetName),
+					dbNumStrFull, url.QueryEscape(keys[0]),
+					dbNumStrFull, url.QueryEscape(TestKeyNameSet),
 				),
 				IsCluster: true,
 			},
@@ -719,9 +707,8 @@ func TestClusterGetKeyInfo(t *testing.T) {
 		clusterUri,
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: strings.Join(AllTestKeys, ","),
-			Registry:        prometheus.NewRegistry(),
-			IsCluster:       true,
+			CheckSingleKeys: TestKeyNameHll, Registry: prometheus.NewRegistry(),
+			IsCluster: true,
 		},
 	)
 	ts := httptest.NewServer(e)
