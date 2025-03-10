@@ -635,19 +635,46 @@ func TestCheckKeys(t *testing.T) {
 }
 
 func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: "single", Registry: prometheus.NewRegistry()})
+	uri := os.Getenv("TEST_REDIS_URI")
+	e, _ := NewRedisExporter(uri, Options{Namespace: "test", CheckSingleKeys: "single", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
+	setupDBKeys(t, uri)
+	defer deleteKeysFromDB(t, uri)
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, `test_key_size{db="db0",key="single"} 0`) {
 		t.Errorf("Expected metric `test_key_size` with key=`single` and value 0 but got:\n%s", body)
+	}
+}
+
+func TestCheckKeysMultiDBs(t *testing.T) {
+	uri := os.Getenv("TEST_REDIS_URI")
+	e, _ := NewRedisExporter(uri,
+		Options{Namespace: "test",
+			CheckSingleKeys: "single," + anotherAltDbNumStr + "=" + keys[0] + "," + altDBNumStr + "=" + TestKeysHllName + "," + altDBNumStr + "=" + singleStringKey,
+			Registry:        prometheus.NewRegistry(),
+		})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	setupDBKeys(t, uri)
+	defer deleteKeysFromDB(t, uri)
+
+	body := downloadURL(t, ts.URL+"/metrics")
+
+	for _, k := range []string{
+		`test_key_size{db="db0",key="single"} 0`,
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, altDBNumStr, TestKeysHllName),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, singleStringKey),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 7`, anotherAltDbNumStr, keys[0]),
+
+		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, anotherAltDbNumStr, keys[0]),
+	} {
+		if !strings.Contains(body, k) {
+			t.Errorf("Expected metric: %s but got:\n%s", k, body)
+		}
 	}
 }
 

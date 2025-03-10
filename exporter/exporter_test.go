@@ -29,8 +29,10 @@ var (
 	listKeys        []string
 	singleStringKey string
 
-	dbNumStr        = "11"
-	altDBNumStr     = "12"
+	dbNumStr           = "11"
+	altDBNumStr        = "12"
+	anotherAltDbNumStr = "14"
+
 	invalidDBNumStr = "16"
 	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
 )
@@ -133,6 +135,51 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
 	c.Do("XREADGROUP", "GROUP", "test_group_2", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, "0")
 
+	// set up some keys in another DB as well
+
+	if _, err := c.Do("SELECT", altDBNumStr); err != nil {
+		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+	}
+	if _, err := c.Do("PFADD", TestKeysHllName, "val1"); err != nil {
+		t.Errorf("PFADD err: %s", err)
+		return err
+	}
+	if _, err := c.Do("PFADD", TestKeysHllName, "val22"); err != nil {
+		t.Errorf("PFADD err: %s", err)
+		return err
+	}
+	if _, err := c.Do("PFADD", TestKeysHllName, "val333"); err != nil {
+		t.Errorf("PFADD err: %s", err)
+		return err
+	}
+
+	if _, err := c.Do("SADD", TestKeysSetName, "test-val-1"); err != nil {
+		t.Errorf("SADD err: %s", err)
+		return err
+	}
+	if _, err := c.Do("SADD", TestKeysSetName, "test-val-2"); err != nil {
+		t.Errorf("SADD err: %s", err)
+		return err
+	}
+
+	if _, err := c.Do("SET", singleStringKey, "this-is-a-string"); err != nil {
+		t.Errorf("PFADD err: %s", err)
+		return err
+	}
+
+	/*
+		and another set of test keys in another DB
+	*/
+	if _, err := c.Do("SELECT", anotherAltDbNumStr); err != nil {
+		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+	}
+	for _, key := range keys {
+		if _, err := c.Do("SET", key, testValue); err != nil {
+			t.Errorf("couldn't setup redis, err: %s ", err)
+			return err
+		}
+	}
+
 	time.Sleep(time.Millisecond * 100)
 	return nil
 }
@@ -159,6 +206,28 @@ func deleteKeys(c redis.Conn, dbNumStr string) {
 	c.Do("DEL", TestKeysSetName)
 	c.Do("DEL", TestKeysStreamName)
 	c.Do("DEL", singleStringKey)
+
+	/*
+		another DB
+	*/
+	if _, err := c.Do("SELECT", altDBNumStr); err != nil {
+		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
+	}
+	c.Do("DEL", TestKeysHllName)
+	c.Do("DEL", TestKeysSetName)
+	c.Do("DEL", TestKeysStreamName)
+	c.Do("DEL", singleStringKey)
+
+	/*
+		and another set of test keys in another DB
+	*/
+	if _, err := c.Do("SELECT", anotherAltDbNumStr); err != nil {
+		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+	}
+	for _, key := range keys {
+		c.Do("DEL", key)
+	}
 }
 
 func setupDBKeys(t *testing.T, uri string) {
