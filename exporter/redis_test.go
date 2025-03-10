@@ -94,12 +94,6 @@ func TestPasswordProtectedInstance(t *testing.T) {
 			ts := httptest.NewServer(e)
 			defer ts.Close()
 
-			chM := make(chan prometheus.Metric, 10000)
-			go func() {
-				e.Collect(chM)
-				close(chM)
-			}()
-
 			body := downloadURL(t, ts.URL+"/metrics")
 			if !strings.Contains(body, "test_up 1") {
 				t.Errorf(`%s - response to /metric doesn't contain "test_up 1"`, tst)
@@ -119,12 +113,6 @@ func TestPasswordInvalid(t *testing.T) {
 	e, _ := NewRedisExporter(uri, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
-
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
 
 	want := `test_exporter_last_scrape_error{err="dial redis: unknown network redis"} 1`
 	body := downloadURL(t, ts.URL+"/metrics")

@@ -49,7 +49,6 @@ jobs:
           LOG_LEVEL: "info"
         run: |
           sleep 15
-          make checks
           make test
 
 
@@ -101,6 +100,9 @@ jobs:
         with:
           version: v1.64
           args: "--tests=false"
+
+      - name: Run checks
+        run: make checks
 
 
   build-stuff:

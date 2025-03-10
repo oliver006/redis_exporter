@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -85,6 +86,7 @@ type Options struct {
 	BuildInfo                      BuildInfo
 	BasicAuthUsername              string
 	BasicAuthPassword              string
+	SkipCheckKeysForRoleMaster     bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -719,30 +721,29 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	log.Debugf("dbCount: %d", dbCount)
 
-	e.extractInfoMetrics(ch, infoAll, dbCount)
+	role := e.extractInfoMetrics(ch, infoAll, dbCount)
 
 	if !e.options.ExcludeLatencyHistogramMetrics {
 		e.extractLatencyMetrics(ch, infoAll, c)
 	}
 
-	if e.options.IsCluster {
-		clusterClient, err := e.connectToRedisCluster()
-		if err != nil {
-			log.Errorf("Couldn't connect to redis cluster")
-			return err
+	// skip these metrics for master if SkipCheckKeysForRoleMaster is set
+	// (can help with reducing work load on the master node)
+	log.Infof("checkKeys metric collection for role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
+	debug.PrintStack()
+	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
+		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
+			log.Errorf("extractCheckKeyMetrics() err: %s", err)
 		}
-		defer clusterClient.Close()
 
-		e.extractCheckKeyMetrics(ch, clusterClient)
+		e.extractCountKeysMetrics(ch, c)
+
+		e.extractStreamMetrics(ch, c)
 	} else {
-		e.extractCheckKeyMetrics(ch, c)
+		log.Infof("skipping checkKeys metrics, role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	}
 
 	e.extractSlowLogMetrics(ch, c)
-
-	e.extractStreamMetrics(ch, c)
-
-	e.extractCountKeysMetrics(ch, c)
 
 	e.extractKeyGroupMetrics(ch, c, dbCount)
 

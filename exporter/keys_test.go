@@ -36,12 +36,6 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	body := downloadURL(t, ts.URL+"/metrics")
 	for _, want := range []string{
 		"test_key_size",
@@ -63,17 +57,11 @@ func TestKeyValuesAsLabel(t *testing.T) {
 			os.Getenv("TEST_REDIS_URI"),
 			Options{
 				Namespace:                 "test",
-				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(singleStringKey),
+				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(TestKeyNameSingleString),
 				DisableExportingKeyValues: exc,
 				Registry:                  prometheus.NewRegistry()},
 		)
 		ts := httptest.NewServer(e)
-
-		chM := make(chan prometheus.Metric, 10000)
-		go func() {
-			e.Collect(chM)
-			close(chM)
-		}()
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		for _, match := range []string{
@@ -106,7 +94,7 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 				CheckSingleKeys: fmt.Sprintf(
 					"%s=%s,%s=%s",
 					dbNumStrFull, url.QueryEscape(keys[0]),
-					dbNumStrFull, url.QueryEscape(TestKeysSetName),
+					dbNumStrFull, url.QueryEscape(TestKeyNameSet),
 				),
 				IsCluster: true,
 			},
@@ -639,12 +627,6 @@ func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, `test_key_size{db="db0",key="single"} 0`) {
 		t.Errorf("Expected metric `test_key_size` with key=`single` and value 0 but got:\n%s", body)
@@ -661,7 +643,7 @@ func TestClusterGetKeyInfo(t *testing.T) {
 		clusterUri,
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: TestKeysHllName, Registry: prometheus.NewRegistry(),
+			CheckSingleKeys: TestKeyNameHll, Registry: prometheus.NewRegistry(),
 			IsCluster: true,
 		},
 	)
@@ -670,12 +652,6 @@ func TestClusterGetKeyInfo(t *testing.T) {
 
 	setupDBKeysCluster(t, clusterUri)
 	defer deleteKeysFromDBCluster(clusterUri)
-
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, `test_key_size{db="db0",key="test-hll"} 3`) {

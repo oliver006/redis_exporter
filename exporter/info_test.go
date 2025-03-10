@@ -141,12 +141,6 @@ func TestClusterMaster(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	body := downloadURL(t, ts.URL+"/metrics")
 	log.Debugf("master - body: %s", body)
 	for _, want := range []string{
@@ -155,6 +149,54 @@ func TestClusterMaster(t *testing.T) {
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("Did not find key [%s] \nbody: %s", want, body)
+		}
+	}
+}
+
+func TestClusterSkipCheckKeysIfMaster(t *testing.T) {
+	uriMaster := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	uriSlave := os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
+	if uriMaster == "" || uriSlave == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or slave not set - skipping")
+	}
+
+	setupDBKeysCluster(t, uriMaster)
+	defer deleteKeysFromDBCluster(uriMaster)
+
+	for _, uri := range []string{uriMaster, uriSlave} {
+		for _, skip := range []bool{true, false} {
+			e, _ := NewRedisExporter(
+				uri,
+				Options{Namespace: "test",
+					Registry:                   prometheus.NewRegistry(),
+					CheckKeys:                  TestKeyNameHll,
+					SkipCheckKeysForRoleMaster: skip,
+					IsCluster:                  true,
+				})
+			ts := httptest.NewServer(e)
+
+			body := downloadURL(t, ts.URL+"/metrics")
+
+			expectedMetricPresent := true
+			if skip && uri == uriMaster {
+				expectedMetricPresent = false
+			}
+			t.Logf("skip: %#v  uri: %s    uri == uriMaster: %#v", skip, uri, uri == uriMaster)
+			t.Logf("expectedMetricPresent: %#v", expectedMetricPresent)
+
+			want := `test_key_size{db="db0",key="test-hll"} 3`
+
+			if expectedMetricPresent {
+				if !strings.Contains(body, want) {
+					t.Fatalf("expectedMetricPresent but missing. metric: %s   body: %s\n", want, body)
+				}
+			} else {
+				if strings.Contains(body, want) {
+					t.Fatalf("should have skipped it but found it, body:\n%s", body)
+				}
+			}
+
+			ts.Close()
 		}
 	}
 }
@@ -168,12 +210,6 @@ func TestClusterSlave(t *testing.T) {
 	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
-
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	log.Debugf("slave - body: %s", body)

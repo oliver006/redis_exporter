@@ -23,22 +23,25 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-var (
-	keys            []string
-	keysExpiring    []string
-	listKeys        []string
-	singleStringKey string
-
+const (
 	dbNumStr        = "11"
 	altDBNumStr     = "12"
 	invalidDBNumStr = "16"
-	dbNumStrFull    = fmt.Sprintf("db%s", dbNumStr)
 )
 
-const (
-	TestKeysSetName    = "test-set"
-	TestKeysStreamName = "test-stream"
-	TestKeysHllName    = "test-hll"
+var (
+	keys         []string
+	keysExpiring []string
+	listKeys     []string
+
+	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
+)
+
+var (
+	TestKeyNameSingleString = "" // initialized with a timestamp at runtime
+	TestKeyNameSet          = "test-set"
+	TestKeyNameStream       = "test-stream"
+	TestKeyNameHll          = "test-hll"
 )
 
 func getTestExporter() *Exporter {
@@ -95,43 +98,43 @@ func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
 		}
 	}
 
-	if _, err := c.Do("PFADD", TestKeysHllName, "val1"); err != nil {
+	if _, err := c.Do("PFADD", TestKeyNameHll, "val1"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val22"); err != nil {
+	if _, err := c.Do("PFADD", TestKeyNameHll, "val22"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val333"); err != nil {
+	if _, err := c.Do("PFADD", TestKeyNameHll, "val333"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
 
-	if _, err := c.Do("SADD", TestKeysSetName, "test-val-1"); err != nil {
+	if _, err := c.Do("SADD", TestKeyNameSet, "test-val-1"); err != nil {
 		t.Errorf("SADD err: %s", err)
 		return err
 	}
-	if _, err := c.Do("SADD", TestKeysSetName, "test-val-2"); err != nil {
+	if _, err := c.Do("SADD", TestKeyNameSet, "test-val-2"); err != nil {
 		t.Errorf("SADD err: %s", err)
 		return err
 	}
 
-	if _, err := c.Do("SET", singleStringKey, "this-is-a-string"); err != nil {
+	if _, err := c.Do("SET", TestKeyNameSingleString, "this-is-a-string"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
 
 	// Create test streams
-	c.Do("XGROUP", "CREATE", TestKeysStreamName, "test_group_1", "$", "MKSTREAM")
-	c.Do("XGROUP", "CREATE", TestKeysStreamName, "test_group_2", "$", "MKSTREAM")
-	c.Do("XADD", TestKeysStreamName, TestStreamTimestamps[0], "field_1", "str_1")
-	c.Do("XADD", TestKeysStreamName, TestStreamTimestamps[1], "field_2", "str_2")
+	c.Do("XGROUP", "CREATE", TestKeyNameStream, "test_group_1", "$", "MKSTREAM")
+	c.Do("XGROUP", "CREATE", TestKeyNameStream, "test_group_2", "$", "MKSTREAM")
+	c.Do("XADD", TestKeyNameStream, TestStreamTimestamps[0], "field_1", "str_1")
+	c.Do("XADD", TestKeyNameStream, TestStreamTimestamps[1], "field_2", "str_2")
 
 	// Process messages to assign Consumers to their groups
-	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
-	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
-	c.Do("XREADGROUP", "GROUP", "test_group_2", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, "0")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeyNameStream, ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestKeyNameStream, ">")
+	c.Do("XREADGROUP", "GROUP", "test_group_2", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeyNameStream, "0")
 
 	time.Sleep(time.Millisecond * 100)
 	return nil
@@ -155,10 +158,10 @@ func deleteKeys(c redis.Conn, dbNumStr string) {
 		c.Do("DEL", key)
 	}
 
-	c.Do("DEL", TestKeysHllName)
-	c.Do("DEL", TestKeysSetName)
-	c.Do("DEL", TestKeysStreamName)
-	c.Do("DEL", singleStringKey)
+	c.Do("DEL", TestKeyNameHll)
+	c.Do("DEL", TestKeyNameSet)
+	c.Do("DEL", TestKeyNameStream)
+	c.Do("DEL", TestKeyNameSingleString)
 }
 
 func setupDBKeys(t *testing.T, uri string) {
@@ -363,15 +366,9 @@ func TestKeysReset(t *testing.T) {
 	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, keys[0]) {
-		t.Errorf("Did not found key %q\n%s", keys[0], body)
+		t.Errorf("Did not find key %q\n%s", keys[0], body)
 	}
 
 	deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
@@ -468,7 +465,7 @@ func init() {
 		keys = append(keys, fmt.Sprintf("key_%s_%d", n, testTimestamp))
 	}
 
-	singleStringKey = fmt.Sprintf("key_string_%d", testTimestamp)
+	TestKeyNameSingleString = fmt.Sprintf("key_string_%d", testTimestamp)
 
 	listKeys = append(listKeys, "beatles_list")
 

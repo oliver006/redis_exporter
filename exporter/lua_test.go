@@ -60,12 +60,6 @@ func TestLuaScript(t *testing.T) {
 			ts := httptest.NewServer(e)
 			defer ts.Close()
 
-			chM := make(chan prometheus.Metric, 10000)
-			go func() {
-				e.Collect(chM)
-				close(chM)
-			}()
-
 			body := downloadURL(t, ts.URL+"/metrics")
 
 			for _, want := range tst.Wants {
