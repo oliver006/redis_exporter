@@ -91,7 +91,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: "TAG=${{ github.ref_name }},SHA1=${{ github.sha }}"
+          build-args: |
+            TAG=${{ github.ref_name }}
+            SHA1=${{ github.sha }}
 
       - name: Build and push alpine image
         uses: docker/build-push-action@v6
@@ -102,4 +104,6 @@ jobs:
           push: true
           tags: oliver006/redis_exporter:${{ github.ref_name }}-alpine,ghcr.io/oliver006/redis_exporter:${{ github.ref_name }}-alpine,quay.io/oliver006/redis_exporter:${{ github.ref_name }}-alpine,oliver006/redis_exporter:alpine,ghcr.io/oliver006/redis_exporter:alpine,quay.io/oliver006/redis_exporter:alpine
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: "TAG=${{ github.ref_name }},SHA1=${{ github.sha }}"
+          build-args: |
+            TAG=${{ github.ref_name }}
+            SHA1=${{ github.sha }}
