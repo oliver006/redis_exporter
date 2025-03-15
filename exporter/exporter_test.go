@@ -10,6 +10,7 @@ package exporter
 
 import (
 	"fmt"
+	"github.com/mna/redisc"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -24,11 +25,6 @@ import (
 )
 
 var (
-	keys            []string
-	keysExpiring    []string
-	listKeys        []string
-	singleStringKey string
-
 	dbNumStr           = "11"
 	altDBNumStr        = "12"
 	anotherAltDbNumStr = "14"
@@ -39,8 +35,26 @@ var (
 
 const (
 	TestKeysSetName    = "test-set"
+	TestKeysZSetName   = "test-zset"
 	TestKeysStreamName = "test-stream"
 	TestKeysHllName    = "test-hll"
+	TestKeysHashName   = "test-hash"
+	TestKeyGroup1      = "test_group_1"
+	TestKeyGroup2      = "test_group_2"
+)
+
+var (
+	testKeySingleString string
+	testKeys            []string
+	testKeysExpiring    []string
+	testKeysList        []string
+
+	AllTestKeys = []string{
+		TestKeysSetName, TestKeysZSetName,
+		TestKeysStreamName,
+		TestKeysHllName, TestKeysHashName,
+		TestKeyGroup1, TestKeyGroup2,
+	}
 )
 
 func getTestExporter() *Exporter {
@@ -66,172 +80,128 @@ func getTestExporterWithAddrAndOptions(addr string, opt Options) *Exporter {
 	return e
 }
 
-func setupKeys(t *testing.T, c redis.Conn, dbNumStr string) error {
-	if _, err := c.Do("SELECT", dbNumStr); err != nil {
-		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
+func setupKeys(t *testing.T, c redis.Conn, dbNum string) error {
+	if _, err := doRedisCmd(c, "SELECT", dbNum); err != nil {
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
+		log.Printf("setupTestKeys() - couldn't setup redis, err: %s ", err)
 	}
 
 	testValue := 1234.56
-	for _, key := range keys {
-		if _, err := c.Do("SET", key, testValue); err != nil {
+	for _, key := range testKeys {
+		if _, err := doRedisCmd(c, "SET", key, testValue); err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
 		}
 	}
 
-	// set to expire in 300 seconds, should be plenty for a test run
-	for _, key := range keysExpiring {
-		if _, err := c.Do("SETEX", key, "300", testValue); err != nil {
+	// set to expire in 600 seconds, should be plenty for a test run
+	for _, key := range testKeysExpiring {
+		if _, err := doRedisCmd(c, "SETEX", key, "600", testValue); err != nil {
 			t.Errorf("couldn't setup redis, err: %s ", err)
 			return err
 		}
 	}
 
-	for _, key := range listKeys {
-		for _, val := range keys {
-			if _, err := c.Do("LPUSH", key, val); err != nil {
+	for _, key := range testKeysList {
+		for _, val := range testKeys {
+			if _, err := doRedisCmd(c, "LPUSH", key, val); err != nil {
 				t.Errorf("couldn't setup redis, err: %s ", err)
 				return err
 			}
 		}
 	}
 
-	if _, err := c.Do("PFADD", TestKeysHllName, "val1"); err != nil {
+	if _, err := doRedisCmd(c, "PFADD", TestKeysHllName, "val1"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val22"); err != nil {
+	if _, err := doRedisCmd(c, "PFADD", TestKeysHllName, "val22"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val333"); err != nil {
+	if _, err := doRedisCmd(c, "PFADD", TestKeysHllName, "val333"); err != nil {
 		t.Errorf("PFADD err: %s", err)
 		return err
 	}
 
-	if _, err := c.Do("SADD", TestKeysSetName, "test-val-1"); err != nil {
+	if _, err := doRedisCmd(c, "SADD", TestKeysSetName, "test-val-1"); err != nil {
 		t.Errorf("SADD err: %s", err)
 		return err
 	}
-	if _, err := c.Do("SADD", TestKeysSetName, "test-val-2"); err != nil {
+	if _, err := doRedisCmd(c, "SADD", TestKeysSetName, "test-val-2"); err != nil {
 		t.Errorf("SADD err: %s", err)
 		return err
 	}
 
-	if _, err := c.Do("SET", singleStringKey, "this-is-a-string"); err != nil {
-		t.Errorf("PFADD err: %s", err)
+	if _, err := doRedisCmd(c, "ZADD", TestKeysZSetName, "12", "test-zzzval-1"); err != nil {
+		t.Errorf("ZADD err: %s", err)
 		return err
+	}
+	if _, err := doRedisCmd(c, "ZADD", TestKeysZSetName, "23", "test-zzzval-2"); err != nil {
+		t.Errorf("ZADD err: %s", err)
+		return err
+	}
+	if _, err := doRedisCmd(c, "ZADD", TestKeysZSetName, "45", "test-zzzval-3"); err != nil {
+		t.Errorf("ZADD err: %s", err)
+		return err
+	}
+
+	if _, err := doRedisCmd(c, "SET", testKeySingleString, "this-is-a-string"); err != nil {
+		t.Errorf("SET %s err: %s", testKeySingleString, err)
+		return err
+	}
+
+	if _, err := doRedisCmd(c, "HSET", TestKeysHashName, "field1", "Hello"); err != nil {
+		t.Errorf("HSET err: %s", err)
+		return err
+	}
+	if _, err := doRedisCmd(c, "HSET", TestKeysHashName, "field2", "World"); err != nil {
+		t.Errorf("HSET err: %s", err)
+		return err
+	}
+	if _, err := doRedisCmd(c, "HSET", TestKeysHashName, "field3", "What's"); err != nil {
+		t.Errorf("HSET err: %s", err)
+		return err
+	}
+	if _, err := doRedisCmd(c, "HSET", TestKeysHashName, "field4", "new?"); err != nil {
+		t.Errorf("HSET err: %s", err)
+		return err
+	}
+
+	if x, err := redis.String(doRedisCmd(c, "HGET", TestKeysHashName, "field4")); err != nil || x != "new?" {
+		t.Errorf("HGET %s err: %s  x: %s", TestKeysHashName, err, x)
 	}
 
 	// Create test streams
-	c.Do("XGROUP", "CREATE", TestKeysStreamName, "test_group_1", "$", "MKSTREAM")
-	c.Do("XGROUP", "CREATE", TestKeysStreamName, "test_group_2", "$", "MKSTREAM")
-	c.Do("XADD", TestKeysStreamName, TestStreamTimestamps[0], "field_1", "str_1")
-	c.Do("XADD", TestKeysStreamName, TestStreamTimestamps[1], "field_2", "str_2")
+	doRedisCmd(c, "XGROUP", "CREATE", TestKeysStreamName, TestKeyGroup1, "$", "MKSTREAM")
+	doRedisCmd(c, "XGROUP", "CREATE", TestKeysStreamName, TestKeyGroup2, "$", "MKSTREAM")
+	doRedisCmd(c, "XADD", TestKeysStreamName, TestStreamTimestamps[0], "field_1", "str_1")
+	doRedisCmd(c, "XADD", TestKeysStreamName, TestStreamTimestamps[1], "field_2", "str_2")
 
 	// Process messages to assign Consumers to their groups
-	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
-	c.Do("XREADGROUP", "GROUP", "test_group_1", "test_consumer_2", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
-	c.Do("XREADGROUP", "GROUP", "test_group_2", "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, "0")
+	doRedisCmd(c, "XREADGROUP", "GROUP", TestKeyGroup1, "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
+	doRedisCmd(c, "XREADGROUP", "GROUP", TestKeyGroup1, "test_consumer_2", "COUNT", "1", "STREAMS", TestKeysStreamName, ">")
+	doRedisCmd(c, "XREADGROUP", "GROUP", TestKeyGroup2, "test_consumer_1", "COUNT", "1", "STREAMS", TestKeysStreamName, "0")
 
-	// set up some keys in another DB as well
-
-	if _, err := c.Do("SELECT", altDBNumStr); err != nil {
-		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
-	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val1"); err != nil {
-		t.Errorf("PFADD err: %s", err)
-		return err
-	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val22"); err != nil {
-		t.Errorf("PFADD err: %s", err)
-		return err
-	}
-	if _, err := c.Do("PFADD", TestKeysHllName, "val333"); err != nil {
-		t.Errorf("PFADD err: %s", err)
-		return err
-	}
-
-	if _, err := c.Do("SADD", TestKeysSetName, "test-val-1"); err != nil {
-		t.Errorf("SADD err: %s", err)
-		return err
-	}
-	if _, err := c.Do("SADD", TestKeysSetName, "test-val-2"); err != nil {
-		t.Errorf("SADD err: %s", err)
-		return err
-	}
-
-	if _, err := c.Do("SET", singleStringKey, "this-is-a-string"); err != nil {
-		t.Errorf("PFADD err: %s", err)
-		return err
-	}
-
-	/*
-		and another set of test keys in another DB
-	*/
-	if _, err := c.Do("SELECT", anotherAltDbNumStr); err != nil {
-		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
-	}
-	for _, key := range keys {
-		if _, err := c.Do("SET", key, testValue); err != nil {
-			t.Errorf("couldn't setup redis, err: %s ", err)
-			return err
-		}
-	}
+	t.Logf("setupKeys %s - DONE", dbNum)
 
 	time.Sleep(time.Millisecond * 100)
 	return nil
 }
 
-func deleteKeys(c redis.Conn, dbNumStr string) {
-	if _, err := c.Do("SELECT", dbNumStr); err != nil {
-		log.Printf("deleteKeysFromDB() - couldn't setup redis, err: %s ", err)
+func deleteKeys(c redis.Conn, dbNum string) {
+	if _, err := doRedisCmd(c, "SELECT", dbNum); err != nil {
+		log.Printf("deleteTestKeys() - couldn't setup redis, err: %s ", err)
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
 
-	for _, key := range keys {
-		c.Do("DEL", key)
-	}
-
-	for _, key := range keysExpiring {
-		c.Do("DEL", key)
-	}
-
-	for _, key := range listKeys {
-		c.Do("DEL", key)
-	}
-
-	c.Do("DEL", TestKeysHllName)
-	c.Do("DEL", TestKeysSetName)
-	c.Do("DEL", TestKeysStreamName)
-	c.Do("DEL", singleStringKey)
-
-	/*
-		another DB
-	*/
-	if _, err := c.Do("SELECT", altDBNumStr); err != nil {
-		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
-		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
-	}
-	c.Do("DEL", TestKeysHllName)
-	c.Do("DEL", TestKeysSetName)
-	c.Do("DEL", TestKeysStreamName)
-	c.Do("DEL", singleStringKey)
-
-	/*
-		and another set of test keys in another DB
-	*/
-	if _, err := c.Do("SELECT", anotherAltDbNumStr); err != nil {
-		log.Printf("setupDBKeys() - couldn't setup redis, err: %s ", err)
-	}
-	for _, key := range keys {
-		c.Do("DEL", key)
+	for _, key := range AllTestKeys {
+		doRedisCmd(c, "DEL", key)
 	}
 }
 
-func setupDBKeys(t *testing.T, uri string) {
-	log.Debugf("setupDBKeys uri: %s", uri)
+func setupTestKeys(t *testing.T, uri string) {
+	log.Debugf("setupTestKeys uri: %s", uri)
 	c, err := redis.DialURL(uri)
 	if err != nil {
 		t.Fatalf("couldn't setup redis for uri %s, err: %s ", uri, err)
@@ -239,28 +209,56 @@ func setupDBKeys(t *testing.T, uri string) {
 	}
 	defer c.Close()
 
-	if err = setupKeys(t, c, dbNumStr); err != nil {
-		t.Fatalf("couldn't setup redis, err: %s ", err)
+	if err := setupKeys(t, c, dbNumStr); err != nil {
+		t.Fatalf("couldn't setup test keys, err: %s ", err)
+	}
+	if err := setupKeys(t, c, altDBNumStr); err != nil {
+		t.Fatalf("couldn't setup test keys, err: %s ", err)
+	}
+	if err := setupKeys(t, c, anotherAltDbNumStr); err != nil {
+		t.Fatalf("couldn't setup test keys, err: %s ", err)
 	}
 }
 
-func setupDBKeysCluster(t *testing.T, uri string) {
-	e, _ := NewRedisExporter(uri, Options{})
-	c, err := e.connectToRedisCluster()
+func setupTestKeysCluster(t *testing.T, uri string) {
+	log.Debugf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{
+			strings.Replace(uri, "redis://", "", 1),
+		},
+		DialOptions: []redis.DialOption{},
+	}
+
+	if err := cluster.Refresh(); err != nil {
+		log.Fatalf("Refresh failed: %v", err)
+	}
+
+	conn, err := cluster.Dial()
 	if err != nil {
-		t.Fatalf("connectToRedisCluster() err: %s ", err)
+		log.Errorf("Dial() failed: %v", err)
+	}
+
+	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Errorf("RetryConn() failed: %v", err)
+	}
+
+	// cluster only supports db==0
+	if err := setupKeys(t, c, "0"); err != nil {
+		t.Fatalf("couldn't setup test keys, err: %s ", err)
 		return
 	}
 
-	defer c.Close()
+	time.Sleep(time.Second)
 
-	if err = setupKeys(t, c, "0"); err != nil {
-		t.Fatalf("couldn't setup redis, err: %s ", err)
-		return
+	if x, err := redis.Strings(doRedisCmd(c, "KEYS", "*")); err != nil {
+		t.Errorf("KEYS * err: %s", err)
+	} else {
+		t.Logf("KEYS * -> %#v", x)
 	}
 }
 
-func deleteKeysFromDB(t *testing.T, addr string) error {
+func deleteTestKeys(t *testing.T, addr string) error {
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Errorf("couldn't setup redis, err: %s ", err)
@@ -269,11 +267,13 @@ func deleteKeysFromDB(t *testing.T, addr string) error {
 	defer c.Close()
 
 	deleteKeys(c, dbNumStr)
+	deleteKeys(c, altDBNumStr)
+	deleteKeys(c, anotherAltDbNumStr)
 
 	return nil
 }
 
-func deleteKeysFromDBCluster(addr string) error {
+func deleteTestKeysCluster(addr string) error {
 	e, _ := NewRedisExporter(addr, Options{})
 	c, err := e.connectToRedisCluster()
 	if err != nil {
@@ -282,6 +282,7 @@ func deleteKeysFromDBCluster(addr string) error {
 
 	defer c.Close()
 
+	// cluster only supports db==0
 	deleteKeys(c, "0")
 
 	return nil
@@ -425,12 +426,12 @@ func TestNonExistingHost(t *testing.T) {
 }
 
 func TestKeysReset(t *testing.T) {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + keys[0], Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + testKeys[0], Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	chM := make(chan prometheus.Metric, 10000)
 	go func() {
@@ -439,15 +440,15 @@ func TestKeysReset(t *testing.T) {
 	}()
 
 	body := downloadURL(t, ts.URL+"/metrics")
-	if !strings.Contains(body, keys[0]) {
-		t.Errorf("Did not found key %q\n%s", keys[0], body)
+	if !strings.Contains(body, testKeys[0]) {
+		t.Errorf("Did not found key %q\n%s", testKeys[0], body)
 	}
 
-	deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	body = downloadURL(t, ts.URL+"/metrics")
-	if !strings.Contains(body, keys[0]) {
-		t.Errorf("Key %q (from check-single-keys) should be available in metrics with default value 0\n%s", keys[0], body)
+	if !strings.Contains(body, testKeys[0]) {
+		t.Errorf("Key %q (from check-single-keys) should be available in metrics with default value 0\n%s", testKeys[0], body)
 	}
 }
 
@@ -501,8 +502,8 @@ func TestKeyDbMetrics(t *testing.T) {
 		t.Skipf("Skipping due to missing TEST_KEYDB01_URI")
 	}
 
-	setupDBKeys(t, os.Getenv("TEST_KEYDB01_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_KEYDB01_URI"))
+	setupTestKeys(t, os.Getenv("TEST_KEYDB01_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_KEYDB01_URI"))
 
 	for _, want := range []string{
 		`test_db_keys_cached`,
@@ -534,14 +535,19 @@ func init() {
 	testTimestamp := time.Now().Unix()
 
 	for _, n := range []string{"john", "paul", "ringo", "george"} {
-		keys = append(keys, fmt.Sprintf("key_%s_%d", n, testTimestamp))
+		testKeys = append(testKeys, fmt.Sprintf("key_%s_%d", n, testTimestamp))
 	}
 
-	singleStringKey = fmt.Sprintf("key_string_%d", testTimestamp)
+	testKeySingleString = fmt.Sprintf("key_string_%d", testTimestamp)
+	AllTestKeys = append(AllTestKeys, testKeySingleString)
 
-	listKeys = append(listKeys, "beatles_list")
+	testKeysList = append(testKeysList, "test_beatles_list")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
-		keysExpiring = append(keysExpiring, fmt.Sprintf("key_exp_%s_%d", n, testTimestamp))
+		testKeysExpiring = append(testKeysExpiring, fmt.Sprintf("key_exp_%s_%d", n, testTimestamp))
 	}
+
+	AllTestKeys = append(AllTestKeys, testKeys...)
+	AllTestKeys = append(AllTestKeys, testKeysList...)
+	AllTestKeys = append(AllTestKeys, testKeysExpiring...)
 }

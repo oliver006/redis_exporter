@@ -92,21 +92,21 @@ func TestParseConnectedSlaveString(t *testing.T) {
 func TestCommandStats(t *testing.T) {
 	defaultAddr := os.Getenv("TEST_REDIS_URI")
 	e := getTestExporterWithAddr(defaultAddr)
-	setupDBKeys(t, defaultAddr)
+	setupTestKeys(t, defaultAddr)
 
 	want := map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false}
 	commandStatsCheck(t, e, want)
-	deleteKeysFromDB(t, defaultAddr)
+	deleteTestKeys(t, defaultAddr)
 
 	redisSixTwoAddr := os.Getenv("TEST_REDIS6_URI")
 	if redisSixTwoAddr != "" {
 		// Since Redis v6.2 we should expect extra failed calls and rejected calls
 		e = getTestExporterWithAddr(redisSixTwoAddr)
-		setupDBKeys(t, redisSixTwoAddr)
+		setupTestKeys(t, redisSixTwoAddr)
 
 		want = map[string]bool{"test_commands_duration_seconds_total": false, "test_commands_total": false, "commands_failed_calls_total": false, "commands_rejected_calls_total": false, "errors_total": false}
 		commandStatsCheck(t, e, want)
-		deleteKeysFromDB(t, redisSixTwoAddr)
+		deleteTestKeys(t, redisSixTwoAddr)
 	}
 }
 

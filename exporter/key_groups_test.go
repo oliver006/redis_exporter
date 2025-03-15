@@ -57,8 +57,8 @@ func TestKeyGroupMetrics(t *testing.T) {
 	if dbCount, err = getDBCount(c); err != nil {
 		t.Fatalf("Couldn't get dbCount: %#v", err)
 	}
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	tsts := []keyGroupData{
 		{
@@ -71,7 +71,7 @@ func TestKeyGroupMetrics(t *testing.T) {
 			wantedCount: map[string]int{
 				"key_ringo":    1,
 				"key_paul":     1,
-				"unclassified": 2,
+				"unclassified": 9,
 				"key_exp":      5,
 			},
 			wantedMemory: map[string]bool{
@@ -91,13 +91,12 @@ func TestKeyGroupMetrics(t *testing.T) {
 			// of keys (all types). This will need to be updated to match future
 			// updates of the init() function
 			wantedCount: map[string]int{
-				keys[3]: 1, "overflow": 3, "test-hll": 1, "test-stream": 1,
+				"overflow": 15, "test-stream": 1,
 			},
 			wantedMemory: map[string]bool{
-				keys[3]:    true,
-				"overflow": true, "test-hll": true, "test-stream": true,
+				"overflow": true, "test-stream": true,
 			},
-			wantedDistintKeyGroups: 14,
+			wantedDistintKeyGroups: 16,
 		},
 	}
 

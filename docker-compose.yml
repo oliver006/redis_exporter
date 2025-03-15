@@ -89,15 +89,11 @@ services:
 
   redis-cluster:
     image: grokzen/redis-cluster:6.2.14
+    environment:
+      - IP=0.0.0.0
     ports:
-      - "7000"
-      - "7001"
-      - "7002"
-      - "7003"
-      - "7004"
-      - "7005"
-      - "17000:7000"
-      - "17005:7005"
+      - 7000-7005:7000-7005
+      - 17000-17005:7000-7005
 
   redis-cluster-password:
     image: bitnami/redis-cluster:7.4

@@ -22,14 +22,14 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 		t.Skipf("Skipping TestHTTPScrapeMetricsEndpoints, missing env vars")
 	}
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
-	setupDBKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_PWD_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
 
-	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0]) // check-single-keys
-	css := dbNumStrFull + "=" + TestKeysStreamName       // check-single-streams
-	cntk := dbNumStrFull + "=" + keys[0] + "*"           // count-keys
+	csk := dbNumStrFull + "=" + url.QueryEscape(testKeys[0]) // check-single-keys
+	css := dbNumStrFull + "=" + TestKeysStreamName           // check-single-streams
+	cntk := dbNumStrFull + "=" + testKeys[0] + "*"           // count-keys
 
 	u, err := url.Parse(os.Getenv("TEST_REDIS_URI"))
 	if err != nil {
@@ -173,10 +173,10 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 				`test_script_value`, // lua script
 
-				`test_key_size{db="db11",key="` + keys[0] + `"} 7`,
-				`test_key_value{db="db11",key="` + keys[0] + `"} 1234.56`,
+				`test_key_size{db="db11",key="` + testKeys[0] + `"} 7`,
+				`test_key_value{db="db11",key="` + testKeys[0] + `"} 1234.56`,
 
-				`test_keys_count{db="db11",key="` + keys[0] + `*"} 1`,
+				`test_keys_count{db="db11",key="` + testKeys[0] + `*"} 1`,
 
 				`test_db_keys{db="db11"} `,
 				`test_db_keys_expiring{db="db11"} `,
@@ -217,8 +217,8 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		t.Skipf("Skipping TestSimultaneousMetricsHttpRequests, missing env vars")
 	}
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	e, _ := NewRedisExporter("", Options{Namespace: "test", InclSystemMetrics: false, Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
@@ -264,7 +264,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 				// not appending this param for Tile38 and cluster (the last two in the list)
 				// Tile38 & cluster don't support the SELECT command so this test will fail and spam the logs
 				if uriIdx < len(uris)-3 {
-					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(testKeys[0]))
 				}
 				up, _ := url.Parse(ts.URL + "/scrape")
 				up.RawQuery = v.Encode()
