@@ -102,6 +102,7 @@ func main() {
 		skipTLSVerification            = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to to skip TLS verification")
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
+		ignoreEmptyDatabases           = flag.Bool("ignore-empty-databases", getEnvBool("REDIS_EXPORTER_IGNORE_EMPTY_DATABASES", false), "Whether to ignore databases metric")
 	)
 	flag.Parse()
 
@@ -203,8 +204,9 @@ func main() {
 				CommitSha: BuildCommitSha,
 				Date:      BuildDate,
 			},
-			BasicAuthUsername: *basicAuthUsername,
-			BasicAuthPassword: *basicAuthPassword,
+			BasicAuthUsername:    *basicAuthUsername,
+			BasicAuthPassword:    *basicAuthPassword,
+			IgnoreEmptyDatabases: *ignoreEmptyDatabases,
 		},
 	)
 	if err != nil {
