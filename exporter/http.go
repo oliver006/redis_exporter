@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"crypto/subtle"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +13,13 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 )
+
+type discoveryTargetList []*discoveryTargetGroup
+
+type discoveryTargetGroup struct {
+	Targets []string          `json:"targets"`
+	Labels  map[string]string `json:"labels"`
+}
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := e.verifyBasicAuth(r.BasicAuth()); err != nil {
@@ -101,6 +109,50 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	promhttp.HandlerFor(
 		registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
 	).ServeHTTP(w, r)
+}
+
+func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
+	if !e.options.IsCluster {
+		http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
+		return
+	}
+
+	c, err := e.connectToRedisCluster()
+	if err != nil {
+		http.Error(w, "Couldn't connect to redis cluster", http.StatusInternalServerError)
+	}
+	defer c.Close()
+
+	nodes, err := e.getClusterNodes(c)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to fetch cluster nodes: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+	discovery := &discoveryTargetList{
+		&discoveryTargetGroup{
+			Targets: make([]string, len(nodes)),
+			Labels:  make(map[string]string, 0),
+		},
+	}
+
+	tls := strings.HasPrefix(e.redisAddr, "rediss://")
+	for i, node := range nodes {
+		if tls {
+			(*discovery)[0].Targets[i] = "rediss://" + node
+		} else {
+			(*discovery)[0].Targets[i] = "redis://" + node
+		}
+	}
+
+	data, err := json.MarshalIndent(discovery, "", "  ")
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to marshal discovery data: %s", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(data)
 }
 
 func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {

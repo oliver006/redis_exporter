@@ -509,6 +509,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 	e.mux.HandleFunc("/", e.indexHandler)
 	e.mux.HandleFunc("/scrape", e.scrapeHandler)
+	e.mux.HandleFunc("/discovery", e.discoveryHandler)
 	e.mux.HandleFunc("/health", e.healthHandler)
 	e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
 

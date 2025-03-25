@@ -135,6 +135,33 @@ The `targets-redis-instances.json` should look something like this:
 
 Prometheus uses file watches and all changes to the json file are applied immediately.
 
+### Prometheus Configuration to Scrape All Nodes in a Redis Cluster
+
+When using a Redis Cluster, the exporter provides a discovery endpoint that can be used to discover all nodes in the cluster.
+To use this feature, the exporter must be started with the `--is-cluster` flag.\
+The discovery endpoint is available at `/discovery` and can be used in the Prometheus configuration like this:
+
+```yaml
+scrape_configs:
+  - job_name: 'redis_exporter_cluster_nodes'
+    http_sd_configs:
+      - url: http://<<REDIS-EXPORTER-HOSTNAME>>:9121/discovery
+        refresh_interval: 10m
+    metrics_path: /scrape
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: <<REDIS-EXPORTER-HOSTNAME>>:9121
+
+  ## config for scraping the exporter itself
+  - job_name: 'redis_exporter'
+    static_configs:
+      - targets:
+        - <<REDIS-EXPORTER-HOSTNAME>>:9121
+```
 
 ### Command line flags
 
@@ -207,7 +234,7 @@ Alternatively, you can provide the username and/or password using the `--redis.u
 If you want to use a dedicated Redis user for the redis_exporter (instead of the default user) then you need enable a list of commands for that user.
 You can use the following Redis command to set up the user, just replace `<<<USERNAME>>>` and `<<<PASSWORD>>>` with your desired values.
 ```
-ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +get +eval +slowlog +cluster|info -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
+ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
 ```
 
 For monitoring a Sentinel-node you may use the following command with the right ACL:
