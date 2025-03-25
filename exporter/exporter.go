@@ -88,6 +88,7 @@ type Options struct {
 	BasicAuthUsername              string
 	BasicAuthPassword              string
 	SkipCheckKeysForRoleMaster     bool
+	InclMetricsForEmptyDatabases   bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -714,13 +715,13 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
 
-			// in cluster mode Redis only supports one database so no extra DB number padding needed
+			// in cluster mode Redis only supports one database, so no extra DB number padding needed
 			dbCount = 1
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
 		}
 	} else if dbCount == 0 {
-		// in non-cluster mode, if dbCount is zero then "CONFIG" failed to retrieve a valid
+		// in non-cluster mode, if dbCount is zero, then "CONFIG" failed to retrieve a valid
 		// number of databases, and we use the Redis config default which is 16
 
 		dbCount = 16

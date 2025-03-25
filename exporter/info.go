@@ -159,11 +159,13 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	// from #Commandstats processing and the percentile info that we get from the #Latencystats processing
 	e.generateCommandLatencySummaries(ch, cmdLatencyMap, cmdCount, cmdSum)
 
-	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
-		dbName := "db" + strconv.Itoa(dbIndex)
-		if _, exists := handledDBs[dbName]; !exists {
-			e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
-			e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+	if e.options.InclMetricsForEmptyDatabases {
+		for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+			dbName := "db" + strconv.Itoa(dbIndex)
+			if _, exists := handledDBs[dbName]; !exists {
+				e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
+				e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+			}
 		}
 	}
 

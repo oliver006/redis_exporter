@@ -57,40 +57,47 @@ func getEnvInt64(key string, defaultVal int64) int64 {
 
 func main() {
 	var (
-		redisAddr                      = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of the Redis instance to scrape")
-		redisUser                      = flag.String("redis.user", getEnv("REDIS_USER", ""), "User name to use for authentication (Redis ACL for Redis 6.0 and newer)")
-		redisPwd                       = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
-		redisPwdFile                   = flag.String("redis.password-file", getEnv("REDIS_PASSWORD_FILE", ""), "Password file of the Redis instance to scrape")
-		namespace                      = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
-		checkKeys                      = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
-		checkSingleKeys                = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
-		checkKeyGroups                 = flag.String("check-key-groups", getEnv("REDIS_EXPORTER_CHECK_KEY_GROUPS", ""), "Comma separated list of lua regex for grouping keys")
-		checkStreams                   = flag.String("check-streams", getEnv("REDIS_EXPORTER_CHECK_STREAMS", ""), "Comma separated list of stream-patterns to export info about streams, groups and consumers, searched for with SCAN")
-		checkSingleStreams             = flag.String("check-single-streams", getEnv("REDIS_EXPORTER_CHECK_SINGLE_STREAMS", ""), "Comma separated list of single streams to export info about streams, groups and consumers")
-		streamsExcludeConsumerMetrics  = flag.Bool("streams-exclude-consumer-metrics", getEnvBool("REDIS_EXPORTER_STREAMS_EXCLUDE_CONSUMER_METRICS", false), "Don't collect per consumer metrics for streams (decreases cardinality)")
-		countKeys                      = flag.String("count-keys", getEnv("REDIS_EXPORTER_COUNT_KEYS", ""), "Comma separated list of patterns to count (eg: 'db0=production_*,db3=sessions:*'), searched for with SCAN")
-		checkKeysBatchSize             = flag.Int64("check-keys-batch-size", getEnvInt64("REDIS_EXPORTER_CHECK_KEYS_BATCH_SIZE", 1000), "Approximate number of keys to process in each execution, larger value speeds up scanning.\nWARNING: Still Redis is a single-threaded app, huge COUNT can affect production environment.")
-		scriptPath                     = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Comma separated list of path(s) to Redis Lua script(s) for gathering extra metrics")
-		listenAddress                  = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
-		metricPath                     = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
-		logFormat                      = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
-		configCommand                  = flag.String("config-command", getEnv("REDIS_EXPORTER_CONFIG_COMMAND", "CONFIG"), "What to use for the CONFIG command, set to \"-\" to skip config metrics extraction")
-		connectionTimeout              = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
-		tlsClientKeyFile               = flag.String("tls-client-key-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_KEY_FILE", ""), "Name of the client key file (including full path) if the server requires TLS client authentication")
-		tlsClientCertFile              = flag.String("tls-client-cert-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_CERT_FILE", ""), "Name of the client certificate file (including full path) if the server requires TLS client authentication")
-		tlsCaCertFile                  = flag.String("tls-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the server requires TLS client authentication")
-		tlsServerKeyFile               = flag.String("tls-server-key-file", getEnv("REDIS_EXPORTER_TLS_SERVER_KEY_FILE", ""), "Name of the server key file (including full path) if the web interface and telemetry should use TLS")
-		tlsServerCertFile              = flag.String("tls-server-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CERT_FILE", ""), "Name of the server certificate file (including full path) if the web interface and telemetry should use TLS")
-		tlsServerCaCertFile            = flag.String("tls-server-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the web interface and telemetry should require TLS client authentication")
-		tlsServerMinVersion            = flag.String("tls-server-min-version", getEnv("REDIS_EXPORTER_TLS_SERVER_MIN_VERSION", "TLS1.2"), "Minimum TLS version that is acceptable by the web interface and telemetry when using TLS")
-		maxDistinctKeyGroups           = flag.Int64("max-distinct-key-groups", getEnvInt64("REDIS_EXPORTER_MAX_DISTINCT_KEY_GROUPS", 100), "The maximum number of distinct key groups with the most memory utilization to present as distinct metrics per database, the leftover key groups will be aggregated in the 'overflow' bucket")
-		isDebug                        = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information")
-		setClientName                  = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
-		isTile38                       = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
-		isCluster                      = flag.Bool("is-cluster", getEnvBool("REDIS_EXPORTER_IS_CLUSTER", false), "Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).")
-		exportClientList               = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
-		exportClientPort               = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
-		showVersion                    = flag.Bool("version", false, "Show version information and exit")
+		isDebug     = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information")
+		showVersion = flag.Bool("version", false, "Show version information and exit")
+
+		redisAddr    = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of the Redis instance to scrape")
+		redisUser    = flag.String("redis.user", getEnv("REDIS_USER", ""), "User name to use for authentication (Redis ACL for Redis 6.0 and newer)")
+		redisPwd     = flag.String("redis.password", getEnv("REDIS_PASSWORD", ""), "Password of the Redis instance to scrape")
+		redisPwdFile = flag.String("redis.password-file", getEnv("REDIS_PASSWORD_FILE", ""), "Password file of the Redis instance to scrape")
+		namespace    = flag.String("namespace", getEnv("REDIS_EXPORTER_NAMESPACE", "redis"), "Namespace for metrics")
+
+		checkKeys          = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
+		checkSingleKeys    = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
+		checkKeyGroups     = flag.String("check-key-groups", getEnv("REDIS_EXPORTER_CHECK_KEY_GROUPS", ""), "Comma separated list of lua regex for grouping keys")
+		checkStreams       = flag.String("check-streams", getEnv("REDIS_EXPORTER_CHECK_STREAMS", ""), "Comma separated list of stream-patterns to export info about streams, groups and consumers, searched for with SCAN")
+		checkSingleStreams = flag.String("check-single-streams", getEnv("REDIS_EXPORTER_CHECK_SINGLE_STREAMS", ""), "Comma separated list of single streams to export info about streams, groups and consumers")
+
+		streamsExcludeConsumerMetrics = flag.Bool("streams-exclude-consumer-metrics", getEnvBool("REDIS_EXPORTER_STREAMS_EXCLUDE_CONSUMER_METRICS", false), "Don't collect per consumer metrics for streams (decreases cardinality)")
+		countKeys                     = flag.String("count-keys", getEnv("REDIS_EXPORTER_COUNT_KEYS", ""), "Comma separated list of patterns to count (eg: 'db0=production_*,db3=sessions:*'), searched for with SCAN")
+		checkKeysBatchSize            = flag.Int64("check-keys-batch-size", getEnvInt64("REDIS_EXPORTER_CHECK_KEYS_BATCH_SIZE", 1000), "Approximate number of keys to process in each execution, larger value speeds up scanning.\nWARNING: Still Redis is a single-threaded app, huge COUNT can affect production environment.")
+		scriptPath                    = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Comma separated list of path(s) to Redis Lua script(s) for gathering extra metrics")
+		listenAddress                 = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
+		metricPath                    = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
+		logFormat                     = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
+		configCommand                 = flag.String("config-command", getEnv("REDIS_EXPORTER_CONFIG_COMMAND", "CONFIG"), "What to use for the CONFIG command, set to \"-\" to skip config metrics extraction")
+		connectionTimeout             = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
+
+		tlsClientKeyFile    = flag.String("tls-client-key-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_KEY_FILE", ""), "Name of the client key file (including full path) if the server requires TLS client authentication")
+		tlsClientCertFile   = flag.String("tls-client-cert-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_CERT_FILE", ""), "Name of the client certificate file (including full path) if the server requires TLS client authentication")
+		tlsCaCertFile       = flag.String("tls-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the server requires TLS client authentication")
+		tlsServerKeyFile    = flag.String("tls-server-key-file", getEnv("REDIS_EXPORTER_TLS_SERVER_KEY_FILE", ""), "Name of the server key file (including full path) if the web interface and telemetry should use TLS")
+		tlsServerCertFile   = flag.String("tls-server-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CERT_FILE", ""), "Name of the server certificate file (including full path) if the web interface and telemetry should use TLS")
+		tlsServerCaCertFile = flag.String("tls-server-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the web interface and telemetry should require TLS client authentication")
+		tlsServerMinVersion = flag.String("tls-server-min-version", getEnv("REDIS_EXPORTER_TLS_SERVER_MIN_VERSION", "TLS1.2"), "Minimum TLS version that is acceptable by the web interface and telemetry when using TLS")
+
+		maxDistinctKeyGroups = flag.Int64("max-distinct-key-groups", getEnvInt64("REDIS_EXPORTER_MAX_DISTINCT_KEY_GROUPS", 100), "The maximum number of distinct key groups with the most memory utilization to present as distinct metrics per database, the leftover key groups will be aggregated in the 'overflow' bucket")
+		setClientName        = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
+		isTile38             = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
+		isCluster            = flag.Bool("is-cluster", getEnvBool("REDIS_EXPORTER_IS_CLUSTER", false), "Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).")
+
+		exportClientList = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
+		exportClientPort = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
+
 		redisMetricsOnly               = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to also export go runtime metrics")
 		pingOnConnect                  = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclConfigMetrics              = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
@@ -103,6 +110,7 @@ func main() {
 		skipCheckKeysForRoleMaster     = flag.Bool("skip-checkkeys-for-role-master", getEnvBool("REDIS_EXPORTER_SKIP_CHECKKEYS_FOR_ROLE_MASTER", false), "Whether to skip gathering the check-keys metrics (size, val) when the instance is of type master (reduce load on master nodes)")
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
+		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
 	)
 	flag.Parse()
 
@@ -205,8 +213,9 @@ func main() {
 				CommitSha: BuildCommitSha,
 				Date:      BuildDate,
 			},
-			BasicAuthUsername: *basicAuthUsername,
-			BasicAuthPassword: *basicAuthPassword,
+			BasicAuthUsername:            *basicAuthUsername,
+			BasicAuthPassword:            *basicAuthPassword,
+			InclMetricsForEmptyDatabases: *inclMetricsForEmptyDatabases,
 		},
 	)
 	if err != nil {
