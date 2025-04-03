@@ -457,7 +457,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 			db = "0"
 			key, err = url.QueryUnescape(strings.TrimSpace(frags[0]))
 		case 2:
-			db = strings.Replace(strings.TrimSpace(frags[0]), "db", "", -1)
+			db = strings.ReplaceAll(strings.TrimSpace(frags[0]), "db", "")
 			key, err = url.QueryUnescape(strings.TrimSpace(frags[1]))
 		default:
 			return keys, fmt.Errorf("invalid key list argument: %s", k)
