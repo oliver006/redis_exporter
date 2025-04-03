@@ -2,7 +2,6 @@ package exporter
 
 import (
 	"regexp"
-	"sort"
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
@@ -26,8 +25,6 @@ func (e *Exporter) getClusterNodes(c redis.Conn) ([]string, error) {
 			nodes = append(nodes, host+":"+port)
 		}
 	}
-
-	sort.Strings(nodes)
 
 	return nodes, nil
 }

@@ -120,6 +120,7 @@ func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
 	c, err := e.connectToRedisCluster()
 	if err != nil {
 		http.Error(w, "Couldn't connect to redis cluster", http.StatusInternalServerError)
+		return
 	}
 	defer c.Close()
 
@@ -129,7 +130,7 @@ func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := &discoveryTargetList{
+	discovery := discoveryTargetList{
 		&discoveryTargetGroup{
 			Targets: make([]string, len(nodes)),
 			Labels:  make(map[string]string, 0),
@@ -139,13 +140,13 @@ func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
 	tls := strings.HasPrefix(e.redisAddr, "rediss://")
 	for i, node := range nodes {
 		if tls {
-			(*discovery)[0].Targets[i] = "rediss://" + node
+			discovery[0].Targets[i] = "rediss://" + node
 		} else {
-			(*discovery)[0].Targets[i] = "redis://" + node
+			discovery[0].Targets[i] = "redis://" + node
 		}
 	}
 
-	data, err := json.MarshalIndent(discovery, "", "  ")
+	data, err := json.MarshalIndent(&discovery, "", "  ")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to marshal discovery data: %s", err), http.StatusInternalServerError)
 		return
