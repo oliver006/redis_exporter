@@ -389,7 +389,7 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	extendedStats = false
 
 	if !strings.HasPrefix(fieldKey, cmdPrefix) {
-		errorOut = errors.New("Invalid fieldKey")
+		errorOut = errors.New("invalid fieldKey")
 		return
 	}
 	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
@@ -397,7 +397,7 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	splitValue := strings.Split(fieldValue, ",")
 	splitLen := len(splitValue)
 	if splitLen < 3 {
-		errorOut = errors.New("Invalid fieldValue")
+		errorOut = errors.New("invalid fieldValue")
 		return
 	}
 
@@ -405,13 +405,13 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	var err error
 	calls, err = extractVal(splitValue[0])
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[0]")
+		errorOut = errors.New("invalid splitValue[0]")
 		return
 	}
 
 	usecTotal, err = extractVal(splitValue[1])
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[1]")
+		errorOut = errors.New("invalid splitValue[1]")
 		return
 	}
 
