@@ -84,6 +84,7 @@ type Options struct {
 	BuildInfo                      BuildInfo
 	BasicAuthUsername              string
 	BasicAuthPassword              string
+	IgnoreEmptyDatabases           bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
