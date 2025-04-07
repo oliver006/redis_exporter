@@ -14,13 +14,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type discoveryTargetList []*discoveryTargetGroup
-
-type discoveryTargetGroup struct {
-	Targets []string          `json:"targets"`
-	Labels  map[string]string `json:"labels"`
-}
-
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := e.verifyBasicAuth(r.BasicAuth()); err != nil {
 		w.Header().Set("WWW-Authenticate", `Basic realm="redis-exporter, charset=UTF-8"`)
@@ -111,7 +104,7 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	).ServeHTTP(w, r)
 }
 
-func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
+func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
 	if !e.options.IsCluster {
 		http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
 		return
@@ -130,8 +123,11 @@ func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	discovery := discoveryTargetList{
-		&discoveryTargetGroup{
+	discovery := []struct {
+		Targets []string          `json:"targets"`
+		Labels  map[string]string `json:"labels"`
+	}{
+		{
 			Targets: make([]string, len(nodes)),
 			Labels:  make(map[string]string, 0),
 		},
@@ -146,7 +142,7 @@ func (e *Exporter) discoveryHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data, err := json.MarshalIndent(&discovery, "", "  ")
+	data, err := json.MarshalIndent(discovery, "", "  ")
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to marshal discovery data: %s", err), http.StatusInternalServerError)
 		return

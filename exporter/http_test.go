@@ -321,7 +321,7 @@ func TestHttpHandlers(t *testing.T) {
 	}
 }
 
-func TestHttpDiscoveryHandlers(t *testing.T) {
+func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
 	}
@@ -332,22 +332,22 @@ func TestHttpDiscoveryHandlers(t *testing.T) {
 		isCluster bool
 	}{
 		{
-			path:      "/discovery",
+			path:      "/discover-cluster-nodes",
 			want:      "redis://127.0.0.1:7000",
 			isCluster: true,
 		},
 		{
-			path:      "/discovery",
+			path:      "/discover-cluster-nodes",
 			want:      "redis://127.0.0.1:7001",
 			isCluster: true,
 		},
 		{
-			path:      "/discovery",
+			path:      "/discover-cluster-nodes",
 			want:      "redis://127.0.0.1:7002",
 			isCluster: true,
 		},
 		{
-			path:      "/discovery",
+			path:      "/discover-cluster-nodes",
 			want:      "The discovery endpoint is only available on a redis cluster",
 			isCluster: false,
 		},

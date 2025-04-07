@@ -139,13 +139,13 @@ Prometheus uses file watches and all changes to the json file are applied immedi
 
 When using a Redis Cluster, the exporter provides a discovery endpoint that can be used to discover all nodes in the cluster.
 To use this feature, the exporter must be started with the `--is-cluster` flag.\
-The discovery endpoint is available at `/discovery` and can be used in the Prometheus configuration like this:
+The discovery endpoint is available at `/discover-cluster-nodes` and can be used in the Prometheus configuration like this:
 
 ```yaml
 scrape_configs:
   - job_name: 'redis_exporter_cluster_nodes'
     http_sd_configs:
-      - url: http://<<REDIS-EXPORTER-HOSTNAME>>:9121/discovery
+      - url: http://<<REDIS-EXPORTER-HOSTNAME>>:9121/discover-cluster-nodes
         refresh_interval: 10m
     metrics_path: /scrape
     relabel_configs:
