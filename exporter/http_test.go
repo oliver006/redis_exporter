@@ -321,6 +321,56 @@ func TestHttpHandlers(t *testing.T) {
 	}
 }
 
+func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
+	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
+	}
+
+	tests := []struct {
+		path      string
+		want      string
+		isCluster bool
+	}{
+		{
+			path:      "/discover-cluster-nodes",
+			want:      "redis://127.0.0.1:7000",
+			isCluster: true,
+		},
+		{
+			path:      "/discover-cluster-nodes",
+			want:      "redis://127.0.0.1:7001",
+			isCluster: true,
+		},
+		{
+			path:      "/discover-cluster-nodes",
+			want:      "redis://127.0.0.1:7002",
+			isCluster: true,
+		},
+		{
+			path:      "/discover-cluster-nodes",
+			want:      "The discovery endpoint is only available on a redis cluster",
+			isCluster: false,
+		},
+	}
+
+	for _, tst := range tests {
+		t.Run(fmt.Sprintf("path: %s, isCluster: %v", tst.path, tst.isCluster), func(t *testing.T) {
+			e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"), Options{
+				Namespace: "test",
+				Registry:  prometheus.NewRegistry(),
+				IsCluster: tst.isCluster,
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			body := downloadURL(t, ts.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+}
+
 func TestReloadHandlers(t *testing.T) {
 	if os.Getenv("TEST_PWD_REDIS_URI") == "" {
 		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
