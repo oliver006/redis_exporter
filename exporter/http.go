@@ -133,9 +133,9 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 		},
 	}
 
-	tls := strings.HasPrefix(e.redisAddr, "rediss://")
+	isTls := strings.HasPrefix(e.redisAddr, "rediss://")
 	for i, node := range nodes {
-		if tls {
+		if isTls {
 			discovery[0].Targets[i] = "rediss://" + node
 		} else {
 			discovery[0].Targets[i] = "redis://" + node
