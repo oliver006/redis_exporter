@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	// see https://github.com/prometheus/client_golang/releases/tag/v1.22.0
+	_ "github.com/prometheus/client_golang/prometheus/promhttp/zstd"
+
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
