@@ -7,11 +7,11 @@ import (
 )
 
 func TestNodesGetClusterNodes(t *testing.T) {
-	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
+	host := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	if host == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
 	}
 
-	host := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
 	e, _ := NewRedisExporter(host, Options{})
 	c, err := e.connectToRedisCluster()
 	if err != nil {

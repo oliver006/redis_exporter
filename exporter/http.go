@@ -112,7 +112,7 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 
 	c, err := e.connectToRedisCluster()
 	if err != nil {
-		http.Error(w, "Couldn't connect to redis cluster", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Couldn't connect to redis cluster: %s", err), http.StatusInternalServerError)
 		return
 	}
 	defer c.Close()

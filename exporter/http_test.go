@@ -322,40 +322,62 @@ func TestHttpHandlers(t *testing.T) {
 }
 
 func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
-	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
+	clusterAddr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	nonClusterAddr := os.Getenv("TEST_REDIS_URI")
+	if clusterAddr == "" || nonClusterAddr == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or TEST_REDIS_URI not set - skipping")
 	}
 
 	tests := []struct {
-		path      string
+		addr      string
 		want      string
 		isCluster bool
 	}{
 		{
-			path:      "/discover-cluster-nodes",
+			addr:      clusterAddr,
 			want:      "redis://127.0.0.1:7000",
 			isCluster: true,
 		},
 		{
-			path:      "/discover-cluster-nodes",
+			addr:      clusterAddr,
 			want:      "redis://127.0.0.1:7001",
 			isCluster: true,
 		},
 		{
-			path:      "/discover-cluster-nodes",
+			addr:      clusterAddr,
 			want:      "redis://127.0.0.1:7002",
 			isCluster: true,
 		},
 		{
-			path:      "/discover-cluster-nodes",
+			addr:      clusterAddr,
 			want:      "The discovery endpoint is only available on a redis cluster",
 			isCluster: false,
+		},
+		{
+			addr:      nonClusterAddr,
+			want:      "The discovery endpoint is only available on a redis cluster",
+			isCluster: false,
+		},
+		{
+			addr:      nonClusterAddr,
+			want:      "ouldn't connect to redis cluster: Cluster refresh failed",
+			isCluster: true,
+		},
+		{
+			addr:      "doesnt-exist:9876",
+			want:      "The discovery endpoint is only available on a redis cluster",
+			isCluster: false,
+		},
+		{
+			addr:      "doesnt-exist:9876",
+			want:      "Couldn't connect to redis cluster: Cluster refresh failed: redisc: all nodes failed",
+			isCluster: true,
 		},
 	}
 
 	for _, tst := range tests {
-		t.Run(fmt.Sprintf("path: %s, isCluster: %v", tst.path, tst.isCluster), func(t *testing.T) {
-			e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"), Options{
+		t.Run(fmt.Sprintf("addr: %s, isCluster: %v", tst.addr, tst.isCluster), func(t *testing.T) {
+			e, _ := NewRedisExporter(tst.addr, Options{
 				Namespace: "test",
 				Registry:  prometheus.NewRegistry(),
 				IsCluster: tst.isCluster,
@@ -363,7 +385,7 @@ func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 			ts := httptest.NewServer(e)
 			defer ts.Close()
 
-			body := downloadURL(t, ts.URL+tst.path)
+			body := downloadURL(t, ts.URL+"/discover-cluster-nodes")
 			if !strings.Contains(body, tst.want) {
 				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
 			}
