@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	// see https://github.com/prometheus/client_golang/releases/tag/v1.22.0
+	_ "github.com/prometheus/client_golang/prometheus/promhttp/zstd"
+
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -155,6 +158,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"allocator_resident":   "allocator_resident_bytes",
 			"allocator_frag_ratio": "allocator_frag_ratio",
 			"allocator_frag_bytes": "allocator_frag_bytes",
+			"allocator_muzzy":      "allocator_muzzy_bytes",
 			"allocator_rss_ratio":  "allocator_rss_ratio",
 			"allocator_rss_bytes":  "allocator_rss_bytes",
 
@@ -186,6 +190,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
 			"mem_clients_slaves":      "mem_clients_slaves",
 			"mem_clients_normal":      "mem_clients_normal",
+			"mem_cluster_links":       "mem_cluster_links_bytes",
+			"mem_aof_buffer":          "mem_aof_buffer_bytes",
+			"mem_replication_backlog": "mem_replication_backlog_bytes",
 
 			"expired_stale_perc": "expired_stale_percentage",
 
@@ -196,6 +203,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"mem_overhead_db_hashtable_rehashing": "mem_overhead_db_hashtable_rehashing_bytes", // Added in Redis 7.4
 
 			"lazyfree_pending_objects": "lazyfree_pending_objects",
+			"lazyfreed_objects":        "lazyfreed_objects",
 			"active_defrag_running":    "active_defrag_running",
 
 			"migrate_cached_sockets": "migrate_cached_sockets_total",
