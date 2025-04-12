@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"bytes"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 func TestHostVariations(t *testing.T) {
@@ -158,21 +156,14 @@ func TestConnectToClusterUsingPasswordFile(t *testing.T) {
 				PasswordMap:         tst.passMap,
 				IsCluster:           tst.isCluster,
 			})
-			var buf bytes.Buffer
-			log.SetOutput(&buf)
-			defer func() {
-				log.SetOutput(os.Stderr)
-			}()
 			_, err := e.connectToRedisCluster()
 			t.Logf("connectToRedisCluster() err: %s", err)
-			if strings.Contains(buf.String(), "Cluster refresh failed:") && !tst.refreshError {
-				t.Errorf("Test Cluster connection Failed error")
+			if err != nil && strings.Contains(err.Error(), "Cluster refresh failed:") && !tst.refreshError {
+				t.Fatalf("Test Cluster connection Failed error")
 			}
-			if err != nil {
-				t.Errorf("Test Cluster connection Failed-connection error")
+			if !tst.refreshError && err != nil {
+				t.Fatalf("Test Cluster connection Failed, err: %s", err)
 			}
-
 		})
 	}
-
 }
