@@ -1,6 +1,7 @@
 module github.com/oliver006/redis_exporter
 
-go 1.22
+go 1.22.0
+
 toolchain go1.24.1
 
 require (
