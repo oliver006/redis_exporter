@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/oliver006/redis_exporter/exporter"
@@ -156,7 +157,12 @@ func main() {
 
 	registry := prometheus.NewRegistry()
 	if !*redisMetricsOnly {
-		registry = prometheus.DefaultRegisterer.(*prometheus.Registry)
+		registry.MustRegister(
+			// expose process metrics like CPU, Memory, file descriptor usage etc.
+			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+			// expose all Go runtime metrics like GC stats, memory stats etc.
+			collectors.NewGoCollector(collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll)),
+		)
 	}
 
 	exp, err := exporter.NewRedisExporter(
