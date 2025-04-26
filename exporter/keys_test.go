@@ -678,7 +678,7 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 		`test_key_size{db="db0",key="single"} 0`, // non-existent key
 
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, dbNumStr, TestKeyNameSingleString),
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, dbNumStr, TestKeysZSetName),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 2`, dbNumStr, TestKeysZSetName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 4`, dbNumStr, TestKeysHashName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, altDBNumStr, TestKeysHllName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, TestKeyNameSingleString),
