@@ -129,6 +129,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, redisClie
 	} else {
 		e.extractCheckKeyMetricsPipelined(ch, c, allKeys)
 	}
+	return nil
 }
 
 func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
@@ -382,7 +383,6 @@ func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metri
 		dbLabel := "db" + k.db
 		e.getKeyInfo(ch, c, dbLabel, keyType, k.key)
 	}
-	return nil
 }
 
 func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.Conn) {

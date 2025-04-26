@@ -27,9 +27,9 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 	setupTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
 	defer deleteTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
 
-	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0]) // check-single-keys
-	css := dbNumStrFull + "=" + TestKeyNameStream        // check-single-streams
-	cntk := dbNumStrFull + "=" + keys[0] + "*"           // count-keys
+	csk := dbNumStrFull + "=" + url.QueryEscape(testKeys[0]) // check-single-keys
+	css := dbNumStrFull + "=" + TestKeyNameStream            // check-single-streams
+	cntk := dbNumStrFull + "=" + testKeys[0] + "*"           // count-keys
 
 	u, err := url.Parse(os.Getenv("TEST_REDIS_URI"))
 	if err != nil {

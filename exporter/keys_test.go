@@ -83,7 +83,7 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
 	}
 	setupTestKeysCluster(t, clusterUri)
-	defer deleteTestKeysCluster(clusterUri)
+	defer deleteTestKeysCluster(t, clusterUri)
 
 	for _, disableExportingValues := range []bool{true, false} {
 		e, _ := NewRedisExporter(
@@ -92,7 +92,7 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 				Namespace: "test", DisableExportingKeyValues: disableExportingValues,
 				CheckSingleKeys: fmt.Sprintf(
 					"%s=%s,%s=%s",
-					dbNumStrFull, url.QueryEscape(keys[0]),
+					dbNumStrFull, url.QueryEscape(testKeys[0]),
 					dbNumStrFull, url.QueryEscape(TestKeyNameSet),
 				),
 				IsCluster: true,
@@ -715,7 +715,7 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	defer ts.Close()
 
 	setupTestKeysCluster(t, clusterUri)
-	defer deleteTestKeysCluster(clusterUri)
+	defer deleteTestKeysCluster(t, clusterUri)
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	for _, want := range []string{

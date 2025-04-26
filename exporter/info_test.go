@@ -160,8 +160,8 @@ func TestClusterSkipCheckKeysIfMaster(t *testing.T) {
 		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or slave not set - skipping")
 	}
 
-	setupDBKeysCluster(t, uriMaster)
-	defer deleteKeysFromDBCluster(uriMaster)
+	setupTestKeysCluster(t, uriMaster)
+	defer deleteTestKeysCluster(t, uriMaster)
 
 	for _, uri := range []string{uriMaster, uriSlave} {
 		for _, skip := range []bool{true, false} {

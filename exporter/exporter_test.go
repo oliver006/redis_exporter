@@ -28,12 +28,35 @@ const (
 	dbNumStr        = "11"
 	altDBNumStr     = "12"
 	invalidDBNumStr = "16"
+
+	anotherAltDbNumStr = "14"
+)
+
+const (
+	TestKeysSetName    = "test-set"
+	TestKeysZSetName   = "test-zset"
+	TestKeysStreamName = "test-stream"
+	TestKeysHllName    = "test-hll"
+	TestKeysHashName   = "test-hash"
+	TestKeyGroup1      = "test_group_1"
+	TestKeyGroup2      = "test_group_2"
 )
 
 var (
-	keys         []string
-	keysExpiring []string
-	listKeys     []string
+	AllTestKeys = []string{
+		TestKeysSetName, TestKeysZSetName,
+		TestKeysStreamName,
+		TestKeysHllName, TestKeysHashName,
+		TestKeyGroup1, TestKeyGroup2,
+	}
+)
+
+var (
+	testKeys         []string
+	testKeysExpiring []string
+	testKeysList     []string
+
+	testKeySingleString string
 
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
 )
@@ -185,11 +208,11 @@ func deleteKeys(c redis.Conn, dbNum string) {
 		doRedisCmd(c, "DEL", key)
 	}
 
-	for _, key := range keysExpiring {
+	for _, key := range testKeysExpiring {
 		c.Do("DEL", key)
 	}
 
-	for _, key := range listKeys {
+	for _, key := range testKeysList {
 		c.Do("DEL", key)
 	}
 
@@ -272,10 +295,11 @@ func deleteTestKeys(t *testing.T, addr string) error {
 	return nil
 }
 
-func deleteTestKeysCluster(addr string) error {
+func deleteTestKeysCluster(t *testing.T, addr string) error {
 	e, _ := NewRedisExporter(addr, Options{})
 	c, err := e.connectToRedisCluster()
 	if err != nil {
+		t.Errorf("couldn't setup redis CLUSTER, err: %s ", err)
 		return err
 	}
 
@@ -433,8 +457,8 @@ func TestKeysReset(t *testing.T) {
 	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	body := downloadURL(t, ts.URL+"/metrics")
-	if !strings.Contains(body, keys[0]) {
-		t.Errorf("Did not find key %q\n%s", keys[0], body)
+	if !strings.Contains(body, testKeys[0]) {
+		t.Errorf("Did not find key %q\n%s", testKeys[0], body)
 	}
 
 	deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
