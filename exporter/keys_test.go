@@ -707,8 +707,9 @@ func TestClusterGetKeyInfo(t *testing.T) {
 		clusterUri,
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: TestKeyNameHll, Registry: prometheus.NewRegistry(),
-			IsCluster: true,
+			CheckSingleKeys: strings.Join(AllTestKeys, ","),
+			Registry:        prometheus.NewRegistry(),
+			IsCluster:       true,
 		},
 	)
 	ts := httptest.NewServer(e)
