@@ -5,7 +5,6 @@ import (
 	"net/http"
 	"net/url"
 	"runtime"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"sync"
@@ -738,7 +737,6 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	// skip these metrics for master if SkipCheckKeysForRoleMaster is set
 	// (can help with reducing work load on the master node)
 	log.Infof("checkKeys metric collection for role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
-	debug.PrintStack()
 	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
 		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
 			log.Errorf("extractCheckKeyMetrics() err: %s", err)
