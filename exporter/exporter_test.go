@@ -554,13 +554,13 @@ func init() {
 	}
 
 	TestKeyNameSingleString = fmt.Sprintf("key_string_%d", testTimestamp)
-
 	testKeysList = append(testKeysList, "test_beatles_list")
 
 	for _, n := range []string{"A.J.", "Howie", "Nick", "Kevin", "Brian"} {
 		testKeysExpiring = append(testKeysExpiring, fmt.Sprintf("key_exp_%s_%d", n, testTimestamp))
 	}
 
+	AllTestKeys = append(AllTestKeys, TestKeyNameSingleString)
 	AllTestKeys = append(AllTestKeys, testKeys...)
 	AllTestKeys = append(AllTestKeys, testKeysList...)
 	AllTestKeys = append(AllTestKeys, testKeysExpiring...)
