@@ -658,9 +658,9 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 		Options{Namespace: "test",
 			CheckSingleKeys: "single," +
 				dbNumStr + "=" + testKeys[0] + "," +
-				dbNumStr + "=" + testKeySingleString + "," +
+				dbNumStr + "=" + TestKeyNameSingleString + "," +
 				altDBNumStr + "=" + TestKeysHllName + "," +
-				altDBNumStr + "=" + testKeySingleString + "," +
+				altDBNumStr + "=" + TestKeyNameSingleString + "," +
 				anotherAltDbNumStr + "=" + testKeys[0],
 			CheckKeys:          dbNumStr + "=" + "test*",
 			CheckKeysBatchSize: 1000,
@@ -677,18 +677,18 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 	for _, k := range []string{
 		`test_key_size{db="db0",key="single"} 0`, // non-existent key
 
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, dbNumStr, testKeySingleString),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, dbNumStr, TestKeyNameSingleString),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, dbNumStr, TestKeysZSetName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 4`, dbNumStr, TestKeysHashName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, altDBNumStr, TestKeysHllName),
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, testKeySingleString),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, TestKeyNameSingleString),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 7`, anotherAltDbNumStr, testKeys[0]),
 
 		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, dbNumStr, testKeys[0]),
 		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, anotherAltDbNumStr, testKeys[0]),
 
-		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, dbNumStr, testKeySingleString),
-		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, altDBNumStr, testKeySingleString),
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, dbNumStr, TestKeyNameSingleString),
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, altDBNumStr, TestKeyNameSingleString),
 		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, anotherAltDbNumStr, testKeys[0]),
 	} {
 		if !strings.Contains(body, k) {

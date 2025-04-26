@@ -56,8 +56,6 @@ var (
 	testKeysExpiring []string
 	testKeysList     []string
 
-	testKeySingleString string
-
 	dbNumStrFull = fmt.Sprintf("db%s", dbNumStr)
 )
 
@@ -157,8 +155,8 @@ func setupKeys(t *testing.T, c redis.Conn, dbNum string) error {
 		return err
 	}
 
-	if _, err := doRedisCmd(c, "SET", testKeySingleString, "this-is-a-string"); err != nil {
-		t.Errorf("SET %s err: %s", testKeySingleString, err)
+	if _, err := doRedisCmd(c, "SET", TestKeyNameSingleString, "this-is-a-string"); err != nil {
+		t.Errorf("SET %s err: %s", TestKeyNameSingleString, err)
 		return err
 	}
 
