@@ -422,13 +422,13 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 
 	rejectedCalls, err = extractVal(splitValue[3])
 	if err != nil {
-		errorOut = errors.New("Invalid rejected_calls while parsing splitValue[3]")
+		errorOut = errors.New("invalid rejected_calls while parsing splitValue[3]")
 		return
 	}
 
 	failedCalls, err = extractVal(splitValue[4])
 	if err != nil {
-		errorOut = errors.New("Invalid failed_calls while parsing splitValue[4]")
+		errorOut = errors.New("invalid failed_calls while parsing splitValue[4]")
 		return
 	}
 	extendedStats = true
@@ -465,20 +465,20 @@ func parseMetricsLatencyStats(fieldKey string, fieldValue string) (cmd string, p
 	percentileMap = map[float64]float64{}
 
 	if !strings.HasPrefix(fieldKey, cmdPrefix) {
-		errorOut = errors.New("Invalid fieldKey")
+		errorOut = errors.New("invalid fieldKey")
 		return
 	}
 	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
 	splitValue := strings.Split(fieldValue, ",")
 	splitLen := len(splitValue)
 	if splitLen < 1 {
-		errorOut = errors.New("Invalid fieldValue")
+		errorOut = errors.New("invalid fieldValue")
 		return
 	}
 	for pos, kv := range splitValue {
 		percentile, value, err := extractPercentileVal(kv)
 		if err != nil {
-			errorOut = fmt.Errorf("Invalid splitValue[%d]", pos)
+			errorOut = fmt.Errorf("invalid splitValue[%d]", pos)
 			return
 		}
 		percentileMap[percentile] = value
@@ -500,13 +500,13 @@ func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorType strin
 	const prefix = "errorstat_"
 
 	if !strings.HasPrefix(fieldKey, prefix) {
-		errorOut = errors.New("Invalid fieldKey. errorstat_ prefix not present")
+		errorOut = errors.New("invalid fieldKey. errorstat_ prefix not present")
 		return
 	}
 	errorType = strings.TrimPrefix(fieldKey, prefix)
 	count, err := extractVal(fieldValue)
 	if err != nil {
-		errorOut = errors.New("Invalid error type on splitValue[0]")
+		errorOut = errors.New("invalid error type on splitValue[0]")
 		return
 	}
 	return

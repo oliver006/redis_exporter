@@ -475,7 +475,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 		number, err := strconv.Atoi(db)
 		if err != nil || number < 0 {
-			return keys, fmt.Errorf("Invalid database index for db \"%s\": %s", db, err)
+			return keys, fmt.Errorf("invalid database index for db \"%s\": %s", db, err)
 		}
 
 		keys = append(keys, dbKeyPair{db, key})
@@ -487,7 +487,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 // This function was adapted from: https://github.com/reisinger/examples-redigo
 func scanKeys(c redis.Conn, pattern string, count int64) (keys []interface{}, err error) {
 	if pattern == "" {
-		return keys, fmt.Errorf("Pattern shouldn't be empty")
+		return keys, fmt.Errorf("pattern shouldn't be empty")
 	}
 
 	iter := 0
