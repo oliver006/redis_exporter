@@ -120,20 +120,20 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	log.Debugf("Running refresh on cluster object")
 	if err := cluster.Refresh(); err != nil {
 		log.Errorf("Cluster refresh failed: %v", err)
-		return nil, fmt.Errorf("Cluster refresh failed: %w", err)
+		return nil, fmt.Errorf("cluster refresh failed: %w", err)
 	}
 
 	log.Debugf("Creating redis connection object")
 	conn, err := cluster.Dial()
 	if err != nil {
 		log.Errorf("Dial failed: %v", err)
-		return nil, fmt.Errorf("Dial failed: %w", err)
+		return nil, fmt.Errorf("dial failed: %w", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
 		log.Errorf("RetryConn failed: %v", err)
-		return nil, fmt.Errorf("RetryConn failed: %w", err)
+		return nil, fmt.Errorf("retryConn failed: %w", err)
 	}
 
 	return c, err

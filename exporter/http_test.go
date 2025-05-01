@@ -360,7 +360,7 @@ func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 		},
 		{
 			addr:      nonClusterAddr,
-			want:      "ouldn't connect to redis cluster: Cluster refresh failed",
+			want:      "ouldn't connect to redis cluster: cluster refresh failed",
 			isCluster: true,
 		},
 		{
@@ -370,7 +370,7 @@ func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 		},
 		{
 			addr:      "doesnt-exist:9876",
-			want:      "Couldn't connect to redis cluster: Cluster refresh failed: redisc: all nodes failed",
+			want:      "Couldn't connect to redis cluster: cluster refresh failed: redisc: all nodes failed",
 			isCluster: true,
 		},
 	}

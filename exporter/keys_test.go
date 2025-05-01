@@ -371,7 +371,7 @@ func TestScanKeys(t *testing.T) {
 		got, err := redis.Strings(scanKeys(c, pattern, count))
 		if err != nil {
 			t.Logf("\"Passed\" expected, got error: %#v", err)
-			if pattern == "" && err.Error() != "Pattern shouldn't be empty" {
+			if pattern == "" && err.Error() != "pattern shouldn't be empty" {
 				t.Errorf("\"Empty pattern\" error message expected, but got: %s", err.Error())
 			}
 		} else {
