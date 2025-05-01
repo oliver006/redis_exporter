@@ -197,7 +197,7 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 			}
 			memUsageInBytes, err := redis.Int64(c.Receive())
 			if err != nil {
-				log.Errorf("key: [%s] - memUsageInBytes Receive() err: %s", keyName, err)
+				// log.Errorf("key: [%s] - memUsageInBytes Receive() err: %s", keyName, err)
 				continue
 			}
 
