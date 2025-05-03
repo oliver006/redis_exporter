@@ -243,13 +243,13 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 			log.Debugf("c.Send() STRLEN  args: [%v]", keyName)
 			if err := c.Send("STRLEN", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				log.Errorf("STRLEN err: %s", err)
 				return
 			}
 
 			log.Debugf("c.Send() GET  args: [%v]", keyName)
 			if err := c.Send("GET", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				log.Errorf("GET err: %s", err)
 				return
 			}
 
