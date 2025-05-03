@@ -87,6 +87,7 @@ type Options struct {
 	BuildInfo                      BuildInfo
 	BasicAuthUsername              string
 	BasicAuthPassword              string
+	SkipCheckKeysForRoleMaster     bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -197,7 +198,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"expired_stale_perc": "expired_stale_percentage",
 
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
-			// ... the sum of AOF and slaves buffer ....
+			// ... the sum of AOF and slaves buffer ...
 			"mem_not_counted_for_evict":           "mem_not_counted_for_eviction_bytes",
 			"mem_total_replication_buffers":       "mem_total_replication_buffers_bytes",       // Added in Redis 7.0
 			"mem_overhead_db_hashtable_rehashing": "mem_overhead_db_hashtable_rehashing_bytes", // Added in Redis 7.4
@@ -720,37 +721,35 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 	} else if dbCount == 0 {
 		// in non-cluster mode, if dbCount is zero then "CONFIG" failed to retrieve a valid
-		// number of databases and we use the Redis config default which is 16
+		// number of databases, and we use the Redis config default which is 16
 
 		dbCount = 16
 	}
 
 	log.Debugf("dbCount: %d", dbCount)
 
-	e.extractInfoMetrics(ch, infoAll, dbCount)
+	role := e.extractInfoMetrics(ch, infoAll, dbCount)
 
 	if !e.options.ExcludeLatencyHistogramMetrics {
 		e.extractLatencyMetrics(ch, infoAll, c)
 	}
 
-	if e.options.IsCluster {
-		clusterClient, err := e.connectToRedisCluster()
-		if err != nil {
-			log.Errorf("Couldn't connect to redis cluster")
-			return err
+	// skip these metrics for master if SkipCheckKeysForRoleMaster is set
+	// (can help with reducing workload on the master node)
+	log.Infof("checkKeys metric collection for role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
+	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
+		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
+			log.Errorf("extractCheckKeyMetrics() err: %s", err)
 		}
-		defer clusterClient.Close()
 
-		e.extractCheckKeyMetrics(ch, clusterClient)
+		e.extractCountKeysMetrics(ch, c)
+
+		e.extractStreamMetrics(ch, c)
 	} else {
-		e.extractCheckKeyMetrics(ch, c)
+		log.Infof("skipping checkKeys metrics, role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	}
 
 	e.extractSlowLogMetrics(ch, c)
-
-	e.extractStreamMetrics(ch, c)
-
-	e.extractCountKeysMetrics(ch, c)
 
 	e.extractKeyGroupMetrics(ch, c, dbCount)
 

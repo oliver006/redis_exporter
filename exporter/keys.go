@@ -83,18 +83,28 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 	}
 }
 
-func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, redisClient redis.Conn) error {
+	c := redisClient
+
+	if e.options.IsCluster {
+		cc, err := e.connectToRedisCluster()
+		if err != nil {
+			return fmt.Errorf("Couldn't connect to redis cluster, err: %s", err)
+		}
+		defer cc.Close()
+
+		c = cc
+	}
+
 	keys, err := parseKeyArg(e.options.CheckKeys)
 	if err != nil {
-		log.Errorf("Couldn't parse check-keys: %#v", err)
-		return
+		return fmt.Errorf("Couldn't parse check-keys: %w", err)
 	}
 	log.Debugf("keys: %#v", keys)
 
 	singleKeys, err := parseKeyArg(e.options.CheckSingleKeys)
 	if err != nil {
-		log.Errorf("Couldn't parse check-single-keys: %#v", err)
-		return
+		return fmt.Errorf("Couldn't parse check-single-keys: %w", err)
 	}
 	log.Debugf("e.singleKeys: %#v", singleKeys)
 
@@ -119,6 +129,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	} else {
 		e.extractCheckKeyMetricsPipelined(ch, c, allKeys)
 	}
+	return nil
 }
 
 func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
