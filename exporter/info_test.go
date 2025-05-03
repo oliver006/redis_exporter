@@ -131,6 +131,36 @@ func commandStatsCheck(t *testing.T, e *Exporter, want map[string]bool) {
 	}
 }
 
+func TestInclMetricsForEmptyDatabases(t *testing.T) {
+	addr := os.Getenv("TEST_REDIS_URI")
+	if addr == "" {
+		t.Skipf("TEST_REDIS_URI not set - skipping")
+	}
+
+	for _, inclMetrics := range []bool{true, false} {
+		t.Run(fmt.Sprintf("inclMetrics:%t", inclMetrics), func(t *testing.T) {
+			e, _ := NewRedisExporter(addr,
+				Options{
+					Namespace: "test", Registry: prometheus.NewRegistry(),
+					InclMetricsForEmptyDatabases: inclMetrics,
+				})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			body := downloadURL(t, ts.URL+"/metrics")
+			if inclMetrics {
+				if !strings.Contains(body, `test_db_keys{db="db10"} 0`) {
+					t.Errorf("Expected to find test_db_keys")
+				}
+			} else {
+				if strings.Contains(body, `test_db_keys{db="db10"} 0`) {
+					t.Errorf("Expected to not find test_db_keys")
+				}
+			}
+		})
+	}
+}
+
 func TestClusterMaster(t *testing.T) {
 	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")

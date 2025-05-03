@@ -89,7 +89,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, redisClie
 	if e.options.IsCluster {
 		cc, err := e.connectToRedisCluster()
 		if err != nil {
-			return fmt.Errorf("Couldn't connect to redis cluster, err: %s", err)
+			return fmt.Errorf("couldn't connect to redis cluster, err: %s", err)
 		}
 		defer cc.Close()
 
@@ -98,13 +98,13 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, redisClie
 
 	keys, err := parseKeyArg(e.options.CheckKeys)
 	if err != nil {
-		return fmt.Errorf("Couldn't parse check-keys: %w", err)
+		return fmt.Errorf("couldn't parse check-keys: %w", err)
 	}
 	log.Debugf("keys: %#v", keys)
 
 	singleKeys, err := parseKeyArg(e.options.CheckSingleKeys)
 	if err != nil {
-		return fmt.Errorf("Couldn't parse check-single-keys: %w", err)
+		return fmt.Errorf("couldn't parse check-single-keys: %w", err)
 	}
 	log.Debugf("e.singleKeys: %#v", singleKeys)
 
@@ -243,13 +243,13 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 			log.Debugf("c.Send() STRLEN  args: [%v]", keyName)
 			if err := c.Send("STRLEN", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				log.Errorf("STRLEN err: %s", err)
 				return
 			}
 
 			log.Debugf("c.Send() GET  args: [%v]", keyName)
 			if err := c.Send("GET", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				log.Errorf("GET err: %s", err)
 				return
 			}
 

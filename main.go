@@ -99,10 +99,11 @@ func main() {
 		excludeLatencyHistogramMetrics = flag.Bool("exclude-latency-histogram-metrics", getEnvBool("REDIS_EXPORTER_EXCLUDE_LATENCY_HISTOGRAM_METRICS", false), "Do not try to collect latency histogram metrics")
 		redactConfigMetrics            = flag.Bool("redact-config-metrics", getEnvBool("REDIS_EXPORTER_REDACT_CONFIG_METRICS", true), "Whether to redact config settings that include potentially sensitive information like passwords")
 		inclSystemMetrics              = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS", false), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
-		skipTLSVerification            = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to skip TLS verification")
+		skipTLSVerification            = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to to skip TLS verification")
 		skipCheckKeysForRoleMaster     = flag.Bool("skip-checkkeys-for-role-master", getEnvBool("REDIS_EXPORTER_SKIP_CHECKKEYS_FOR_ROLE_MASTER", false), "Whether to skip gathering the check-keys metrics (size, val) when the instance is of type master (reduce load on master nodes)")
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
+		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
 	)
 	flag.Parse()
 
@@ -205,8 +206,9 @@ func main() {
 				CommitSha: BuildCommitSha,
 				Date:      BuildDate,
 			},
-			BasicAuthUsername: *basicAuthUsername,
-			BasicAuthPassword: *basicAuthPassword,
+			BasicAuthUsername:            *basicAuthUsername,
+			BasicAuthPassword:            *basicAuthPassword,
+			InclMetricsForEmptyDatabases: *inclMetricsForEmptyDatabases,
 		},
 	)
 	if err != nil {
