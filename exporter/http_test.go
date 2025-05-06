@@ -22,14 +22,14 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 		t.Skipf("Skipping TestHTTPScrapeMetricsEndpoints, missing env vars")
 	}
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
-	setupDBKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_PWD_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
 
-	csk := dbNumStrFull + "=" + url.QueryEscape(keys[0]) // check-single-keys
-	css := dbNumStrFull + "=" + TestStreamName           // check-single-streams
-	cntk := dbNumStrFull + "=" + keys[0] + "*"           // count-keys
+	csk := dbNumStrFull + "=" + url.QueryEscape(testKeys[0]) // check-single-keys
+	css := dbNumStrFull + "=" + TestKeyNameStream            // check-single-streams
+	cntk := dbNumStrFull + "=" + testKeys[0] + "*"           // count-keys
 
 	u, err := url.Parse(os.Getenv("TEST_REDIS_URI"))
 	if err != nil {
@@ -173,10 +173,10 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 
 				`test_script_value`, // lua script
 
-				`test_key_size{db="db11",key="` + keys[0] + `"} 7`,
-				`test_key_value{db="db11",key="` + keys[0] + `"} 1234.56`,
+				`test_key_size{db="db11",key="` + testKeys[0] + `"} 7`,
+				`test_key_value{db="db11",key="` + testKeys[0] + `"} 1234.56`,
 
-				`test_keys_count{db="db11",key="` + keys[0] + `*"} 1`,
+				`test_keys_count{db="db11",key="` + testKeys[0] + `*"} 1`,
 
 				`test_db_keys{db="db11"} `,
 				`test_db_keys_expiring{db="db11"} `,
@@ -216,8 +216,8 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		t.Skipf("Skipping TestSimultaneousMetricsHttpRequests, missing env vars")
 	}
 
-	setupDBKeys(t, os.Getenv("TEST_REDIS_URI"))
-	defer deleteKeysFromDB(t, os.Getenv("TEST_REDIS_URI"))
+	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
+	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
 	e, _ := NewRedisExporter("", Options{Namespace: "test", InclSystemMetrics: false, Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
@@ -238,7 +238,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		os.Getenv("TEST_REDIS6_URI"),
 		os.Getenv("TEST_REDIS_MODULES_URI"),
 
-		// tile38 & Cluster need to be last in this list so we can identify them when selected, down in line 229
+		// tile38 & Cluster need to be last in this list, so we can identify them when selected, down in line 229
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
 		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
 		os.Getenv("TEST_TILE38_URI"),
@@ -260,9 +260,9 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 				v.Add("target", target)
 
 				// not appending this param for Tile38 and cluster (the last two in the list)
-				// Tile38 & cluster don't support the SELECT command so this test will fail and spam the logs
+				// Tile38 & cluster don't support the SELECT command, so this test will fail and spam the logs
 				if uriIdx < len(uris)-3 {
-					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(keys[0]))
+					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(testKeys[0]))
 				}
 				up, _ := url.Parse(ts.URL + "/scrape")
 				up.RawQuery = v.Encode()
@@ -312,6 +312,78 @@ func TestHttpHandlers(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("path: %s", tst.path), func(t *testing.T) {
 			body := downloadURL(t, ts.URL+tst.path)
+			if !strings.Contains(body, tst.want) {
+				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
+			}
+		})
+	}
+}
+
+func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	nonClusterAddr := os.Getenv("TEST_REDIS_URI")
+	if clusterAddr == "" || nonClusterAddr == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or TEST_REDIS_URI not set - skipping")
+	}
+
+	tests := []struct {
+		addr      string
+		want      string
+		isCluster bool
+	}{
+		{
+			addr:      clusterAddr,
+			want:      "redis://127.0.0.1:7000",
+			isCluster: true,
+		},
+		{
+			addr:      clusterAddr,
+			want:      "redis://127.0.0.1:7001",
+			isCluster: true,
+		},
+		{
+			addr:      clusterAddr,
+			want:      "redis://127.0.0.1:7002",
+			isCluster: true,
+		},
+		{
+			addr:      clusterAddr,
+			want:      "The discovery endpoint is only available on a redis cluster",
+			isCluster: false,
+		},
+		{
+			addr:      nonClusterAddr,
+			want:      "The discovery endpoint is only available on a redis cluster",
+			isCluster: false,
+		},
+		{
+			addr:      nonClusterAddr,
+			want:      "ouldn't connect to redis cluster: cluster refresh failed",
+			isCluster: true,
+		},
+		{
+			addr:      "doesnt-exist:9876",
+			want:      "The discovery endpoint is only available on a redis cluster",
+			isCluster: false,
+		},
+		{
+			addr:      "doesnt-exist:9876",
+			want:      "Couldn't connect to redis cluster: cluster refresh failed: redisc: all nodes failed",
+			isCluster: true,
+		},
+	}
+
+	for _, tst := range tests {
+		t.Run(fmt.Sprintf("addr: %s, isCluster: %v", tst.addr, tst.isCluster), func(t *testing.T) {
+			e, _ := NewRedisExporter(tst.addr, Options{
+				Namespace: "test",
+				Registry:  prometheus.NewRegistry(),
+				IsCluster: tst.isCluster,
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			body := downloadURL(t, ts.URL+"/discover-cluster-nodes")
 			if !strings.Contains(body, tst.want) {
 				t.Fatalf(`error, expected string "%s" in body, got body: \n\n%s`, tst.want, body)
 			}

@@ -57,20 +57,20 @@ services:
     ports:
       - "16383:6379"
 
-  pwd-redis5:
-    image: redis:5
-    command: "redis-server --requirepass redis-password"
+  pwd-redis7:
+    image: redis:7.4
+    command: "redis-server --protected-mode no --requirepass redis-password"
     ports:
       - "16380:6379"
 
-  pwd-redis6:
-    image: redis:6
-    command: "redis-server --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password'"
+  pwd-user-redis7:
+    image: redis:7.4
+    command: "redis-server --protected-mode no --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password'"
     ports:
       - "16390:6379"
 
   keydb-01:
-    image: "eqalpha/keydb:x86_64_v6.3.1"
+    image: "eqalpha/keydb:x86_64_v6.3.4"
     command: "keydb-server --protected-mode no"
     ports:
       - "16401:6379"
@@ -83,18 +83,14 @@ services:
 
   redis-cluster:
     image: grokzen/redis-cluster:6.2.14
+    environment:
+      - IP=0.0.0.0
     ports:
-      - "7000"
-      - "7001"
-      - "7002"
-      - "7003"
-      - "7004"
-      - "7005"
-      - "17000:7000"
-      - "17005:7005"
+      - 7000-7005:7000-7005
+      - 17000-17005:7000-7005
 
   redis-cluster-password:
-    image: bitnami/redis-cluster
+    image: bitnami/redis-cluster:7.4
     environment:
       - REDIS_PORT_NUMBER=7006
       - REDIS_PASSWORD=redis-password

@@ -22,7 +22,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.23"
+          go-version: '1.24'
 
       - name: Build binaries
         run: |
@@ -78,7 +78,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: "TAG=${{ github.event.inputs.tag || github.ref_name }},SHA1=${{ github.sha }}"
+          build-args: |
+            TAG=${{ github.event.inputs.tag || github.ref_name }}
+            SHA1=${{ github.sha }}
 
       - name: Build and push alpine image
         uses: docker/build-push-action@v6
@@ -89,4 +91,6 @@ jobs:
           push: true
           tags: falkordb/redis_exporter:${{ github.event.inputs.tag || github.ref_name }}-alpine,falkordb/redis_exporter:alpine
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: "TAG=${{ github.event.inputs.tag || github.ref_name }},SHA1=${{ github.sha }}"
+          build-args: |
+            TAG=${{ github.event.inputs.tag || github.ref_name }}
+            SHA1=${{ github.sha }}

@@ -10,6 +10,9 @@ import (
 	"sync"
 	"time"
 
+	// see https://github.com/prometheus/client_golang/releases/tag/v1.22.0
+	_ "github.com/prometheus/client_golang/prometheus/promhttp/zstd"
+
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -27,7 +30,6 @@ type Exporter struct {
 	sync.Mutex
 
 	redisAddr string
-	namespace string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -87,6 +89,8 @@ type Options struct {
 	BuildInfo                      BuildInfo
 	BasicAuthUsername              string
 	BasicAuthPassword              string
+	SkipCheckKeysForRoleMaster     bool
+	InclMetricsForEmptyDatabases   bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -105,7 +109,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	e := &Exporter{
 		redisAddr: uri,
 		options:   opts,
-		namespace: opts.Namespace,
 
 		buildInfo: opts.BuildInfo,
 
@@ -159,6 +162,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"allocator_resident":   "allocator_resident_bytes",
 			"allocator_frag_ratio": "allocator_frag_ratio",
 			"allocator_frag_bytes": "allocator_frag_bytes",
+			"allocator_muzzy":      "allocator_muzzy_bytes",
 			"allocator_rss_ratio":  "allocator_rss_ratio",
 			"allocator_rss_bytes":  "allocator_rss_bytes",
 
@@ -190,16 +194,20 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
 			"mem_clients_slaves":      "mem_clients_slaves",
 			"mem_clients_normal":      "mem_clients_normal",
+			"mem_cluster_links":       "mem_cluster_links_bytes",
+			"mem_aof_buffer":          "mem_aof_buffer_bytes",
+			"mem_replication_backlog": "mem_replication_backlog_bytes",
 
 			"expired_stale_perc": "expired_stale_percentage",
 
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
-			// ... the sum of AOF and slaves buffer ....
+			// ... the sum of AOF and slaves buffer ...
 			"mem_not_counted_for_evict":           "mem_not_counted_for_eviction_bytes",
 			"mem_total_replication_buffers":       "mem_total_replication_buffers_bytes",       // Added in Redis 7.0
 			"mem_overhead_db_hashtable_rehashing": "mem_overhead_db_hashtable_rehashing_bytes", // Added in Redis 7.4
 
 			"lazyfree_pending_objects": "lazyfree_pending_objects",
+			"lazyfreed_objects":        "lazyfreed_objects",
 			"active_defrag_running":    "active_defrag_running",
 
 			"migrate_cached_sockets": "migrate_cached_sockets_total",
@@ -436,6 +444,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"key_size":                                           {txt: `The length or size of "key"`, lbls: []string{"db", "key"}},
 		"key_value":                                          {txt: `The value of "key"`, lbls: []string{"db", "key"}},
 		"key_value_as_string":                                {txt: `The value of "key" as a string`, lbls: []string{"db", "key", "val"}},
+		"key_memory_usage_bytes":                             {txt: `The memory usage of "key" in bytes`, lbls: []string{"db", "key"}},
 		"keys_count":                                         {txt: `Count of keys`, lbls: []string{"db", "key"}},
 		"last_key_groups_scrape_duration_milliseconds":       {txt: `Duration of the last key group metrics scrape in milliseconds`},
 		"last_slow_execution_duration_seconds":               {txt: `The amount of time needed for last slow execution, in seconds`},
@@ -514,6 +523,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 	e.mux.HandleFunc("/", e.indexHandler)
 	e.mux.HandleFunc("/scrape", e.scrapeHandler)
+	e.mux.HandleFunc("/discover-cluster-nodes", e.discoverClusterNodesHandler)
 	e.mux.HandleFunc("/health", e.healthHandler)
 	e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
 
@@ -709,44 +719,42 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
 
-			// in cluster mode Redis only supports one database so no extra DB number padding needed
+			// in cluster mode Redis only supports one database, so no extra DB number padding needed
 			dbCount = 1
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
 		}
 	} else if dbCount == 0 {
-		// in non-cluster mode, if dbCount is zero then "CONFIG" failed to retrieve a valid
-		// number of databases and we use the Redis config default which is 16
+		// in non-cluster mode, if dbCount is zero, then "CONFIG" failed to retrieve a valid
+		// number of databases, and we use the Redis config default which is 16
 
 		dbCount = 16
 	}
 
 	log.Debugf("dbCount: %d", dbCount)
 
-	e.extractInfoMetrics(ch, infoAll, dbCount)
+	role := e.extractInfoMetrics(ch, infoAll, dbCount)
 
 	if !e.options.ExcludeLatencyHistogramMetrics {
 		e.extractLatencyMetrics(ch, infoAll, c)
 	}
 
-	if e.options.IsCluster {
-		clusterClient, err := e.connectToRedisCluster()
-		if err != nil {
-			log.Errorf("Couldn't connect to redis cluster")
-			return err
+	// skip these metrics for master if SkipCheckKeysForRoleMaster is set
+	// (can help with reducing workload on the master node)
+	log.Infof("checkKeys metric collection for role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
+	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
+		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
+			log.Errorf("extractCheckKeyMetrics() err: %s", err)
 		}
-		defer clusterClient.Close()
 
-		e.extractCheckKeyMetrics(ch, clusterClient)
+		e.extractCountKeysMetrics(ch, c)
+
+		e.extractStreamMetrics(ch, c)
 	} else {
-		e.extractCheckKeyMetrics(ch, c)
+		log.Infof("skipping checkKeys metrics, role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	}
 
 	e.extractSlowLogMetrics(ch, c)
-
-	e.extractStreamMetrics(ch, c)
-
-	e.extractCountKeysMetrics(ch, c)
 
 	e.extractKeyGroupMetrics(ch, c, dbCount)
 

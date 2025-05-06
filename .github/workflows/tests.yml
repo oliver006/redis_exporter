@@ -35,7 +35,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Install Dependencies
         run: go mod tidy
@@ -43,15 +43,14 @@ jobs:
       - name: Docker logs
         run: |
           echo "${{ toJson(job) }}"
-          docker logs "redis_exporter-redis7-tls-1"
-          docker logs "redis_exporter-valkey8-tls-1"
+          docker ps -a
+          echo "ok"
 
       - name: Run tests
         env:
           LOG_LEVEL: "info"
         run: |
           sleep 15
-          make checks
           make test
 
 
@@ -96,16 +95,22 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Install Dependencies
         run: go mod tidy
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: v1.60
+          version: v2.1.5
           args: "--tests=false"
+
+      - name: Run checks
+        env:
+          LOG_LEVEL: "info"
+        run: |
+          make checks
 
 
   build-stuff:
@@ -117,7 +122,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.23'
+          go-version: '1.24'
 
       - name: Install Dependencies
         run: go mod tidy

@@ -33,7 +33,12 @@ var reMasterDirect = regexp.MustCompile(`^(master(_[0-9]+)?_(last_io_seconds_ago
 slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
 slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
+
 var reSlave = regexp.MustCompile(`^slave\d+`)
+
+const (
+	InstanceRoleSlave = "slave"
+)
 
 func extractVal(s string) (val float64, err error) {
 	split := strings.Split(s, "=")
@@ -60,7 +65,8 @@ func extractPercentileVal(s string) (percentile float64, val float64, err error)
 	return
 }
 
-func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) {
+// returns the role of the instance we're scraping (master or slave)
+func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) string {
 	keyValues := map[string]string{}
 	handledDBs := map[string]bool{}
 	cmdCount := map[string]uint64{}
@@ -153,16 +159,20 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	// from #Commandstats processing and the percentile info that we get from the #Latencystats processing
 	e.generateCommandLatencySummaries(ch, cmdLatencyMap, cmdCount, cmdSum)
 
-	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
-		dbName := "db" + strconv.Itoa(dbIndex)
-		if _, exists := handledDBs[dbName]; !exists {
-			e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
-			e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+	if e.options.InclMetricsForEmptyDatabases {
+		for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+			dbName := "db" + strconv.Itoa(dbIndex)
+			if _, exists := handledDBs[dbName]; !exists {
+				e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
+				e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+			}
 		}
 	}
 
+	instanceRole := keyValues["role"]
+
 	e.registerConstMetricGauge(ch, "instance_info", 1,
-		keyValues["role"],
+		instanceRole,
 		keyValues["redis_version"],
 		keyValues["redis_build_id"],
 		keyValues["redis_mode"],
@@ -174,12 +184,14 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		keyValues["master_replid"],
 	)
 
-	if keyValues["role"] == "slave" {
+	if instanceRole == InstanceRoleSlave {
 		e.registerConstMetricGauge(ch, "slave_info", 1,
 			keyValues["master_host"],
 			keyValues["master_port"],
 			keyValues["slave_read_only"])
 	}
+
+	return instanceRole
 }
 
 func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, cmdLatencyMap map[string]map[float64]float64, cmdCount map[string]uint64, cmdSum map[string]float64) {
@@ -389,7 +401,7 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	extendedStats = false
 
 	if !strings.HasPrefix(fieldKey, cmdPrefix) {
-		errorOut = errors.New("Invalid fieldKey")
+		errorOut = errors.New("invalid fieldKey")
 		return
 	}
 	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
@@ -397,7 +409,7 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	splitValue := strings.Split(fieldValue, ",")
 	splitLen := len(splitValue)
 	if splitLen < 3 {
-		errorOut = errors.New("Invalid fieldValue")
+		errorOut = errors.New("invalid fieldValue")
 		return
 	}
 
@@ -405,13 +417,13 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	var err error
 	calls, err = extractVal(splitValue[0])
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[0]")
+		errorOut = errors.New("invalid splitValue[0]")
 		return
 	}
 
 	usecTotal, err = extractVal(splitValue[1])
 	if err != nil {
-		errorOut = errors.New("Invalid splitValue[1]")
+		errorOut = errors.New("invalid splitValue[1]")
 		return
 	}
 
@@ -422,13 +434,13 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 
 	rejectedCalls, err = extractVal(splitValue[3])
 	if err != nil {
-		errorOut = errors.New("Invalid rejected_calls while parsing splitValue[3]")
+		errorOut = errors.New("invalid rejected_calls while parsing splitValue[3]")
 		return
 	}
 
 	failedCalls, err = extractVal(splitValue[4])
 	if err != nil {
-		errorOut = errors.New("Invalid failed_calls while parsing splitValue[4]")
+		errorOut = errors.New("invalid failed_calls while parsing splitValue[4]")
 		return
 	}
 	extendedStats = true
@@ -465,20 +477,20 @@ func parseMetricsLatencyStats(fieldKey string, fieldValue string) (cmd string, p
 	percentileMap = map[float64]float64{}
 
 	if !strings.HasPrefix(fieldKey, cmdPrefix) {
-		errorOut = errors.New("Invalid fieldKey")
+		errorOut = errors.New("invalid fieldKey")
 		return
 	}
 	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
 	splitValue := strings.Split(fieldValue, ",")
 	splitLen := len(splitValue)
 	if splitLen < 1 {
-		errorOut = errors.New("Invalid fieldValue")
+		errorOut = errors.New("invalid fieldValue")
 		return
 	}
 	for pos, kv := range splitValue {
 		percentile, value, err := extractPercentileVal(kv)
 		if err != nil {
-			errorOut = fmt.Errorf("Invalid splitValue[%d]", pos)
+			errorOut = fmt.Errorf("invalid splitValue[%d]", pos)
 			return
 		}
 		percentileMap[percentile] = value
@@ -500,13 +512,13 @@ func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorType strin
 	const prefix = "errorstat_"
 
 	if !strings.HasPrefix(fieldKey, prefix) {
-		errorOut = errors.New("Invalid fieldKey. errorstat_ prefix not present")
+		errorOut = errors.New("invalid fieldKey. errorstat_ prefix not present")
 		return
 	}
 	errorType = strings.TrimPrefix(fieldKey, prefix)
 	count, err := extractVal(fieldValue)
 	if err != nil {
-		errorOut = errors.New("Invalid error type on splitValue[0]")
+		errorOut = errors.New("invalid error type on splitValue[0]")
 		return
 	}
 	return

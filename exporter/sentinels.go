@@ -10,14 +10,17 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) bool {
-
+func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
 	switch fieldKey {
-
-	case "sentinel_masters", "sentinel_tilt", "sentinel_running_scripts", "sentinel_scripts_queue_length", "sentinel_simulate_failure_flags":
+	case
+		"sentinel_masters",
+		"sentinel_tilt",
+		"sentinel_running_scripts",
+		"sentinel_scripts_queue_length",
+		"sentinel_simulate_failure_flags":
 		val, _ := strconv.Atoi(fieldValue)
 		e.registerConstMetricGauge(ch, fieldKey, float64(val))
-		return true
+		return
 	}
 
 	if masterName, masterStatus, masterAddress, masterSlaves, masterSentinels, ok := parseSentinelMasterString(fieldKey, fieldValue); ok {
@@ -28,10 +31,8 @@ func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey s
 		e.registerConstMetricGauge(ch, "sentinel_master_status", masterStatusNum, masterName, masterAddress, masterStatus)
 		e.registerConstMetricGauge(ch, "sentinel_master_slaves", masterSlaves, masterName, masterAddress)
 		e.registerConstMetricGauge(ch, "sentinel_master_sentinels", masterSentinels, masterName, masterAddress)
-		return true
+		return
 	}
-
-	return false
 }
 
 func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
@@ -75,7 +76,7 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		}
 		e.registerConstMetricGauge(ch, "sentinel_master_ckquorum_status", float64(masterCkquorumStatus), masterName, masterCkquorumMsg)
 
-		masterCkquorum, _ := strconv.ParseFloat(masterDetailMap["ckquorum"], 64)
+		masterCkquorum, _ := strconv.ParseFloat(masterDetailMap["quorum"], 64)
 		masterFailoverTimeout, _ := strconv.ParseFloat(masterDetailMap["failover-timeout"], 64)
 		masterParallelSyncs, _ := strconv.ParseFloat(masterDetailMap["parallel-syncs"], 64)
 		masterDownAfterMs, _ := strconv.ParseFloat(masterDetailMap["down-after-milliseconds"], 64)

@@ -46,8 +46,8 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 	}
 	defer c.Close()
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	if _, err = c.Do("SELECT", dbNumStr); err != nil {
 		t.Errorf("Couldn't select database %#v", dbNumStr)
@@ -56,7 +56,7 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 	tsts := []scanStreamFixture{
 		{
 			name:   "Stream test",
-			stream: TestStreamName,
+			stream: TestKeyNameStream,
 			streamInfo: streamInfo{
 				Length:         2,
 				RadixTreeKeys:  1,
@@ -113,8 +113,8 @@ func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
 	}
 	defer c.Close()
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	if _, err = c.Do("SELECT", dbNumStr); err != nil {
 		t.Errorf("Couldn't select database %#v", dbNumStr)
@@ -123,7 +123,7 @@ func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
 	tsts := []scanStreamFixture{
 		{
 			name:   "Stream test",
-			stream: TestStreamName,
+			stream: TestKeyNameStream,
 			streamInfo: streamInfo{
 				Length:         2,
 				RadixTreeKeys:  1,
@@ -496,15 +496,15 @@ func TestStreamsExtractStreamMetrics(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	e, _ := NewRedisExporter(
 		addr,
-		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestStreamName},
+		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestKeyNameStream},
 	)
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -554,15 +554,15 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	e, _ := NewRedisExporter(
 		addr,
-		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestStreamName, StreamsExcludeConsumerMetrics: true},
+		Options{Namespace: "test", CheckSingleStreams: dbNumStrFull + "=" + TestKeyNameStream, StreamsExcludeConsumerMetrics: true},
 	)
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
 	}
 
-	setupDBKeys(t, addr)
-	defer deleteKeysFromDB(t, addr)
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
 
 	chM := make(chan prometheus.Metric)
 	go func() {
@@ -585,7 +585,7 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 		"stream_group_lag":               false,
 	}
 
-	dont_want := map[string]bool{
+	dontWant := map[string]bool{
 		"stream_group_consumer_messages_pending": false,
 		"stream_group_consumer_idle_seconds":     false,
 	}
@@ -599,12 +599,12 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 				want[k] = true
 			}
 		}
-		for k := range dont_want {
+		for k := range dontWant {
 			log.Debugf("metric: %s", m.Desc().String())
 			log.Debugf("don't want: %s", k)
 
 			if strings.Contains(m.Desc().String(), k) {
-				dont_want[k] = true
+				dontWant[k] = true
 			}
 		}
 	}
@@ -614,7 +614,7 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 			t.Errorf("didn't find %s metric, which should be collected", k)
 		}
 	}
-	for k, found := range dont_want {
+	for k, found := range dontWant {
 		if found {
 			t.Errorf("found %s metric, which shouldn't be collected", k)
 		}

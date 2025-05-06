@@ -1,4 +1,5 @@
 {
   "redis://localhost:16379": "",
+  "redis://exporter@localhost:16390": "exporter-password",
   "redis://localhost:16380": "redis-password"
 }

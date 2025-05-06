@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"bytes"
 	"net/http/httptest"
 	"net/url"
 	"os"
@@ -9,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 func TestHostVariations(t *testing.T) {
@@ -94,12 +92,6 @@ func TestPasswordProtectedInstance(t *testing.T) {
 			ts := httptest.NewServer(e)
 			defer ts.Close()
 
-			chM := make(chan prometheus.Metric, 10000)
-			go func() {
-				e.Collect(chM)
-				close(chM)
-			}()
-
 			body := downloadURL(t, ts.URL+"/metrics")
 			if !strings.Contains(body, "test_up 1") {
 				t.Errorf(`%s - response to /metric doesn't contain "test_up 1"`, tst)
@@ -120,12 +112,6 @@ func TestPasswordInvalid(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	want := `test_exporter_last_scrape_error{err="dial redis: unknown network redis"} 1`
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, want) {
@@ -134,11 +120,11 @@ func TestPasswordInvalid(t *testing.T) {
 }
 
 func TestConnectToClusterUsingPasswordFile(t *testing.T) {
-	cluster_host := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
-	if cluster_host == "" {
+	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
+	if clusterUri == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_PASSWORD_URI is not set")
 	}
-	passMap := map[string]string{cluster_host: "redis-password"}
+	passMap := map[string]string{clusterUri: "redis-password"}
 	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}
 
 	tsts := []struct {
@@ -147,32 +133,25 @@ func TestConnectToClusterUsingPasswordFile(t *testing.T) {
 		passMap      map[string]string
 		refreshError bool
 	}{
-		{name: "ConnectToCluster using passord file witch cluster mode", isCluster: true, passMap: passMap, refreshError: false},
+		{name: "ConnectToCluster using password file with cluster mode", isCluster: true, passMap: passMap, refreshError: false},
 		{name: "ConnectToCluster using password file without cluster mode", isCluster: false, passMap: passMap, refreshError: false},
-		{name: "ConnectToCluster using password file witch cluster mode failed", isCluster: false, passMap: wrongPassMap, refreshError: true},
+		{name: "ConnectToCluster using password file with cluster mode failed", isCluster: false, passMap: wrongPassMap, refreshError: true},
 	}
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
-			e, _ := NewRedisExporter(cluster_host, Options{
+			e, _ := NewRedisExporter(clusterUri, Options{
 				SkipTLSVerification: true,
 				PasswordMap:         tst.passMap,
 				IsCluster:           tst.isCluster,
 			})
-			var buf bytes.Buffer
-			log.SetOutput(&buf)
-			defer func() {
-				log.SetOutput(os.Stderr)
-			}()
 			_, err := e.connectToRedisCluster()
 			t.Logf("connectToRedisCluster() err: %s", err)
-			if strings.Contains(buf.String(), "Cluster refresh failed:") && !tst.refreshError {
-				t.Errorf("Test Cluster connection Failed error")
+			if err != nil && strings.Contains(err.Error(), "Cluster refresh failed:") && !tst.refreshError {
+				t.Fatalf("Test Cluster connection Failed error")
 			}
-			if err != nil {
-				t.Errorf("Test Cluster connection Failed-connection error")
+			if !tst.refreshError && err != nil {
+				t.Fatalf("Test Cluster connection Failed, err: %s", err)
 			}
-
 		})
 	}
-
 }

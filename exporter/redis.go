@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -32,11 +33,32 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		options = append(options, redis.DialPassword(e.options.Password))
 	}
 
-	if e.options.PasswordMap[uri] != "" {
-		options = append(options, redis.DialPassword(e.options.PasswordMap[uri]))
+	if pwd, ok := e.lookupPasswordInPasswordMap(uri); ok && pwd != "" {
+		options = append(options, redis.DialPassword(pwd))
 	}
 
 	return options, nil
+}
+
+func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", false
+	}
+
+	if e.options.User != "" {
+		u.User = url.User(e.options.User)
+	}
+	uri = u.String()
+
+	// strip solo ":" if present in uri that has a username (and no pwd)
+	uri = strings.Replace(uri, fmt.Sprintf(":@%s", u.Host), fmt.Sprintf("@%s", u.Host), 1)
+
+	log.Debugf("looking up in pwd map, uri: %s", uri)
+	if pwd, ok := e.options.PasswordMap[uri]; ok && pwd != "" {
+		return pwd, true
+	}
+	return "", false
 }
 
 func (e *Exporter) connectToRedis() (redis.Conn, error) {
@@ -98,24 +120,27 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	log.Debugf("Running refresh on cluster object")
 	if err := cluster.Refresh(); err != nil {
 		log.Errorf("Cluster refresh failed: %v", err)
+		return nil, fmt.Errorf("cluster refresh failed: %w", err)
 	}
 
 	log.Debugf("Creating redis connection object")
 	conn, err := cluster.Dial()
 	if err != nil {
 		log.Errorf("Dial failed: %v", err)
+		return nil, fmt.Errorf("dial failed: %w", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
 		log.Errorf("RetryConn failed: %v", err)
+		return nil, fmt.Errorf("retryConn failed: %w", err)
 	}
 
 	return c, err
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (interface{}, error) {
-	log.Debugf("c.Do() - running command: %s %s", cmd, args)
+	log.Debugf("c.Do() - running command: %s args: [%v]", cmd, args)
 	res, err := c.Do(cmd, args...)
 	if err != nil {
 		log.Debugf("c.Do() - err: %s", err)
