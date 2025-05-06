@@ -106,6 +106,7 @@ func main() {
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
 		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
+		slowlogHistoryEnabled          = flag.Bool("slowlog-history-enabled", getEnvBool("REDIS_EXPORTER_SLOWLOG_HISTORY_ENABLED", false), "Whether to included the slowlog metrics history")
 	)
 	flag.Parse()
 
@@ -191,6 +192,7 @@ func main() {
 			IsCluster:                      *isCluster,
 			InclModulesMetrics:             *inclModulesMetrics,
 			InclAofFileSize:                *inclAofFileSize,
+			SlowlogHistoryEnabled:          *slowlogHistoryEnabled,
 			OverrideAofFilePath:            *overrideAofFilePath,
 			ExportClientList:               *exportClientList,
 			ExportClientsInclPort:          *exportClientPort,

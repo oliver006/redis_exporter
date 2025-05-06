@@ -79,6 +79,7 @@ type Options struct {
 	ExportClientList               bool
 	ExportClientsInclPort          bool
 	InclAofFileSize                bool
+	SlowlogHistoryEnabled          bool
 	OverrideAofFilePath            string
 	ConnectionTimeouts             time.Duration
 	MetricsPath                    string
@@ -494,6 +495,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"up":                                                 {txt: "Information about the Redis instance"},
 		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
 		"aof_file_size_bytes":                                {txt: "AOF file size in bytes", lbls: []string{"filename"}},
+		"slowlog_history_last_ten":                           {txt: "last 10 slowlog commands", lbls: []string{"command_executed_timestamp", "command"}},
+		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
+		"slowlog_length":                                     {txt: `Total slowlog`},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -755,6 +759,14 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	e.extractSlowLogMetrics(ch, c)
+
+	if e.options.SlowlogHistoryEnabled {
+		e.extractSlowLogDetailsMetrics(ch, c)
+	}
+
+	e.extractStreamMetrics(ch, c)
+
+	e.extractCountKeysMetrics(ch, c)
 
 	e.extractKeyGroupMetrics(ch, c, dbCount)
 
