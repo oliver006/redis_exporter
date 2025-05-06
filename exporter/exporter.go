@@ -476,7 +476,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"slave_repl_offset":                                  {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
 		"slowlog_length":                                     {txt: `Total slowlog`},
-		"slowlog_history_last_ten":                           {txt: "last 10 slowlog commands", lbls: []string{"command_executed_timestamp", "command"}},
+		"slowlog_history_last_ten":                           {txt: "last 10 slowlog commands", lbls: []string{"command_executed_timestamp", "command", "client"}},
 		"start_time_seconds":                                 {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"stream_group_consumer_idle_seconds":                 {txt: `Consumer idle time in seconds`, lbls: []string{"db", "stream", "group", "consumer"}},
 		"stream_group_consumer_messages_pending":             {txt: `Pending number of messages for this specific consumer`, lbls: []string{"db", "stream", "group", "consumer"}},
