@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
@@ -55,13 +56,20 @@ func (e *Exporter) extractSlowLogDetailsMetrics(ch chan<- prometheus.Metric, c r
 				log.Errorf("Error parsing command name: %v", err)
 				return
 			}
-			command := string(commandname[0].([]uint8))
+			// merge the commandname array into a string
+			fullcommand := ""
+			for _, v := range commandname {
+				if v != nil {
+					fullcommand += string(v.([]uint8)) + " "
+				}
+			}
+			fullcommand = strings.TrimSpace(fullcommand)
 			client, err := redis.String(values[4], err)
 			if err != nil {
 				log.Errorf("Error parsing command client: %v", err)
 				return
 			}
-			e.registerConstMetricGauge(ch, "slowlog_history_last_ten", commandDurationSeconds, commandExecutedTimeStamp, command, client)
+			e.registerConstMetricGauge(ch, "slowlog_history_last_ten", commandDurationSeconds, commandExecutedTimeStamp, fullcommand, client)
 		}
 	}
 }
