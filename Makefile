@@ -53,6 +53,7 @@ test:
 	TEST_REDIS_SENTINEL_URI="redis://localhost:26379" \
 	TEST_REDIS_MODULES_URI="redis://localhost:36379" \
 	TEST_AOF_FILE_SIZE_URL="redis://localhost:16501" \
+	TEST_FALKORDB_URI="redis://localhost:16502" \
 	go test -v -covermode=atomic -cover -race -coverprofile=coverage.txt -p 1 ./...
 
 .PHONY: lint
