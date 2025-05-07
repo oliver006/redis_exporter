@@ -107,6 +107,7 @@ func main() {
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
 		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
 		slowlogHistoryEnabled          = flag.Bool("slowlog-history-enabled", getEnvBool("REDIS_EXPORTER_SLOWLOG_HISTORY_ENABLED", false), "Whether to included the slowlog metrics history")
+		isFalkorDB                     = flag.Bool("is-falkordb", getEnvBool("REDIS_EXPORTER_IS_FALKORDB", false), "Whether this is a FalkorDB instance")
 	)
 	flag.Parse()
 
@@ -215,6 +216,7 @@ func main() {
 			BasicAuthUsername:            *basicAuthUsername,
 			BasicAuthPassword:            *basicAuthPassword,
 			InclMetricsForEmptyDatabases: *inclMetricsForEmptyDatabases,
+			IsFalkorDB:                   *isFalkorDB,
 		},
 	)
 	if err != nil {

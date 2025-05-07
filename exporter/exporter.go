@@ -92,6 +92,7 @@ type Options struct {
 	BasicAuthPassword              string
 	SkipCheckKeysForRoleMaster     bool
 	InclMetricsForEmptyDatabases   bool
+	IsFalkorDB                     bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -496,6 +497,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"up":                                                 {txt: "Information about the Redis instance"},
 		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
 		"aof_file_size_bytes":                                {txt: "AOF file size in bytes", lbls: []string{"filename"}},
+		"falkordb_total_graph_count":                         {txt: "Total number of graphs"},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -786,6 +788,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	if e.options.InclAofFileSize {
 		e.extractAofFileSizeMetrics(ch, c, e.options.ConfigCommandName, e.options.OverrideAofFilePath)
+	}
+
+	if e.options.IsFalkorDB {
+		e.extractFalkorDBMetrics(ch, c)
 	}
 
 	if len(e.options.LuaScript) > 0 {

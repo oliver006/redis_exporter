@@ -123,3 +123,8 @@ services:
     image: redis/redis-stack-server:7.4.0-v0
     ports:
       - "36379:6379"
+
+  falkordb:
+    image: falkordb/falkordb:latest
+    ports:
+      - "16502:6379"
