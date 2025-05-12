@@ -212,8 +212,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		os.Getenv("TEST_REDIS6_URI") == "" ||
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" ||
 		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI") == "" ||
-		os.Getenv("TEST_TILE38_URI") == "" ||
-		os.Getenv("TEST_REDIS_MODULES_URI") == "" {
+		os.Getenv("TEST_TILE38_URI") == "" {
 		t.Skipf("Skipping TestSimultaneousMetricsHttpRequests, missing env vars")
 	}
 
@@ -238,7 +237,6 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 
 		os.Getenv("TEST_REDIS5_URI"),
 		os.Getenv("TEST_REDIS6_URI"),
-		os.Getenv("TEST_REDIS_MODULES_URI"),
 
 		// tile38 & Cluster need to be last in this list, so we can identify them when selected, down in line 229
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),

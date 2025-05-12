@@ -314,6 +314,21 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_dialect_2":           "search_dialect_2",
 			"search_dialect_3":           "search_dialect_3",
 			"search_dialect_4":           "search_dialect_4",
+			// RediSearch module v8.0
+			"search_number_of_active_indexes":                 "search_number_of_active_indexes",
+			"search_number_of_active_indexes_running_queries": "search_number_of_active_indexes_running_queries",
+			"search_number_of_active_indexes_indexing":        "search_number_of_active_indexes_indexing",
+			"search_total_active_write_threads":               "search_total_active_write_threads",
+			"search_smallest_memory_index":                    "search_smallest_memory_index_bytes",
+			"search_largest_memory_index":                     "search_largest_memory_index_bytes",
+			"search_used_memory_vector_index":                 "search_used_memory_vector_index_bytes",
+			"search_global_idle_user":                         "search_global_idle_user",     // search_gc metrics were split into user and internal
+			"search_global_idle_internal":                     "search_global_idle_internal", // in PR: https://github.com/RediSearch/RediSearch/pull/5616
+			"search_global_total_user":                        "search_global_total_user",
+			"search_global_total_internal":                    "search_global_total_internal",
+			"search_gc_bytes_collected":                       "search_gc_collected_bytes", // search_bytes_collected was renamed in https://github.com/RediSearch/RediSearch/pull/5616
+			"search_gc_marked_deleted_vectors":                "search_gc_marked_deleted_vectors",
+			"search_errors_indexing_failures":                 "search_errors_indexing_failures",
 		},
 
 		metricMapCounters: map[string]string{
@@ -370,6 +385,14 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_total_indexing_time": "search_indexing_time_ms_total",
 			"search_total_cycles":        "search_cycles_total",
 			"search_total_ms_run":        "search_run_ms_total",
+			// RediSearch module v8.0
+			"search_gc_total_cycles":               "search_gc_cycles_total", // search_gc metrics were renamed into user and interna
+			"search_gc_total_ms_run":               "search_gc_run_ms_total", // in PR: https://github.com/RediSearch/RediSearch/pull/5616
+			"search_gc_total_docs_not_collected":   "search_gc_docs_not_collected_total",
+			"search_total_queries_processed":       "search_queries_processed_total",
+			"search_total_query_commands":          "search_query_commands_total",
+			"search_total_query_execution_time_ms": "search_query_execution_time_ms_total",
+			"search_total_active_queries":          "search_active_queries_total",
 		},
 	}
 
