@@ -7,15 +7,20 @@ services:
       - "16385:6379"
       - "6379:6379"
 
+  redis8:
+    image: redis:8.0
+    ports:
+      - "16388:6379"
+
   redis7-tls:
     image: redis:7.4
     volumes:
       - ./contrib/tls:/tls
     command: |
-      redis-server --enable-debug-command yes --protected-mode no 
-      --tls-port 6379 --port 0 
-      --tls-cert-file     /tls/redis.crt 
-      --tls-key-file      /tls/redis.key 
+      redis-server --enable-debug-command yes --protected-mode no
+      --tls-port 6379 --port 0
+      --tls-cert-file     /tls/redis.crt
+      --tls-key-file      /tls/redis.key
       --tls-ca-cert-file  /tls/ca.crt
     ports:
       - "16387:6379"
@@ -31,10 +36,10 @@ services:
     volumes:
       - ./contrib/tls:/tls
     command: |
-      valkey-server --enable-debug-command yes --protected-mode no 
-      --tls-port 6379 --port 0 
-      --tls-cert-file     /tls/redis.crt 
-      --tls-key-file      /tls/redis.key 
+      valkey-server --enable-debug-command yes --protected-mode no
+      --tls-port 6379 --port 0
+      --tls-cert-file     /tls/redis.crt
+      --tls-key-file      /tls/redis.key
       --tls-ca-cert-file  /tls/ca.crt
     ports:
       - "16386:6379"
