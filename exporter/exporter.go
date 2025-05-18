@@ -327,6 +327,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_global_total_user":                        "search_global_total_user",
 			"search_global_total_internal":                    "search_global_total_internal",
 			"search_gc_bytes_collected":                       "search_gc_collected_bytes", // search_bytes_collected was renamed in https://github.com/RediSearch/RediSearch/pull/5616
+			"search_gc_total_docs_not_collected":              "search_gc_total_docs_not_collected",
 			"search_gc_marked_deleted_vectors":                "search_gc_marked_deleted_vectors",
 			"search_errors_indexing_failures":                 "search_errors_indexing_failures",
 		},
@@ -386,9 +387,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_total_cycles":        "search_cycles_total",
 			"search_total_ms_run":        "search_run_ms_total",
 			// RediSearch module v8.0
-			"search_gc_total_cycles":               "search_gc_cycles_total", // search_gc metrics were renamed into user and interna
+			"search_gc_total_cycles":               "search_gc_cycles_total", // search_gc metrics were renamed
 			"search_gc_total_ms_run":               "search_gc_run_ms_total", // in PR: https://github.com/RediSearch/RediSearch/pull/5616
-			"search_gc_total_docs_not_collected":   "search_gc_docs_not_collected_total",
 			"search_total_queries_processed":       "search_queries_processed_total",
 			"search_total_query_commands":          "search_query_commands_total",
 			"search_total_query_execution_time_ms": "search_query_execution_time_ms_total",
