@@ -104,6 +104,7 @@ func main() {
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
 		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
+		gcpWorkloadIdentity            = flag.Bool("gcp.workload-identity", getEnvBool("GCP_WORKLOAD_IDENTITY", false), "Whether to use GCP workload identity as the authentication method")
 	)
 	flag.Parse()
 
@@ -209,6 +210,7 @@ func main() {
 			BasicAuthUsername:            *basicAuthUsername,
 			BasicAuthPassword:            *basicAuthPassword,
 			InclMetricsForEmptyDatabases: *inclMetricsForEmptyDatabases,
+			GCPWorkloadIdentity:          *gcpWorkloadIdentity,
 		},
 	)
 	if err != nil {

@@ -11,6 +11,10 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+const (
+	gkeIamAuthUsername = "default"
+)
+
 func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 	tlsConfig, err := e.CreateClientTLSConfig()
 	if err != nil {
@@ -25,16 +29,29 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		redis.DialUseTLS(strings.HasPrefix(e.redisAddr, "rediss://")),
 	}
 
-	if e.options.User != "" {
-		options = append(options, redis.DialUsername(e.options.User))
-	}
+	if e.options.GCPWorkloadIdentity {
+		if e.gcpTokenProvider == nil {
+			e.gcpTokenProvider = NewGCPTokenProvider()
+		}
 
-	if e.options.Password != "" {
-		options = append(options, redis.DialPassword(e.options.Password))
-	}
+		options = append(options, redis.DialUsername(gkeIamAuthUsername))
+		token, err := e.gcpTokenProvider.GetToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to get GCP IAM token: %w", err)
+		}
+		options = append(options, redis.DialPassword(token))
+	} else {
+		if e.options.User != "" {
+			options = append(options, redis.DialUsername(e.options.User))
+		}
 
-	if pwd, ok := e.lookupPasswordInPasswordMap(uri); ok && pwd != "" {
-		options = append(options, redis.DialPassword(pwd))
+		if e.options.Password != "" {
+			options = append(options, redis.DialPassword(e.options.Password))
+		}
+
+		if pwd, ok := e.lookupPasswordInPasswordMap(uri); ok && pwd != "" {
+			options = append(options, redis.DialPassword(pwd))
+		}
 	}
 
 	return options, nil

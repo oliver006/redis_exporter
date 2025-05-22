@@ -45,6 +45,8 @@ type Exporter struct {
 	mux *http.ServeMux
 
 	buildInfo BuildInfo
+
+	gcpTokenProvider *GCPTokenProvider
 }
 
 type Options struct {
@@ -89,6 +91,7 @@ type Options struct {
 	BasicAuthPassword              string
 	SkipCheckKeysForRoleMaster     bool
 	InclMetricsForEmptyDatabases   bool
+	GCPWorkloadIdentity            bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.

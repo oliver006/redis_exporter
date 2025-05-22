@@ -61,20 +61,6 @@ jobs:
         run: |
           go test -v -race -p 1 ./...
 
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          fail_ci_if_error: true
-          files: ./coverage.txt
-          token: ${{ secrets.CODECOV_TOKEN }} # required
-          verbose: true
-
-      - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
-        with:
-          file: coverage.txt
-
       - name: Stop services
         run: docker-compose down
         working-directory: ./
