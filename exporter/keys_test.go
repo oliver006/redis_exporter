@@ -729,6 +729,56 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	}
 }
 
+func TestGetKeyInfoWithMissingKey(t *testing.T) {
+	/*
+	   https://github.com/oliver006/redis_exporter/issues/1008
+
+	   CheckSingleKeys contains a bunch of keys but the first one is missing
+	   and the rest is still expected to be present in the metrics
+	*/
+
+	uri := os.Getenv("TEST_REDIS_URI")
+	if uri == "" {
+		t.Skipf("Skipping TestGetKeyInfoWithMissingKey, don't have env var TEST_REDIS_URI")
+	}
+
+	keys := []string{dbNumStrFull + "=" + "i-dont-exist"}
+	for idx := range testKeys {
+		keys = append(keys, dbNumStrFull+"="+testKeys[idx])
+		if idx == 3 {
+			keys = append(keys, dbNumStrFull+"="+"another-missing-key")
+		}
+	}
+
+	e, _ := NewRedisExporter(
+		uri,
+		Options{
+			Namespace:       "test",
+			CheckSingleKeys: strings.Join(keys, ","),
+			Registry:        prometheus.NewRegistry(),
+		},
+	)
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	setupTestKeys(t, uri)
+	defer deleteTestKeys(t, uri)
+
+	body := downloadURL(t, ts.URL+"/metrics")
+	for _, k := range testKeys {
+		for _, w := range []string{
+			`test_key_memory_usage_bytes{db="%s",key="%s"}`,
+			`test_key_size{db="%s",key="%s"}`,
+			`test_key_value{db="%s",key="%s"}`,
+		} {
+			want := fmt.Sprintf(w, dbNumStrFull, k)
+			if !strings.Contains(body, want) {
+				t.Errorf("Expected metric: %s but got:\n%s", want, body)
+			}
+		}
+	}
+}
+
 func TestGetKeysCount(t *testing.T) {
 	addr := os.Getenv("TEST_REDIS_URI")
 	db := dbNumStr

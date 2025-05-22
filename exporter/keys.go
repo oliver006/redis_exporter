@@ -154,7 +154,6 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 			keysByDb[k.db] = []string{k.key}
 		}
 	}
-	log.Debugf("keysByDb: %#v", keysByDb)
 
 	for dbNum, arrayOfKeys := range keysByDb {
 		dbLabel := "db" + dbNum
@@ -307,9 +306,7 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 		switch keyType {
 		case "none":
-			log.Debugf("Key '%s' not found when trying to get type and size: using default '0.0'", keyName)
-			e.registerConstMetricGauge(ch, "key_size", 0.0, dbLabel, keyName)
-			return
+			log.Debugf("Key '%s' not found, skipping", keyName)
 
 		case "string":
 			hllSize, hllErr := redis.Int64(c.Receive())
