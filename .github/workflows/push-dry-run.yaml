@@ -10,7 +10,7 @@ jobs:
   # This workflow contains a single job called "build"
   on-success:
     # The type of runner that the job will run on
-    runs-on: tools-runner-small
+    runs-on: tools-runner
     steps:
     - name: Trigger jenkins job to upload master to Quay.io
       uses: franco-nonne/jenkins-job-trigger-action@update-bundler
