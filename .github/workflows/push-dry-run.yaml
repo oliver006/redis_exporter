@@ -13,7 +13,7 @@ jobs:
     runs-on: tools-runner
     steps:
     - name: Trigger jenkins job to upload master to Quay.io
-      uses: franco-nonne/jenkins-job-trigger-action@update-bundler
+      uses: draios/jenkins-job-trigger-action@1.1.0
       with:
         jenkins_url: ${{ secrets.JENKINS_INTERNAL_URL }}
         jenkins_user: ${{ secrets.JENKINS_BOT_API_USER }}
