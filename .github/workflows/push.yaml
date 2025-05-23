@@ -12,13 +12,13 @@ jobs:
   # This workflow contains a single job called "build"
   on-success:
     # The type of runner that the job will run on
-    runs-on: ubuntu-latest
+    runs-on: tools-runner
     steps:
     - name: Trigger jenkins job to upload master to Quay.io
-      uses: franco-nonne/jenkins-job-trigger-action@update-bundler
+      uses: draios/jenkins-job-trigger-action@1.1.0
       with:
-        jenkins_url: "https://jenkins.internal.sysdig.tools/"
-        jenkins_user: 'jenkins-bot@sysdig.com'
+        jenkins_url: ${{ secrets.JENKINS_INTERNAL_URL }}
+        jenkins_user: ${{ secrets.JENKINS_BOT_API_USER }}
         jenkins_token: ${{ secrets.JENKINS_BOT_API_TOKEN }}
         job_timeout: "300"
         job_name: "promcat/job/exporters/job/integrations-redis-exporter"
