@@ -130,175 +130,116 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 		return
 	}
 
-	for _, c := range strings.Split(reply, "\n") {
-		if info, ok := parseClientListString(c); ok {
+	for _, clients := range strings.Split(reply, "\n") {
+		if info, ok := parseClientListString(clients); ok {
 			clientInfoLabels := []string{"id", "name", "flags", "db", "host"}
-			clientInfoLabelsValues := []string{info.Id, info.Name, info.Flags, info.Db, info.Host}
+			clientInfoLabelValues := []string{info.Id, info.Name, info.Flags, info.Db, info.Host}
 
 			if e.options.ExportClientsInclPort {
 				clientInfoLabels = append(clientInfoLabels, "port")
-				clientInfoLabelsValues = append(clientInfoLabelsValues, info.Port)
+				clientInfoLabelValues = append(clientInfoLabelValues, info.Port)
 			}
 
 			if user := info.User; user != "" {
 				clientInfoLabels = append(clientInfoLabels, "user")
-				clientInfoLabelsValues = append(clientInfoLabelsValues, user)
+				clientInfoLabelValues = append(clientInfoLabelValues, user)
 			}
 
 			// introduced in Redis 7.0
 			if resp := info.Resp; resp != "" {
 				clientInfoLabels = append(clientInfoLabels, "resp")
-				clientInfoLabelsValues = append(clientInfoLabelsValues, resp)
+				clientInfoLabelValues = append(clientInfoLabelValues, resp)
 			}
 
-			e.metricDescriptions["connected_client_info"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_info",
-				"Details about a connected client",
-				clientInfoLabels,
-			)
+			e.findOrCreateMetricDescription("connected_client_info", clientInfoLabels)
 			e.registerConstMetricGauge(
 				ch, "connected_client_info", 1.0,
-				clientInfoLabelsValues...,
+				clientInfoLabelValues...,
 			)
 
 			clientBaseLabels := []string{"id", "name"}
 			clientBaseLabelsValues := []string{info.Id, info.Name}
 
-			e.metricDescriptions["connected_client_output_buffer_memory_usage_bytes"] = newMetricDescr(
-				e.options.Namespace,
+			for _, metricName := range []string{
 				"connected_client_output_buffer_memory_usage_bytes",
-				"A connected client's output buffer memory usage in bytes",
-				clientBaseLabels,
-			)
+				"connected_client_total_memory_consumed_bytes",
+				"connected_client_created_at_timestamp",
+				"connected_client_idle_since_timestamp",
+				"connected_client_channel_subscriptions_count",
+				"connected_client_pattern_matching_subscriptions_count",
+				"connected_client_query_buffer_length_bytes",
+				"connected_client_query_buffer_free_space_bytes",
+				"connected_client_output_buffer_length_bytes",
+				"connected_client_output_list_length",
+			} {
+				e.findOrCreateMetricDescription(metricName, clientBaseLabels)
+
+			}
+
 			e.registerConstMetricGauge(
 				ch, "connected_client_output_buffer_memory_usage_bytes", float64(info.OMem),
 				clientBaseLabelsValues...,
 			)
 
-			e.metricDescriptions["connected_client_total_memory_consumed_bytes"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_total_memory_consumed_bytes",
-				"Total memory consumed by a client in its various buffers",
-				clientBaseLabels,
-			)
 			e.registerConstMetricGauge(
 				ch, "connected_client_total_memory_consumed_bytes", float64(info.TotMem),
 				clientBaseLabelsValues...,
 			)
 
-			e.metricDescriptions["connected_client_created_at_timestamp"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_created_at_timestamp",
-				"A connected client's creation timestamp",
-				clientBaseLabels,
-			)
 			e.registerConstMetricGauge(
 				ch, "connected_client_created_at_timestamp", float64(info.CreatedAt),
 				clientBaseLabelsValues...,
 			)
 
-			e.metricDescriptions["connected_client_idle_since_timestamp"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_idle_since_timestamp",
-				"A connected client's idle since timestamp",
-				clientBaseLabels,
-			)
 			e.registerConstMetricGauge(
 				ch, "connected_client_idle_since_timestamp", float64(info.IdleSince),
 				clientBaseLabelsValues...,
 			)
 
-			e.metricDescriptions["connected_client_channel_subscriptions_count"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_channel_subscriptions_count",
-				"A connected client's number of channel subscriptions",
-				clientBaseLabels,
-			)
 			e.registerConstMetricGauge(
 				ch, "connected_client_channel_subscriptions_count", float64(info.Sub),
 				clientBaseLabelsValues...,
 			)
 
-			e.metricDescriptions["connected_client_pattern_matching_subscriptions_count"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_pattern_matching_subscriptions_count",
-				"A connected client's number of pattern matching subscriptions",
-				clientBaseLabels,
-			)
 			e.registerConstMetricGauge(
 				ch, "connected_client_pattern_matching_subscriptions_count", float64(info.Psub),
 				clientBaseLabelsValues...,
 			)
 
+			e.registerConstMetricGauge(
+				ch, "connected_client_query_buffer_length_bytes", float64(info.Qbuf),
+				clientBaseLabelsValues...,
+			)
+
+			e.registerConstMetricGauge(
+				ch, "connected_client_query_buffer_free_space_bytes", float64(info.QbufFree),
+				clientBaseLabelsValues...,
+			)
+
+			e.registerConstMetricGauge(
+				ch, "connected_client_output_buffer_length_bytes", float64(info.Obl),
+				clientBaseLabelsValues...,
+			)
+
+			e.registerConstMetricGauge(
+				ch, "connected_client_output_list_length", float64(info.Oll),
+				clientBaseLabelsValues...,
+			)
+
 			if info.Ssub != -1 {
-				e.metricDescriptions["connected_client_shard_channel_subscriptions_count"] = newMetricDescr(
-					e.options.Namespace,
-					"connected_client_shard_channel_subscriptions_count",
-					"a connected client's number of shard channel subscriptions",
-					clientBaseLabels,
-				)
+				e.findOrCreateMetricDescription("connected_client_shard_channel_subscriptions_count", clientBaseLabels)
 				e.registerConstMetricGauge(
 					ch, "connected_client_shard_channel_subscriptions_count", float64(info.Ssub),
 					clientBaseLabelsValues...,
 				)
 			}
 			if info.Watch != -1 {
-				e.metricDescriptions["connected_client_shard_channel_watched_keys"] = newMetricDescr(
-					e.options.Namespace,
-					"connected_client_shard_channel_watched_keys",
-					"a connected client's number of keys it's currently watching",
-					clientBaseLabels,
-				)
+				e.findOrCreateMetricDescription("connected_client_shard_channel_watched_keys", clientBaseLabels)
 				e.registerConstMetricGauge(
 					ch, "connected_client_shard_channel_watched_keys", float64(info.Watch),
 					clientBaseLabelsValues...,
 				)
 			}
-
-			e.metricDescriptions["connected_client_query_buffer_length_bytes"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_query_buffer_length_bytes",
-				"A connected client's query buffer length in bytes (0 means no query pending)",
-				clientBaseLabels,
-			)
-			e.registerConstMetricGauge(
-				ch, "connected_client_query_buffer_length_bytes", float64(info.Qbuf),
-				clientBaseLabelsValues...,
-			)
-
-			e.metricDescriptions["connected_client_query_buffer_free_space_bytes"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_query_buffer_free_space_bytes",
-				"A connected client's free space of the query buffer in bytes (0 means the buffer is full)",
-				clientBaseLabels,
-			)
-			e.registerConstMetricGauge(
-				ch, "connected_client_query_buffer_free_space_bytes", float64(info.QbufFree),
-				clientBaseLabelsValues...,
-			)
-
-			e.metricDescriptions["connected_client_output_buffer_length_bytes"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_output_buffer_length_bytes",
-				"A connected client's output buffer length in bytes",
-				clientBaseLabels,
-			)
-			e.registerConstMetricGauge(
-				ch, "connected_client_output_buffer_length_bytes", float64(info.Obl),
-				clientBaseLabelsValues...,
-			)
-
-			e.metricDescriptions["connected_client_output_list_length"] = newMetricDescr(
-				e.options.Namespace,
-				"connected_client_output_list_length",
-				"A connected client's output list length (replies are queued in this list when the buffer is full)",
-				clientBaseLabels,
-			)
-			e.registerConstMetricGauge(
-				ch, "connected_client_output_list_length", float64(info.Oll),
-				clientBaseLabelsValues...,
-			)
 		}
 	}
 }
