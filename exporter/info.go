@@ -171,7 +171,8 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 
 	instanceRole := keyValues["role"]
 
-	e.registerConstMetricGauge(ch, "instance_info", 1,
+	lbls := []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id", "master_replid"}
+	lblVals := []string{
 		instanceRole,
 		keyValues["redis_version"],
 		keyValues["redis_build_id"],
@@ -182,7 +183,18 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		keyValues["run_id"],
 		keyValues["process_id"],
 		keyValues["master_replid"],
-	)
+	}
+	if valkeyVersion, ok := keyValues["valkey_version"]; ok {
+		lbls = append(lbls, "valkey_version")
+		lblVals = append(lblVals, valkeyVersion)
+	}
+	if valkeyReleaseStage, ok := keyValues["valkey_release_stage"]; ok {
+		lbls = append(lbls, "valkey_release_stage")
+		lblVals = append(lblVals, valkeyReleaseStage)
+	}
+
+	e.createMetricDescription("instance_info", lbls)
+	e.registerConstMetricGauge(ch, "instance_info", 1, lblVals...)
 
 	if instanceRole == InstanceRoleSlave {
 		e.registerConstMetricGauge(ch, "slave_info", 1,
