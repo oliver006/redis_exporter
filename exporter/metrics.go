@@ -82,7 +82,14 @@ func (e *Exporter) registerConstMetricGauge(ch chan<- prometheus.Metric, metric 
 }
 
 func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric string, val float64, valType prometheus.ValueType, labelValues ...string) {
-	m, err := prometheus.NewConstMetric(e.mustFindMetricDescription(metric), valType, val, labelValues...)
+	var desc *prometheus.Desc
+	if len(labelValues) == 0 {
+		desc = e.createMetricDescription(metric, nil)
+	} else {
+		desc = e.mustFindMetricDescription(metric)
+	}
+
+	m, err := prometheus.NewConstMetric(desc, valType, val, labelValues...)
 	if err != nil {
 		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, val, err)
 		return
@@ -120,11 +127,15 @@ func (e *Exporter) mustFindMetricDescription(metricName string) *prometheus.Desc
 	return description
 }
 
+func (e *Exporter) mustCreateMetricDescription(metricName string, labels ...string) *prometheus.Desc {
+	d := newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
+	e.metricDescriptions[metricName] = d
+	return d
+}
+
 func (e *Exporter) createMetricDescription(metricName string, labels []string) *prometheus.Desc {
-	description, found := e.metricDescriptions[metricName]
-	if !found {
-		description = newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
-		e.metricDescriptions[metricName] = description
+	if desc, found := e.metricDescriptions[metricName]; found {
+		return desc
 	}
-	return description
+	return e.mustCreateMetricDescription(metricName, labels...)
 }
