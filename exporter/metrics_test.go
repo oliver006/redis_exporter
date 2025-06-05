@@ -46,8 +46,8 @@ func TestFindOrCreateMetricsDescriptionFindExisting(t *testing.T) {
 	metricName := "foo"
 	labels := []string{"1", "2"}
 
-	ret := exp.findOrCreateMetricDescription(metricName, labels)
-	ret2 := exp.findOrCreateMetricDescription(metricName, labels)
+	ret := exp.mustFindMetricDescription(metricName, labels)
+	ret2 := exp.mustFindMetricDescription(metricName, labels)
 
 	if ret == nil || ret2 == nil || ret != ret2 {
 		t.Errorf("Unexpected return values: (%v, %v)", ret, ret2)
@@ -65,7 +65,7 @@ func TestFindOrCreateMetricsDescriptionCreateNew(t *testing.T) {
 	metricName := "foo"
 	labels := []string{"1", "2"}
 
-	ret := exp.findOrCreateMetricDescription(metricName, labels)
+	ret := exp.mustFindMetricDescription(metricName, labels)
 
 	if ret == nil {
 		t.Errorf("Unexpected return value: %s", ret)

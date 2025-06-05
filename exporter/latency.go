@@ -84,8 +84,8 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 
 		totalUsecs := extractTotalUsecForCommand(infoAll, cmd)
 
-		labelValues := []string{"cmd"}
-		e.registerConstHistogram(outChan, "commands_latencies_usec", labelValues, totalCalls, float64(totalUsecs), buckets, cmd)
+		e.createMetricDescription("commands_latencies_usec", []string{"cmd"})
+		e.registerConstHistogram(outChan, "commands_latencies_usec", totalCalls, float64(totalUsecs), buckets, cmd)
 	}
 }
 

@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
@@ -81,8 +82,7 @@ func (e *Exporter) registerConstMetricGauge(ch chan<- prometheus.Metric, metric 
 }
 
 func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric string, val float64, valType prometheus.ValueType, labelValues ...string) {
-	description := e.findOrCreateMetricDescription(metric, labelValues)
-	m, err := prometheus.NewConstMetric(description, valType, val, labelValues...)
+	m, err := prometheus.NewConstMetric(e.mustFindMetricDescription(metric), valType, val, labelValues...)
 	if err != nil {
 		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, val, err)
 		return
@@ -91,38 +91,40 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 	ch <- m
 }
 
-func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric string, labelValues []string, count uint64, sum float64, latencyMap map[float64]float64, cmd string) {
-	description := e.findOrCreateMetricDescription(metric, labelValues)
-
+func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric string, count uint64, sum float64, latencyMap map[float64]float64, labelValues ...string) {
 	// Create a constant summary from values we got from a 3rd party telemetry system.
 	summary := prometheus.MustNewConstSummary(
-		description,
+		e.mustFindMetricDescription(metric),
 		count, sum,
 		latencyMap,
-		cmd,
+		labelValues...,
 	)
 	ch <- summary
 }
 
-func (e *Exporter) registerConstHistogram(ch chan<- prometheus.Metric, metric string, labelValues []string, count uint64, sum float64, buckets map[float64]uint64, cmd string) {
-	description := e.findOrCreateMetricDescription(metric, labelValues)
-
+func (e *Exporter) registerConstHistogram(ch chan<- prometheus.Metric, metric string, count uint64, sum float64, buckets map[float64]uint64, labelValues ...string) {
 	histogram := prometheus.MustNewConstHistogram(
-		description,
+		e.mustFindMetricDescription(metric),
 		count, sum,
 		buckets,
-		cmd,
+		labelValues...,
 	)
 	ch <- histogram
 }
 
-func (e *Exporter) findOrCreateMetricDescription(metricName string, labels []string) *prometheus.Desc {
+func (e *Exporter) mustFindMetricDescription(metricName string) *prometheus.Desc {
 	description, found := e.metricDescriptions[metricName]
+	if !found {
+		panic(fmt.Sprintf("couldn't find metric description for %s", metricName))
+	}
+	return description
+}
 
+func (e *Exporter) createMetricDescription(metricName string, labels []string) *prometheus.Desc {
+	description, found := e.metricDescriptions[metricName]
 	if !found {
 		description = newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
 		e.metricDescriptions[metricName] = description
 	}
-
 	return description
 }

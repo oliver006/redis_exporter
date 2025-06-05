@@ -199,7 +199,8 @@ func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, 
 		count, okCount := cmdCount[cmd]
 		sum, okSum := cmdSum[cmd]
 		if okCount && okSum {
-			e.registerConstSummary(ch, "latency_percentiles_usec", []string{"cmd"}, count, sum, latencyMap, cmd)
+			e.createMetricDescription("latency_percentiles_usec", []string{"cmd"})
+			e.registerConstSummary(ch, "latency_percentiles_usec", count, sum, latencyMap, cmd)
 		}
 	}
 }
@@ -530,9 +531,13 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 		log.Debugf("parseMetricsCommandStats( %s , %s ) err: %s", fieldKey, fieldValue, err)
 		return
 	}
+	e.createMetricDescription("commands_total", []string{cmd})
+	e.createMetricDescription("commands_duration_seconds_total", []string{cmd})
 	e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
 	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
 	if extendedStats {
+		e.createMetricDescription("commands_rejected_calls_total", []string{cmd})
+		e.createMetricDescription("commands_failed_calls_total", []string{cmd})
 		e.registerConstMetric(ch, "commands_rejected_calls_total", rejectedCalls, prometheus.CounterValue, cmd)
 		e.registerConstMetric(ch, "commands_failed_calls_total", failedCalls, prometheus.CounterValue, cmd)
 	}

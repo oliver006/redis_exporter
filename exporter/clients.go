@@ -151,7 +151,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 				clientInfoLabelValues = append(clientInfoLabelValues, resp)
 			}
 
-			e.findOrCreateMetricDescription("connected_client_info", clientInfoLabels)
+			e.createMetricDescription("connected_client_info", clientInfoLabels)
 			e.registerConstMetricGauge(
 				ch, "connected_client_info", 1.0,
 				clientInfoLabelValues...,
@@ -172,8 +172,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 				"connected_client_output_buffer_length_bytes",
 				"connected_client_output_list_length",
 			} {
-				e.findOrCreateMetricDescription(metricName, clientBaseLabels)
-
+				e.createMetricDescription(metricName, clientBaseLabels)
 			}
 
 			e.registerConstMetricGauge(
@@ -227,14 +226,14 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 			)
 
 			if info.Ssub != -1 {
-				e.findOrCreateMetricDescription("connected_client_shard_channel_subscriptions_count", clientBaseLabels)
+				e.createMetricDescription("connected_client_shard_channel_subscriptions_count", clientBaseLabels)
 				e.registerConstMetricGauge(
 					ch, "connected_client_shard_channel_subscriptions_count", float64(info.Ssub),
 					clientBaseLabelsValues...,
 				)
 			}
 			if info.Watch != -1 {
-				e.findOrCreateMetricDescription("connected_client_shard_channel_watched_keys", clientBaseLabels)
+				e.createMetricDescription("connected_client_shard_channel_watched_keys", clientBaseLabels)
 				e.registerConstMetricGauge(
 					ch, "connected_client_shard_channel_watched_keys", float64(info.Watch),
 					clientBaseLabelsValues...,
