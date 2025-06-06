@@ -22,12 +22,11 @@ func TestSanitizeMetricName(t *testing.T) {
 
 func TestRegisterConstHistogram(t *testing.T) {
 	exp := getTestExporter()
-
 	metricName := "foo"
-
 	ch := make(chan prometheus.Metric)
 	go func() {
-		exp.registerConstHistogram(ch, metricName, []string{"bar"}, 12, .24, map[float64]uint64{}, "test")
+		exp.createMetricDescription(metricName, []string{})
+		exp.registerConstHistogram(ch, metricName, 12, .24, map[float64]uint64{}, "test")
 		close(ch)
 	}()
 
@@ -46,8 +45,8 @@ func TestFindOrCreateMetricsDescriptionFindExisting(t *testing.T) {
 	metricName := "foo"
 	labels := []string{"1", "2"}
 
-	ret := exp.mustFindMetricDescription(metricName, labels)
-	ret2 := exp.mustFindMetricDescription(metricName, labels)
+	ret := exp.createMetricDescription(metricName, labels)
+	ret2 := exp.createMetricDescription(metricName, labels)
 
 	if ret == nil || ret2 == nil || ret != ret2 {
 		t.Errorf("Unexpected return values: (%v, %v)", ret, ret2)
@@ -65,7 +64,7 @@ func TestFindOrCreateMetricsDescriptionCreateNew(t *testing.T) {
 	metricName := "foo"
 	labels := []string{"1", "2"}
 
-	ret := exp.mustFindMetricDescription(metricName, labels)
+	ret := exp.createMetricDescription(metricName, labels)
 
 	if ret == nil {
 		t.Errorf("Unexpected return value: %s", ret)

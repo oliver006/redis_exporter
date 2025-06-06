@@ -127,15 +127,11 @@ func (e *Exporter) mustFindMetricDescription(metricName string) *prometheus.Desc
 	return description
 }
 
-func (e *Exporter) mustCreateMetricDescription(metricName string, labels ...string) *prometheus.Desc {
-	d := newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
-	e.metricDescriptions[metricName] = d
-	return d
-}
-
 func (e *Exporter) createMetricDescription(metricName string, labels []string) *prometheus.Desc {
 	if desc, found := e.metricDescriptions[metricName]; found {
 		return desc
 	}
-	return e.mustCreateMetricDescription(metricName, labels...)
+	d := newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
+	e.metricDescriptions[metricName] = d
+	return d
 }
