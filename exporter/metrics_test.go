@@ -25,7 +25,7 @@ func TestRegisterConstHistogram(t *testing.T) {
 	metricName := "foo"
 	ch := make(chan prometheus.Metric)
 	go func() {
-		exp.createMetricDescription(metricName, []string{})
+		exp.createMetricDescription(metricName, []string{"test"})
 		exp.registerConstHistogram(ch, metricName, 12, .24, map[float64]uint64{}, "test")
 		close(ch)
 	}()
