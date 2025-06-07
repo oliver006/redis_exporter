@@ -35,12 +35,6 @@ func TestKeyValuesAndSizes(t *testing.T) {
 	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
-
 	body := downloadURL(t, ts.URL+"/metrics")
 	for _, want := range []string{
 		"test_key_size",
@@ -62,17 +56,11 @@ func TestKeyValuesAsLabel(t *testing.T) {
 			os.Getenv("TEST_REDIS_URI"),
 			Options{
 				Namespace:                 "test",
-				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(testKeySingleString),
+				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(TestKeyNameSingleString),
 				DisableExportingKeyValues: exc,
 				Registry:                  prometheus.NewRegistry()},
 		)
 		ts := httptest.NewServer(e)
-
-		chM := make(chan prometheus.Metric, 10000)
-		go func() {
-			e.Collect(chM)
-			close(chM)
-		}()
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		for _, match := range []string{
@@ -95,7 +83,7 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
 	}
 	setupTestKeysCluster(t, clusterUri)
-	defer deleteTestKeysCluster(clusterUri)
+	defer deleteTestKeysCluster(t, clusterUri)
 
 	for _, disableExportingValues := range []bool{true, false} {
 		e, _ := NewRedisExporter(
@@ -105,7 +93,7 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 				CheckSingleKeys: fmt.Sprintf(
 					"%s=%s,%s=%s",
 					dbNumStrFull, url.QueryEscape(testKeys[0]),
-					dbNumStrFull, url.QueryEscape(TestKeysSetName),
+					dbNumStrFull, url.QueryEscape(TestKeyNameSet),
 				),
 				IsCluster: true,
 			},
@@ -371,7 +359,7 @@ func TestScanKeys(t *testing.T) {
 		got, err := redis.Strings(scanKeys(c, pattern, count))
 		if err != nil {
 			t.Logf("\"Passed\" expected, got error: %#v", err)
-			if pattern == "" && err.Error() != "Pattern shouldn't be empty" {
+			if pattern == "" && err.Error() != "pattern shouldn't be empty" {
 				t.Errorf("\"Empty pattern\" error message expected, but got: %s", err.Error())
 			}
 		} else {
@@ -670,9 +658,9 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 		Options{Namespace: "test",
 			CheckSingleKeys: "single," +
 				dbNumStr + "=" + testKeys[0] + "," +
-				dbNumStr + "=" + testKeySingleString + "," +
+				dbNumStr + "=" + TestKeyNameSingleString + "," +
 				altDBNumStr + "=" + TestKeysHllName + "," +
-				altDBNumStr + "=" + testKeySingleString + "," +
+				altDBNumStr + "=" + TestKeyNameSingleString + "," +
 				anotherAltDbNumStr + "=" + testKeys[0],
 			CheckKeys:          dbNumStr + "=" + "test*",
 			CheckKeysBatchSize: 1000,
@@ -689,18 +677,18 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 	for _, k := range []string{
 		`test_key_size{db="db0",key="single"} 0`, // non-existent key
 
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, dbNumStr, testKeySingleString),
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, dbNumStr, TestKeysZSetName),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, dbNumStr, TestKeyNameSingleString),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 2`, dbNumStr, TestKeysZSetName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 4`, dbNumStr, TestKeysHashName),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 3`, altDBNumStr, TestKeysHllName),
-		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, testKeySingleString),
+		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 16`, altDBNumStr, TestKeyNameSingleString),
 		fmt.Sprintf(`test_key_size{db="db%s",key="%s"} 7`, anotherAltDbNumStr, testKeys[0]),
 
 		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, dbNumStr, testKeys[0]),
 		fmt.Sprintf(`test_key_value{db="db%s",key="%s"} 1234.56`, anotherAltDbNumStr, testKeys[0]),
 
-		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, dbNumStr, testKeySingleString),
-		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, altDBNumStr, testKeySingleString),
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, dbNumStr, TestKeyNameSingleString),
+		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, altDBNumStr, TestKeyNameSingleString),
 		fmt.Sprintf(`key_memory_usage_bytes{db="db%s",key="%s"}`, anotherAltDbNumStr, testKeys[0]),
 	} {
 		if !strings.Contains(body, k) {
@@ -728,7 +716,7 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	defer ts.Close()
 
 	setupTestKeysCluster(t, clusterUri)
-	defer deleteTestKeysCluster(clusterUri)
+	defer deleteTestKeysCluster(t, clusterUri)
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	for _, want := range []string{
@@ -737,6 +725,56 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("Expected metric: %s but got:\n%s", want, body)
+		}
+	}
+}
+
+func TestGetKeyInfoWithMissingKey(t *testing.T) {
+	/*
+	   https://github.com/oliver006/redis_exporter/issues/1008
+
+	   CheckSingleKeys contains a bunch of keys but the first one is missing
+	   and the rest is still expected to be present in the metrics
+	*/
+
+	uri := os.Getenv("TEST_REDIS_URI")
+	if uri == "" {
+		t.Skipf("Skipping TestGetKeyInfoWithMissingKey, don't have env var TEST_REDIS_URI")
+	}
+
+	keys := []string{dbNumStrFull + "=" + "i-dont-exist"}
+	for idx := range testKeys {
+		keys = append(keys, dbNumStrFull+"="+testKeys[idx])
+		if idx == 3 {
+			keys = append(keys, dbNumStrFull+"="+"another-missing-key")
+		}
+	}
+
+	e, _ := NewRedisExporter(
+		uri,
+		Options{
+			Namespace:       "test",
+			CheckSingleKeys: strings.Join(keys, ","),
+			Registry:        prometheus.NewRegistry(),
+		},
+	)
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	setupTestKeys(t, uri)
+	defer deleteTestKeys(t, uri)
+
+	body := downloadURL(t, ts.URL+"/metrics")
+	for _, k := range testKeys {
+		for _, w := range []string{
+			`test_key_memory_usage_bytes{db="%s",key="%s"}`,
+			`test_key_size{db="%s",key="%s"}`,
+			`test_key_value{db="%s",key="%s"}`,
+		} {
+			want := fmt.Sprintf(w, dbNumStrFull, k)
+			if !strings.Contains(body, want) {
+				t.Errorf("Expected metric: %s but got:\n%s", want, body)
+			}
 		}
 	}
 }

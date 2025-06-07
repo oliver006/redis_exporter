@@ -83,18 +83,28 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 	}
 }
 
-func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, redisClient redis.Conn) error {
+	c := redisClient
+
+	if e.options.IsCluster {
+		cc, err := e.connectToRedisCluster()
+		if err != nil {
+			return fmt.Errorf("couldn't connect to redis cluster, err: %s", err)
+		}
+		defer cc.Close()
+
+		c = cc
+	}
+
 	keys, err := parseKeyArg(e.options.CheckKeys)
 	if err != nil {
-		log.Errorf("Couldn't parse check-keys: %#v", err)
-		return
+		return fmt.Errorf("couldn't parse check-keys: %w", err)
 	}
 	log.Debugf("keys: %#v", keys)
 
 	singleKeys, err := parseKeyArg(e.options.CheckSingleKeys)
 	if err != nil {
-		log.Errorf("Couldn't parse check-single-keys: %#v", err)
-		return
+		return fmt.Errorf("couldn't parse check-single-keys: %w", err)
 	}
 	log.Debugf("e.singleKeys: %#v", singleKeys)
 
@@ -119,6 +129,7 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	} else {
 		e.extractCheckKeyMetricsPipelined(ch, c, allKeys)
 	}
+	return nil
 }
 
 func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
@@ -143,7 +154,6 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 			keysByDb[k.db] = []string{k.key}
 		}
 	}
-	log.Debugf("keysByDb: %#v", keysByDb)
 
 	for dbNum, arrayOfKeys := range keysByDb {
 		dbLabel := "db" + dbNum
@@ -197,7 +207,7 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 			}
 			memUsageInBytes, err := redis.Int64(c.Receive())
 			if err != nil {
-				log.Errorf("key: [%s] - memUsageInBytes Receive() err: %s", keyName, err)
+				// log.Errorf("key: [%s] - memUsageInBytes Receive() err: %s", keyName, err)
 				continue
 			}
 
@@ -232,13 +242,13 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 			log.Debugf("c.Send() STRLEN  args: [%v]", keyName)
 			if err := c.Send("STRLEN", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				log.Errorf("STRLEN err: %s", err)
 				return
 			}
 
 			log.Debugf("c.Send() GET  args: [%v]", keyName)
 			if err := c.Send("GET", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				log.Errorf("GET err: %s", err)
 				return
 			}
 
@@ -296,9 +306,7 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 		switch keyType {
 		case "none":
-			log.Debugf("Key '%s' not found when trying to get type and size: using default '0.0'", keyName)
-			e.registerConstMetricGauge(ch, "key_size", 0.0, dbLabel, keyName)
-			return
+			log.Debugf("Key '%s' not found, skipping", keyName)
 
 		case "string":
 			hllSize, hllErr := redis.Int64(c.Receive())
@@ -475,7 +483,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 		number, err := strconv.Atoi(db)
 		if err != nil || number < 0 {
-			return keys, fmt.Errorf("Invalid database index for db \"%s\": %s", db, err)
+			return keys, fmt.Errorf("invalid database index for db \"%s\": %s", db, err)
 		}
 
 		keys = append(keys, dbKeyPair{db, key})
@@ -487,7 +495,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 // This function was adapted from: https://github.com/reisinger/examples-redigo
 func scanKeys(c redis.Conn, pattern string, count int64) (keys []interface{}, err error) {
 	if pattern == "" {
-		return keys, fmt.Errorf("Pattern shouldn't be empty")
+		return keys, fmt.Errorf("pattern shouldn't be empty")
 	}
 
 	iter := 0

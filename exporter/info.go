@@ -33,7 +33,12 @@ var reMasterDirect = regexp.MustCompile(`^(master(_[0-9]+)?_(last_io_seconds_ago
 slave0:ip=10.254.11.1,port=6379,state=online,offset=1751844676,lag=0
 slave1:ip=10.254.11.2,port=6379,state=online,offset=1751844222,lag=0
 */
+
 var reSlave = regexp.MustCompile(`^slave\d+`)
+
+const (
+	InstanceRoleSlave = "slave"
+)
 
 func extractVal(s string) (val float64, err error) {
 	split := strings.Split(s, "=")
@@ -60,7 +65,8 @@ func extractPercentileVal(s string) (percentile float64, val float64, err error)
 	return
 }
 
-func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) {
+// returns the role of the instance we're scraping (master or slave)
+func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, dbCount int) string {
 	keyValues := map[string]string{}
 	handledDBs := map[string]bool{}
 	cmdCount := map[string]uint64{}
@@ -153,16 +159,21 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	// from #Commandstats processing and the percentile info that we get from the #Latencystats processing
 	e.generateCommandLatencySummaries(ch, cmdLatencyMap, cmdCount, cmdSum)
 
-	for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
-		dbName := "db" + strconv.Itoa(dbIndex)
-		if _, exists := handledDBs[dbName]; !exists {
-			e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
-			e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+	if e.options.InclMetricsForEmptyDatabases {
+		for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+			dbName := "db" + strconv.Itoa(dbIndex)
+			if _, exists := handledDBs[dbName]; !exists {
+				e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
+				e.registerConstMetricGauge(ch, "db_keys_expiring", 0, dbName)
+			}
 		}
 	}
 
-	e.registerConstMetricGauge(ch, "instance_info", 1,
-		keyValues["role"],
+	instanceRole := keyValues["role"]
+
+	lbls := []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id", "master_replid"}
+	lblVals := []string{
+		instanceRole,
 		keyValues["redis_version"],
 		keyValues["redis_build_id"],
 		keyValues["redis_mode"],
@@ -172,14 +183,27 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		keyValues["run_id"],
 		keyValues["process_id"],
 		keyValues["master_replid"],
-	)
+	}
+	if valkeyVersion, ok := keyValues["valkey_version"]; ok {
+		lbls = append(lbls, "valkey_version")
+		lblVals = append(lblVals, valkeyVersion)
+	}
+	if valkeyReleaseStage, ok := keyValues["valkey_release_stage"]; ok {
+		lbls = append(lbls, "valkey_release_stage")
+		lblVals = append(lblVals, valkeyReleaseStage)
+	}
 
-	if keyValues["role"] == "slave" {
+	e.createMetricDescription("instance_info", lbls)
+	e.registerConstMetricGauge(ch, "instance_info", 1, lblVals...)
+
+	if instanceRole == InstanceRoleSlave {
 		e.registerConstMetricGauge(ch, "slave_info", 1,
 			keyValues["master_host"],
 			keyValues["master_port"],
 			keyValues["slave_read_only"])
 	}
+
+	return instanceRole
 }
 
 func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, cmdLatencyMap map[string]map[float64]float64, cmdCount map[string]uint64, cmdSum map[string]float64) {
@@ -187,7 +211,8 @@ func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, 
 		count, okCount := cmdCount[cmd]
 		sum, okSum := cmdSum[cmd]
 		if okCount && okSum {
-			e.registerConstSummary(ch, "latency_percentiles_usec", []string{"cmd"}, count, sum, latencyMap, cmd)
+			e.createMetricDescription("latency_percentiles_usec", []string{"cmd"})
+			e.registerConstSummary(ch, "latency_percentiles_usec", count, sum, latencyMap, cmd)
 		}
 	}
 }
@@ -422,13 +447,13 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 
 	rejectedCalls, err = extractVal(splitValue[3])
 	if err != nil {
-		errorOut = errors.New("Invalid rejected_calls while parsing splitValue[3]")
+		errorOut = errors.New("invalid rejected_calls while parsing splitValue[3]")
 		return
 	}
 
 	failedCalls, err = extractVal(splitValue[4])
 	if err != nil {
-		errorOut = errors.New("Invalid failed_calls while parsing splitValue[4]")
+		errorOut = errors.New("invalid failed_calls while parsing splitValue[4]")
 		return
 	}
 	extendedStats = true
@@ -465,20 +490,20 @@ func parseMetricsLatencyStats(fieldKey string, fieldValue string) (cmd string, p
 	percentileMap = map[float64]float64{}
 
 	if !strings.HasPrefix(fieldKey, cmdPrefix) {
-		errorOut = errors.New("Invalid fieldKey")
+		errorOut = errors.New("invalid fieldKey")
 		return
 	}
 	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
 	splitValue := strings.Split(fieldValue, ",")
 	splitLen := len(splitValue)
 	if splitLen < 1 {
-		errorOut = errors.New("Invalid fieldValue")
+		errorOut = errors.New("invalid fieldValue")
 		return
 	}
 	for pos, kv := range splitValue {
 		percentile, value, err := extractPercentileVal(kv)
 		if err != nil {
-			errorOut = fmt.Errorf("Invalid splitValue[%d]", pos)
+			errorOut = fmt.Errorf("invalid splitValue[%d]", pos)
 			return
 		}
 		percentileMap[percentile] = value
@@ -500,13 +525,13 @@ func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorType strin
 	const prefix = "errorstat_"
 
 	if !strings.HasPrefix(fieldKey, prefix) {
-		errorOut = errors.New("Invalid fieldKey. errorstat_ prefix not present")
+		errorOut = errors.New("invalid fieldKey. errorstat_ prefix not present")
 		return
 	}
 	errorType = strings.TrimPrefix(fieldKey, prefix)
 	count, err := extractVal(fieldValue)
 	if err != nil {
-		errorOut = errors.New("Invalid error type on splitValue[0]")
+		errorOut = errors.New("invalid error type on splitValue[0]")
 		return
 	}
 	return
@@ -518,9 +543,13 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 		log.Debugf("parseMetricsCommandStats( %s , %s ) err: %s", fieldKey, fieldValue, err)
 		return
 	}
+	e.createMetricDescription("commands_total", []string{"cmd"})
+	e.createMetricDescription("commands_duration_seconds_total", []string{"cmd"})
 	e.registerConstMetric(ch, "commands_total", calls, prometheus.CounterValue, cmd)
 	e.registerConstMetric(ch, "commands_duration_seconds_total", usecTotal/1e6, prometheus.CounterValue, cmd)
 	if extendedStats {
+		e.createMetricDescription("commands_rejected_calls_total", []string{"cmd"})
+		e.createMetricDescription("commands_failed_calls_total", []string{"cmd"})
 		e.registerConstMetric(ch, "commands_rejected_calls_total", rejectedCalls, prometheus.CounterValue, cmd)
 		e.registerConstMetric(ch, "commands_failed_calls_total", failedCalls, prometheus.CounterValue, cmd)
 	}

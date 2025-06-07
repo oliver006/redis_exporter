@@ -131,6 +131,36 @@ func commandStatsCheck(t *testing.T, e *Exporter, want map[string]bool) {
 	}
 }
 
+func TestInclMetricsForEmptyDatabases(t *testing.T) {
+	addr := os.Getenv("TEST_REDIS_URI")
+	if addr == "" {
+		t.Skipf("TEST_REDIS_URI not set - skipping")
+	}
+
+	for _, inclMetrics := range []bool{true, false} {
+		t.Run(fmt.Sprintf("inclMetrics:%t", inclMetrics), func(t *testing.T) {
+			e, _ := NewRedisExporter(addr,
+				Options{
+					Namespace: "test", Registry: prometheus.NewRegistry(),
+					InclMetricsForEmptyDatabases: inclMetrics,
+				})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			body := downloadURL(t, ts.URL+"/metrics")
+			if inclMetrics {
+				if !strings.Contains(body, `test_db_keys{db="db10"} 0`) {
+					t.Errorf("Expected to find test_db_keys")
+				}
+			} else {
+				if strings.Contains(body, `test_db_keys{db="db10"} 0`) {
+					t.Errorf("Expected to not find test_db_keys")
+				}
+			}
+		})
+	}
+}
+
 func TestClusterMaster(t *testing.T) {
 	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
@@ -140,12 +170,6 @@ func TestClusterMaster(t *testing.T) {
 	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
-
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	log.Debugf("master - body: %s", body)
@@ -159,6 +183,54 @@ func TestClusterMaster(t *testing.T) {
 	}
 }
 
+func TestClusterSkipCheckKeysIfMaster(t *testing.T) {
+	uriMaster := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	uriSlave := os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
+	if uriMaster == "" || uriSlave == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or slave not set - skipping")
+	}
+
+	setupTestKeysCluster(t, uriMaster)
+	defer deleteTestKeysCluster(t, uriMaster)
+
+	for _, uri := range []string{uriMaster, uriSlave} {
+		for _, skip := range []bool{true, false} {
+			e, _ := NewRedisExporter(
+				uri,
+				Options{Namespace: "test",
+					Registry:                   prometheus.NewRegistry(),
+					CheckKeys:                  TestKeyNameHll,
+					SkipCheckKeysForRoleMaster: skip,
+					IsCluster:                  true,
+				})
+			ts := httptest.NewServer(e)
+
+			body := downloadURL(t, ts.URL+"/metrics")
+
+			expectedMetricPresent := true
+			if skip && uri == uriMaster {
+				expectedMetricPresent = false
+			}
+			t.Logf("skip: %#v  uri: %s    uri == uriMaster: %#v", skip, uri, uri == uriMaster)
+			t.Logf("expectedMetricPresent: %#v", expectedMetricPresent)
+
+			want := `test_key_size{db="db0",key="test-hll"} 3`
+
+			if expectedMetricPresent {
+				if !strings.Contains(body, want) {
+					t.Fatalf("expectedMetricPresent but missing. metric: %s   body: %s\n", want, body)
+				}
+			} else {
+				if strings.Contains(body, want) {
+					t.Fatalf("should have skipped it but found it, body:\n%s", body)
+				}
+			}
+
+			ts.Close()
+		}
+	}
+}
+
 func TestClusterSlave(t *testing.T) {
 	if os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI") == "" {
 		t.Skipf("TEST_REDIS_CLUSTER_SLAVE_URI not set - skipping")
@@ -168,12 +240,6 @@ func TestClusterSlave(t *testing.T) {
 	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
-
-	chM := make(chan prometheus.Metric, 10000)
-	go func() {
-		e.Collect(chM)
-		close(chM)
-	}()
 
 	body := downloadURL(t, ts.URL+"/metrics")
 	log.Debugf("slave - body: %s", body)

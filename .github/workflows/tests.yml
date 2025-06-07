@@ -96,9 +96,9 @@ jobs:
         run: go mod tidy
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.64
+          version: v2.1.5
           args: "--tests=false"
 
       - name: Run checks

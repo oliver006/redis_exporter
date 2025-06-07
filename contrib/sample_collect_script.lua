@@ -1,7 +1,7 @@
 -- Example collect script for -script option
 -- This returns a Lua table with alternating keys and values.
 -- Both keys and values must be strings, similar to a HGETALL result.
--- More info about Redis Lua scripting: https://redis.io/commands/eval
+-- More info about Redis Lua scripting: https://valkey.io/commands/eval
 
 local result = {}
 

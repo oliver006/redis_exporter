@@ -28,7 +28,7 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 	defer deleteTestKeys(t, os.Getenv("TEST_PWD_REDIS_URI"))
 
 	csk := dbNumStrFull + "=" + url.QueryEscape(testKeys[0]) // check-single-keys
-	css := dbNumStrFull + "=" + TestKeysStreamName           // check-single-streams
+	css := dbNumStrFull + "=" + TestKeyNameStream            // check-single-streams
 	cntk := dbNumStrFull + "=" + testKeys[0] + "*"           // count-keys
 
 	u, err := url.Parse(os.Getenv("TEST_REDIS_URI"))
@@ -240,7 +240,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		os.Getenv("TEST_REDIS6_URI"),
 		os.Getenv("TEST_REDIS_MODULES_URI"),
 
-		// tile38 & Cluster need to be last in this list so we can identify them when selected, down in line 229
+		// tile38 & Cluster need to be last in this list, so we can identify them when selected, down in line 229
 		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
 		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
 		os.Getenv("TEST_TILE38_URI"),
@@ -262,7 +262,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 				v.Add("target", target)
 
 				// not appending this param for Tile38 and cluster (the last two in the list)
-				// Tile38 & cluster don't support the SELECT command so this test will fail and spam the logs
+				// Tile38 & cluster don't support the SELECT command, so this test will fail and spam the logs
 				if uriIdx < len(uris)-3 {
 					v.Add("check-single-keys", dbNumStrFull+"="+url.QueryEscape(testKeys[0]))
 				}
@@ -360,7 +360,7 @@ func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 		},
 		{
 			addr:      nonClusterAddr,
-			want:      "ouldn't connect to redis cluster: Cluster refresh failed",
+			want:      "ouldn't connect to redis cluster: cluster refresh failed",
 			isCluster: true,
 		},
 		{
@@ -370,7 +370,7 @@ func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 		},
 		{
 			addr:      "doesnt-exist:9876",
-			want:      "Couldn't connect to redis cluster: Cluster refresh failed: redisc: all nodes failed",
+			want:      "Couldn't connect to redis cluster: cluster refresh failed: redisc: all nodes failed",
 			isCluster: true,
 		},
 	}
