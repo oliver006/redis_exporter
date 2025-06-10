@@ -92,8 +92,8 @@ services:
     ports:
       - "16402:6379"
 
-  redis-cluster:
-    image: grokzen/redis-cluster:6.2.14
+  valkey-cluster:
+    image: oliver006/valkey-cluster:8.1.1
     environment:
       - IP=0.0.0.0
     ports:
