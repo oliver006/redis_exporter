@@ -6,7 +6,7 @@
 Prometheus exporter for Valkey metrics (Redis-compatible).\
 Supports Valkey and Redis 2.x, 3.x, 4.x, 5.x, 6.x, and 7.x
 
-#### Ukraine is still suffering from Russian aggression, [please consider supporting Ukraine with a donation](https://www.supportukraine.co/).
+#### Ukraine is still suffering from Russian aggression, [please consider supporting Red Cross Ukraine with a donation](https://redcross.org.ua/en/).
 
 [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/banner2-direct.svg)](https://stand-with-ukraine.pp.ua)
 
