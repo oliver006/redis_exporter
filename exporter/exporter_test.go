@@ -10,7 +10,6 @@ package exporter
 
 import (
 	"fmt"
-	"github.com/mna/redisc"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -18,10 +17,11 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 const (
@@ -92,7 +92,7 @@ func getTestExporterWithAddrAndOptions(addr string, opt Options) *Exporter {
 func setupKeys(t *testing.T, c redis.Conn, dbNum string) error {
 	if _, err := doRedisCmd(c, "SELECT", dbNum); err != nil {
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
-		log.Printf("setupTestKeys() - couldn't setup redis, err: %s ", err)
+		slog.Error("setupTestKeys() - couldn't setup redis", "error", err)
 	}
 
 	testValue := 1234.56
@@ -198,7 +198,7 @@ func setupKeys(t *testing.T, c redis.Conn, dbNum string) error {
 
 func deleteKeys(c redis.Conn, dbNum string) {
 	if _, err := doRedisCmd(c, "SELECT", dbNum); err != nil {
-		log.Printf("deleteTestKeys() - couldn't setup redis, err: %s ", err)
+		slog.Error("deleteTestKeys() - couldn't setup redis", "error", err)
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
 
@@ -221,7 +221,7 @@ func deleteKeys(c redis.Conn, dbNum string) {
 }
 
 func setupTestKeys(t *testing.T, uri string) {
-	log.Debugf("setupTestKeys uri: %s", uri)
+	slog.Debug("setupTestKeys uri", "uri", uri)
 	c, err := redis.DialURL(uri)
 	if err != nil {
 		t.Fatalf("couldn't setup redis for uri %s, err: %s ", uri, err)
@@ -241,7 +241,7 @@ func setupTestKeys(t *testing.T, uri string) {
 }
 
 func setupTestKeysCluster(t *testing.T, uri string) {
-	log.Debugf("Creating cluster object")
+	slog.Debug("Creating cluster object")
 	cluster := redisc.Cluster{
 		StartupNodes: []string{
 			strings.Replace(uri, "redis://", "", 1),
@@ -250,17 +250,17 @@ func setupTestKeysCluster(t *testing.T, uri string) {
 	}
 
 	if err := cluster.Refresh(); err != nil {
-		log.Fatalf("Refresh failed: %v", err)
+		slog.Error("Refresh failed", "error", err)
 	}
 
 	conn, err := cluster.Dial()
 	if err != nil {
-		log.Errorf("Dial() failed: %v", err)
+		slog.Error("Dial() failed", "error", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
-		log.Errorf("RetryConn() failed: %v", err)
+		slog.Error("RetryConn() failed", "error", err)
 	}
 
 	// cluster only supports db==0
@@ -539,14 +539,8 @@ func TestKeyDbMetrics(t *testing.T) {
 }
 
 func init() {
-	ll := strings.ToLower(os.Getenv("LOG_LEVEL"))
-	if pl, err := log.ParseLevel(ll); err == nil {
-		log.Printf("Setting log level to: %s", ll)
-		log.SetLevel(pl)
-	} else {
-		log.SetLevel(log.InfoLevel)
-	}
-
+	// Note: slog level is configured via handler options in main application
+	// For tests, we'll use the default slog configuration
 	testTimestamp := time.Now().Unix()
 
 	for _, n := range []string{"john", "paul", "ringo", "george"} {

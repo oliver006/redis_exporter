@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"runtime"
@@ -16,7 +17,6 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
 )
 
 type BuildInfo struct {
@@ -93,7 +93,7 @@ type Options struct {
 
 // NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
-	log.Debugf("NewRedisExporter options: %#v", opts)
+	slog.Debug("NewRedisExporter options", "options", opts)
 
 	switch {
 	case strings.HasPrefix(uri, "valkey://"):
@@ -102,7 +102,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		uri = strings.Replace(uri, "valkeys://", "rediss://", 1)
 	}
 
-	log.Debugf("NewRedisExporter = using redis uri: %s", uri)
+	slog.Debug("Using redis URI", "uri", uri)
 
 	e := &Exporter{
 		redisAddr: uri,
@@ -403,31 +403,31 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	if keys, err := parseKeyArg(opts.CheckKeys); err != nil {
 		return nil, fmt.Errorf("couldn't parse check-keys: %s", err)
 	} else {
-		log.Debugf("keys: %#v", keys)
+		slog.Debug("keys", "keys", keys)
 	}
 
 	if singleKeys, err := parseKeyArg(opts.CheckSingleKeys); err != nil {
 		return nil, fmt.Errorf("couldn't parse check-single-keys: %s", err)
 	} else {
-		log.Debugf("singleKeys: %#v", singleKeys)
+		slog.Debug("singleKeys", "singleKeys", singleKeys)
 	}
 
 	if streams, err := parseKeyArg(opts.CheckStreams); err != nil {
 		return nil, fmt.Errorf("couldn't parse check-streams: %s", err)
 	} else {
-		log.Debugf("streams: %#v", streams)
+		slog.Debug("streams", "streams", streams)
 	}
 
 	if singleStreams, err := parseKeyArg(opts.CheckSingleStreams); err != nil {
 		return nil, fmt.Errorf("couldn't parse check-single-streams: %s", err)
 	} else {
-		log.Debugf("singleStreams: %#v", singleStreams)
+		slog.Debug("singleStreams", "singleStreams", singleStreams)
 	}
 
 	if countKeys, err := parseKeyArg(opts.CountKeys); err != nil {
 		return nil, fmt.Errorf("couldn't parse count-keys: %s", err)
 	} else {
-		log.Debugf("countKeys: %#v", countKeys)
+		slog.Debug("countKeys", "countKeys", countKeys)
 	}
 
 	if opts.InclSystemMetrics {
@@ -603,13 +603,13 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 	for pos := 0; pos < len(config)/2; pos++ {
 		strKey, err := redis.String(config[pos*2], nil)
 		if err != nil {
-			log.Errorf("invalid config key name, err: %s, skipped", err)
+			slog.Error("invalid config key name, skipped", "error", err)
 			continue
 		}
 
 		strVal, err := redis.String(config[pos*2+1], nil)
 		if err != nil {
-			log.Debugf("invalid config value for key name %s, err: %s, skipped", strKey, err)
+			slog.Debug("invalid config value for key name, skipped", "key", strKey, "error", err)
 			continue
 		}
 
@@ -665,7 +665,7 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
-	defer log.Debugf("scrapeRedisHost() done")
+	defer slog.Debug("Finished scraping Redis host")
 
 	startTime := time.Now()
 	c, err := e.connectToRedis()
@@ -675,63 +675,63 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	if err != nil {
 		var redactedAddr string
 		if redisURL, err2 := url.Parse(e.redisAddr); err2 != nil {
-			log.Debugf("url.Parse( %s ) err: %s", e.redisAddr, err2)
+			slog.Debug("Failed to parse URL", "address", e.redisAddr, "error", err2)
 			redactedAddr = "<redacted>"
 		} else {
 			redactedAddr = redisURL.Redacted()
 		}
-		log.Errorf("Couldn't connect to redis instance (%s)", redactedAddr)
-		log.Debugf("connectToRedis( %s ) err: %s", e.redisAddr, err)
+		slog.Error("Couldn't connect to redis instance", "address", redactedAddr)
+		slog.Debug("Connect to redis failed", "address", e.redisAddr, "error", err)
 		return err
 	}
 	defer c.Close()
 
-	log.Debugf("connected to: %s", e.redisAddr)
-	log.Debugf("connecting took %f seconds", connectTookSeconds)
+	slog.Debug("Connected to redis", "address", e.redisAddr)
+	slog.Debug("connecting took seconds", "seconds", connectTookSeconds)
 
 	if e.options.PingOnConnect {
 		startTime := time.Now()
 
 		if _, err := doRedisCmd(c, "PING"); err != nil {
-			log.Errorf("Couldn't PING server, err: %s", err)
+			slog.Error("Couldn't PING server", "error", err)
 		} else {
 			pingTookSeconds := time.Since(startTime).Seconds()
 			e.registerConstMetricGauge(ch, "exporter_last_scrape_ping_time_seconds", pingTookSeconds)
-			log.Debugf("PING took %f seconds", pingTookSeconds)
+			slog.Debug("PING took seconds", "seconds", pingTookSeconds)
 		}
 	}
 
 	if e.options.SetClientName {
 		if _, err := doRedisCmd(c, "CLIENT", "SETNAME", "redis_exporter"); err != nil {
-			log.Errorf("Couldn't set client name, err: %s", err)
+			slog.Error("Couldn't set client name", "error", err)
 		}
 	}
 
 	dbCount := 0
 	if e.options.ConfigCommandName == "-" {
-		log.Debugf("Skipping extractConfigMetrics()")
+		slog.Debug("Skipping config metrics extraction")
 	} else {
 		if config, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
 			dbCount, err = e.extractConfigMetrics(ch, config)
 			if err != nil {
-				log.Errorf("Redis extractConfigMetrics() err: %s", err)
+				slog.Error("Failed to extract config metrics", "error", err)
 				return err
 			}
 		} else {
-			log.Debugf("Redis CONFIG err: %s", err)
+			slog.Debug("Redis CONFIG err", "error", err)
 		}
 	}
 
 	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
 	if err != nil || infoAll == "" {
-		log.Debugf("Redis INFO ALL err: %s", err)
+		slog.Debug("Redis INFO ALL err", "error", err)
 		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
 		if err != nil {
-			log.Errorf("Redis INFO err: %s", err)
+			slog.Error("Redis INFO err", "error", err)
 			return err
 		}
 	}
-	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
+	slog.Debug("Redis INFO ALL result", "result", infoAll)
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
@@ -740,7 +740,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			// in cluster mode Redis only supports one database, so no extra DB number padding needed
 			dbCount = 1
 		} else {
-			log.Errorf("Redis CLUSTER INFO err: %s", err)
+			slog.Error("Redis CLUSTER INFO err", "error", err)
 		}
 	} else if dbCount == 0 {
 		// in non-cluster mode, if dbCount is zero, then "CONFIG" failed to retrieve a valid
@@ -749,7 +749,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		dbCount = 16
 	}
 
-	log.Debugf("dbCount: %d", dbCount)
+	slog.Debug("dbCount", "count", dbCount)
 
 	role := e.extractInfoMetrics(ch, infoAll, dbCount)
 
@@ -759,17 +759,17 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	// skip these metrics for master if SkipCheckKeysForRoleMaster is set
 	// (can help with reducing workload on the master node)
-	log.Debugf("checkKeys metric collection for role: %s  SkipCheckKeysForRoleMaster flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
+	slog.Debug("checkKeys metric collection for role", "role", role, "SkipCheckKeysForRoleMaster", e.options.SkipCheckKeysForRoleMaster)
 	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
 		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
-			log.Errorf("extractCheckKeyMetrics() err: %s", err)
+			slog.Error("Failed to extract check key metrics", "error", err)
 		}
 
 		e.extractCountKeysMetrics(ch, c)
 
 		e.extractStreamMetrics(ch, c)
 	} else {
-		log.Infof("skipping checkKeys metrics, role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
+		slog.Info("skipping checkKeys metrics", "role", role, "flag", e.options.SkipCheckKeysForRoleMaster)
 	}
 
 	e.extractSlowLogMetrics(ch, c)
