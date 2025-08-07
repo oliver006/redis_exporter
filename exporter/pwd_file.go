@@ -4,28 +4,28 @@ import (
 	"encoding/json"
 	"os"
 
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 // LoadPwdFile reads the redis password file and returns the password map
 func LoadPwdFile(passwordFile string) (map[string]string, error) {
 	res := make(map[string]string)
 
-	log.Debugf("start load password file: %s", passwordFile)
+	slog.Debug("start load password file", "file", passwordFile)
 	bytes, err := os.ReadFile(passwordFile)
 	if err != nil {
-		log.Warnf("load password file failed: %s", err)
+		slog.Warn("load password file failed", "error", err)
 		return nil, err
 	}
 	err = json.Unmarshal(bytes, &res)
 	if err != nil {
-		log.Warnf("password file format error: %s", err)
+		slog.Warn("password file format error", "error", err)
 		return nil, err
 	}
 
-	log.Infof("Loaded %d entries from %s", len(res), passwordFile)
+	slog.Info("Loaded entries from password file", "count", len(res), "file", passwordFile)
 	for k := range res {
-		log.Debugf("%s", k)
+		slog.Debug("password entry", "key", k)
 	}
 
 	return res, nil

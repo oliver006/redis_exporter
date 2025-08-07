@@ -2,12 +2,12 @@ package exporter
 
 import (
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 var metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
@@ -59,7 +59,7 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 
 	}
 	if err != nil {
-		log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
+		slog.Debug("couldn't parse", "fieldValue", fieldValue, "error", err)
 		return
 	}
 
@@ -91,7 +91,7 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 
 	m, err := prometheus.NewConstMetric(desc, valType, val, labelValues...)
 	if err != nil {
-		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, val, err)
+		slog.Debug("registerConstMetric err", "metric", metric, "value", val, "error", err)
 		return
 	}
 

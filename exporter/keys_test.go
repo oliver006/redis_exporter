@@ -12,7 +12,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 // defaultCount is used for `SCAN whatever COUNT defaultCount` command
@@ -596,12 +596,12 @@ func TestKeyValueInvalidDB(t *testing.T) {
 		case prometheus.Gauge:
 			for k := range dontWant {
 				if strings.Contains(m.Desc().String(), k) {
-					log.Println(m.Desc().String())
+					slog.Debug("metric desc", "desc", m.Desc().String())
 					dontWant[k] = true
 				}
 			}
 		default:
-			log.Debugf("default: m: %#v", m)
+			slog.Debug("default", "metric", m)
 		}
 	}
 	for k, found := range dontWant {

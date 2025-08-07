@@ -1,13 +1,13 @@
 package exporter
 
 import (
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
@@ -38,16 +38,16 @@ func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey s
 func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	masterDetails, err := redis.Values(doRedisCmd(c, "SENTINEL", "MASTERS"))
 	if err != nil {
-		log.Debugf("Error getting sentinel master details %s:", err)
+		slog.Debug("Error getting sentinel master details", "error", err)
 		return
 	}
 
-	log.Debugf("Sentinel master details: %#v", masterDetails)
+	slog.Debug("Sentinel master details", "masterDetails", masterDetails)
 
 	for _, masterDetail := range masterDetails {
 		masterDetailMap, err := redis.StringMap(masterDetail, nil)
 		if err != nil {
-			log.Debugf("Error getting masterDetailmap from masterDetail: %s, err: %s", masterDetail, err)
+			slog.Debug("Error getting masterDetailmap from masterDetail", "masterDetail", masterDetail, "error", err)
 			continue
 		}
 
@@ -68,7 +68,7 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		masterAddr := masterIp + ":" + masterPort
 
 		masterCkquorumMsg, err := redis.String(doRedisCmd(c, "SENTINEL", "CKQUORUM", masterName))
-		log.Debugf("Sentinel ckquorum status for master %s: %s %s", masterName, masterCkquorumMsg, err)
+		slog.Debug("Sentinel ckquorum status for master", "masterName", masterName, "msg", masterCkquorumMsg, "error", err)
 		masterCkquorumStatus := 1
 		if err != nil {
 			masterCkquorumStatus = 0
@@ -87,11 +87,11 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		e.registerConstMetricGauge(ch, "sentinel_master_setting_down_after_milliseconds", masterDownAfterMs, masterName, masterAddr)
 
 		sentinelDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
-		log.Debugf("Sentinel details for master %s: %s", masterName, sentinelDetails)
+		slog.Debug("Sentinel details for master", "masterName", masterName, "sentinelDetails", sentinelDetails)
 		e.processSentinelSentinels(ch, sentinelDetails, masterName, masterAddr)
 
 		slaveDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SLAVES", masterName))
-		log.Debugf("Slave details for master %s: %s", masterName, slaveDetails)
+		slog.Debug("Slave details for master", "masterName", masterName, "slaveDetails", slaveDetails)
 		e.processSentinelSlaves(ch, slaveDetails, masterName, masterAddr)
 	}
 }
@@ -104,7 +104,7 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 	for _, sentinelDetail := range sentinelDetails {
 		sentinelDetailMap, err := redis.StringMap(sentinelDetail, nil)
 		if err != nil {
-			log.Debugf("Error getting sentinelDetailMap from sentinelDetail: %s, err: %s", sentinelDetail, err)
+			slog.Debug("Error getting sentinelDetailMap from sentinelDetail", "sentinelDetail", sentinelDetail, "error", err)
 			continue
 		}
 
@@ -128,7 +128,7 @@ func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetai
 	for _, slaveDetail := range slaveDetails {
 		slaveDetailMap, err := redis.StringMap(slaveDetail, nil)
 		if err != nil {
-			log.Debugf("Error getting slavedetailMap from slaveDetail: %s, err: %s", slaveDetail, err)
+			slog.Debug("Error getting slavedetailMap from slaveDetail", "slaveDetail", slaveDetail, "error", err)
 			continue
 		}
 
@@ -162,7 +162,7 @@ func parseSentinelMasterString(master string, masterInfo string) (masterName str
 	for _, kvPart := range strings.Split(masterInfo, ",") {
 		x := strings.Split(kvPart, "=")
 		if len(x) != 2 {
-			log.Errorf("Invalid format for sentinel's master string, got: %s", kvPart)
+			slog.Error("Invalid format for sentinel's master string", "kvPart", kvPart)
 			continue
 		}
 		matchedMasterInfo[x[0]] = x[1]
@@ -173,12 +173,12 @@ func parseSentinelMasterString(master string, masterInfo string) (masterName str
 	masterAddr = matchedMasterInfo["address"]
 	masterSlaves, err := strconv.ParseFloat(matchedMasterInfo["slaves"], 64)
 	if err != nil {
-		log.Debugf("parseSentinelMasterString(): couldn't parse slaves value, got: %s, err: %s", matchedMasterInfo["slaves"], err)
+		slog.Debug("Failed to parse slaves value", "slaves", matchedMasterInfo["slaves"], "error", err)
 		return
 	}
 	masterSentinels, err = strconv.ParseFloat(matchedMasterInfo["sentinels"], 64)
 	if err != nil {
-		log.Debugf("parseSentinelMasterString(): couldn't parse sentinels value, got: %s, err: %s", matchedMasterInfo["sentinels"], err)
+		slog.Debug("Failed to parse sentinels value", "sentinels", matchedMasterInfo["sentinels"], "error", err)
 		return
 	}
 	ok = true
