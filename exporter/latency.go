@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 var (
@@ -31,9 +31,9 @@ func (e *Exporter) extractLatencyLatestMetrics(outChan chan<- prometheus.Metric,
 			we're logging this only once as an Error and always as Debugf()
 		*/
 		logLatestErrOnce.Do(func() {
-			log.Errorf("WARNING, LOGGED ONCE ONLY: cmd LATENCY LATEST, err: %s", err)
+			slog.Error("WARNING, LOGGED ONCE ONLY: cmd LATENCY LATEST", "error", err)
 		})
-		log.Debugf("cmd LATENCY LATEST, err: %s", err)
+		slog.Debug("cmd LATENCY LATEST", "error", err)
 		return
 	}
 
@@ -57,9 +57,9 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 	reply, err := redis.Values(doRedisCmd(redisConn, "LATENCY", "HISTOGRAM"))
 	if err != nil {
 		logHistogramErrOnce.Do(func() {
-			log.Errorf("WARNING, LOGGED ONCE ONLY: cmd LATENCY HISTOGRAM, err: %s", err)
+			slog.Error("WARNING, LOGGED ONCE ONLY: cmd LATENCY HISTOGRAM", "error", err)
 		})
-		log.Debugf("cmd LATENCY HISTOGRAM, err: %s", err)
+		slog.Debug("cmd LATENCY HISTOGRAM", "error", err)
 		return
 	}
 
@@ -100,7 +100,7 @@ func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
 
 		usecs, err := strconv.ParseUint(match[2], 10, 0)
 		if err != nil {
-			log.Warnf("Unable to parse uint from string \"%s\": %v", match[2], err)
+			slog.Warn("Unable to parse uint from string", "string", match[2], "error", err)
 			continue
 		}
 

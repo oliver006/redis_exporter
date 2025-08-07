@@ -5,8 +5,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func TestGetEnv(t *testing.T) {
@@ -212,79 +210,6 @@ func TestGetEnvInt64(t *testing.T) {
 	}
 }
 
-func TestParseLogLevel(t *testing.T) {
-	tests := []struct {
-		name        string
-		level       string
-		expected    log.Level
-		expectError bool
-	}{
-		{"debug level", "debug", log.DebugLevel, false},
-		{"DEBUG level", "DEBUG", log.DebugLevel, false},
-		{"info level", "info", log.InfoLevel, false},
-		{"INFO level", "INFO", log.InfoLevel, false},
-		{"warn level", "warn", log.WarnLevel, false},
-		{"WARN level", "WARN", log.WarnLevel, false},
-		{"warning level", "warning", log.WarnLevel, false},
-		{"WARNING level", "WARNING", log.WarnLevel, false},
-		{"error level", "error", log.ErrorLevel, false},
-		{"ERROR level", "ERROR", log.ErrorLevel, false},
-		{"invalid level", "invalid", log.InfoLevel, true},
-		{"empty level", "", log.InfoLevel, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result, err := parseLogLevel(tt.level)
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("parseLogLevel(%s) expected error but got none", tt.level)
-				}
-				// For invalid levels, we still expect InfoLevel as default
-				if result != tt.expected {
-					t.Errorf("parseLogLevel(%s) = %v, expected %v", tt.level, result, tt.expected)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("parseLogLevel(%s) unexpected error: %v", tt.level, err)
-				}
-				if result != tt.expected {
-					t.Errorf("parseLogLevel(%s) = %v, expected %v", tt.level, result, tt.expected)
-				}
-			}
-		})
-	}
-}
-
-func TestValidateTLSClientConfig(t *testing.T) {
-	tests := []struct {
-		name        string
-		certFile    string
-		keyFile     string
-		expectError bool
-	}{
-		{"both files provided", "/path/to/cert.pem", "/path/to/key.pem", false},
-		{"both files empty", "", "", false},
-		{"only cert file provided", "/path/to/cert.pem", "", true},
-		{"only key file provided", "", "/path/to/key.pem", true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := validateTLSClientConfig(tt.certFile, tt.keyFile)
-			if tt.expectError {
-				if err == nil {
-					t.Errorf("validateTLSClientConfig(%s, %s) expected error but got none", tt.certFile, tt.keyFile)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("validateTLSClientConfig(%s, %s) unexpected error: %v", tt.certFile, tt.keyFile, err)
-				}
-			}
-		})
-	}
-}
-
 func TestLoadScripts(t *testing.T) {
 	// Create temporary directory for test scripts
 	tmpDir := t.TempDir()
@@ -353,53 +278,6 @@ func TestLoadScripts(t *testing.T) {
 	}
 }
 
-func TestSetupLogging(t *testing.T) {
-	// Save original log level to restore after tests
-	originalLevel := log.GetLevel()
-	defer log.SetLevel(originalLevel)
-
-	tests := []struct {
-		name          string
-		isDebug       bool
-		logLevel      string
-		logFormat     string
-		expectedLevel log.Level
-	}{
-		{"debug enabled", true, "info", "txt", log.DebugLevel},
-		{"info level", false, "info", "txt", log.InfoLevel},
-		{"warn level", false, "warn", "txt", log.WarnLevel},
-		{"error level", false, "error", "txt", log.ErrorLevel},
-		{"invalid level defaults to info", false, "invalid", "txt", log.InfoLevel},
-		{"json format", false, "info", "json", log.InfoLevel},
-		{"text format", false, "info", "txt", log.InfoLevel},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := setupLogging(tt.isDebug, tt.logLevel, tt.logFormat)
-			if err != nil {
-				t.Errorf("setupLogging() unexpected error: %v", err)
-			}
-
-			if log.GetLevel() != tt.expectedLevel {
-				t.Errorf("setupLogging() level = %v, expected %v", log.GetLevel(), tt.expectedLevel)
-			}
-
-			// Check formatter type (basic check)
-			formatter := log.StandardLogger().Formatter
-			if tt.logFormat == "json" {
-				if _, ok := formatter.(*log.JSONFormatter); !ok {
-					t.Errorf("setupLogging() expected JSONFormatter for json format")
-				}
-			} else {
-				if _, ok := formatter.(*log.TextFormatter); !ok {
-					t.Errorf("setupLogging() expected TextFormatter for txt format")
-				}
-			}
-		})
-	}
-}
-
 func TestCreatePrometheusRegistry(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -447,19 +325,6 @@ func TestMainFunctionsIntegration(t *testing.T) {
 		t.Fatalf("Failed to create test script: %v", err)
 	}
 
-	// Test logging setup
-	originalLevel := log.GetLevel()
-	defer log.SetLevel(originalLevel)
-
-	err := setupLogging(false, "debug", "json")
-	if err != nil {
-		t.Errorf("setupLogging failed: %v", err)
-	}
-
-	if log.GetLevel() != log.DebugLevel {
-		t.Errorf("Expected debug level, got %v", log.GetLevel())
-	}
-
 	// Test script loading
 	scripts, err := loadScripts(scriptFile)
 	if err != nil {
@@ -472,15 +337,6 @@ func TestMainFunctionsIntegration(t *testing.T) {
 
 	if string(scripts[scriptFile]) != scriptContent {
 		t.Errorf("Script content mismatch")
-	}
-
-	// Test TLS validation
-	if err := validateTLSClientConfig("/cert.pem", ""); err == nil {
-		t.Error("Expected TLS validation error for mismatched cert/key")
-	}
-
-	if err := validateTLSClientConfig("/cert.pem", "/key.pem"); err != nil {
-		t.Errorf("Unexpected TLS validation error: %v", err)
 	}
 
 	// Test registry creation

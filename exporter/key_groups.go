@@ -3,13 +3,13 @@ package exporter
 import (
 	"encoding/csv"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type keyGroupMetrics struct {
@@ -86,7 +86,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 		strings.NewReader(e.options.CheckKeyGroups),
 	).Read()
 	if err != nil {
-		log.Errorf("Failed to parse key groups as csv: %s", err)
+		slog.Error("Failed to parse key groups as csv", "error", err)
 		return allMetrics
 	}
 	for i, v := range keyGroups {
@@ -104,12 +104,12 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 	}
 	for db := 0; db < dbCount; db++ {
 		if _, err := doRedisCmd(c, "SELECT", db); err != nil {
-			log.Errorf("Couldn't select database %d when getting key info.", db)
+			slog.Error("Couldn't select database when getting key info", "db", db, "error", err)
 			continue
 		}
 		allGroups, err := gatherKeyGroupMetrics(c, e.options.CheckKeysBatchSize, keyGroupsNoEmptyStrings)
 		if err != nil {
-			log.Error(err)
+			slog.Error("Error gathering key group metrics", "error", err)
 			continue
 		}
 		allMetrics.metrics[db] = allGroups

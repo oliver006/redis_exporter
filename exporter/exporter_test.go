@@ -10,7 +10,7 @@ package exporter
 
 import (
 	"fmt"
-	"github.com/mna/redisc"
+	"log/slog"
 	"net/http/httptest"
 	"os"
 	"strings"
@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
-	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -91,7 +91,7 @@ func getTestExporterWithAddrAndOptions(addr string, opt Options) *Exporter {
 func setupKeys(t *testing.T, c redis.Conn, dbNum string) error {
 	if _, err := doRedisCmd(c, "SELECT", dbNum); err != nil {
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
-		log.Printf("setupTestKeys() - couldn't setup redis, err: %s ", err)
+		slog.Error("setupTestKeys() - couldn't setup redis", "error", err)
 	}
 
 	testValue := 1234.56
@@ -197,7 +197,7 @@ func setupKeys(t *testing.T, c redis.Conn, dbNum string) error {
 
 func deleteKeys(c redis.Conn, dbNum string) {
 	if _, err := doRedisCmd(c, "SELECT", dbNum); err != nil {
-		log.Printf("deleteTestKeys() - couldn't setup redis, err: %s ", err)
+		slog.Error("deleteTestKeys() - couldn't setup redis", "error", err)
 		// not failing on this one - cluster doesn't allow for SELECT so we log and ignore the error
 	}
 
@@ -220,7 +220,7 @@ func deleteKeys(c redis.Conn, dbNum string) {
 }
 
 func setupTestKeys(t *testing.T, uri string) {
-	log.Debugf("setupTestKeys uri: %s", uri)
+	slog.Debug("setupTestKeys uri", "uri", uri)
 	c, err := redis.DialURL(uri)
 	if err != nil {
 		t.Fatalf("couldn't setup redis for uri %s, err: %s ", uri, err)
@@ -240,7 +240,7 @@ func setupTestKeys(t *testing.T, uri string) {
 }
 
 func setupTestKeysCluster(t *testing.T, uri string) {
-	log.Debugf("Creating cluster object")
+	slog.Debug("Creating cluster object")
 	cluster := redisc.Cluster{
 		StartupNodes: []string{
 			strings.Replace(uri, "redis://", "", 1),
@@ -249,17 +249,17 @@ func setupTestKeysCluster(t *testing.T, uri string) {
 	}
 
 	if err := cluster.Refresh(); err != nil {
-		log.Fatalf("Refresh failed: %v", err)
+		slog.Error("Refresh failed", "error", err)
 	}
 
 	conn, err := cluster.Dial()
 	if err != nil {
-		log.Errorf("Dial() failed: %v", err)
+		slog.Error("Dial() failed", "error", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
-		log.Errorf("RetryConn() failed: %v", err)
+		slog.Error("RetryConn() failed", "error", err)
 	}
 
 	// cluster only supports db==0
@@ -964,13 +964,20 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 }
 
 func init() {
+	var lvl slog.Level
+	var err error
 	ll := strings.ToLower(os.Getenv("LOG_LEVEL"))
-	if pl, err := log.ParseLevel(ll); err == nil {
-		log.Printf("Setting log level to: %s", ll)
-		log.SetLevel(pl)
+	if lvl, err = ParseLogLevel(ll); err == nil {
+		fmt.Printf("Setting log level to: %s\n", ll)
 	} else {
-		log.SetLevel(log.InfoLevel)
+		lvl = slog.LevelInfo
 	}
+
+	slog.SetDefault(
+		slog.New(
+			slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl}),
+		),
+	)
 
 	testTimestamp := time.Now().Unix()
 

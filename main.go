@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -15,7 +17,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
-	log "github.com/sirupsen/logrus"
 
 	"github.com/oliver006/redis_exporter/exporter"
 )
@@ -27,6 +28,8 @@ var (
 	BuildVersion   = "<<< filled in by build >>>"
 	BuildDate      = "<<< filled in by build >>>"
 	BuildCommitSha = "<<< filled in by build >>>"
+
+	logger *slog.Logger
 )
 
 func getEnv(key string, defaultVal string) string {
@@ -56,30 +59,6 @@ func getEnvInt64(key string, defaultVal int64) int64 {
 	return defaultVal
 }
 
-// parseLogLevel parses a log level string and returns the corresponding logrus level
-func parseLogLevel(level string) (log.Level, error) {
-	switch strings.ToUpper(level) {
-	case "DEBUG":
-		return log.DebugLevel, nil
-	case "INFO":
-		return log.InfoLevel, nil
-	case "WARN", "WARNING":
-		return log.WarnLevel, nil
-	case "ERROR":
-		return log.ErrorLevel, nil
-	default:
-		return log.InfoLevel, errors.New("invalid log level: " + level)
-	}
-}
-
-// validateTLSClientConfig validates TLS client configuration
-func validateTLSClientConfig(certFile, keyFile string) error {
-	if (certFile != "") != (keyFile != "") {
-		return errors.New("TLS client key file and cert file should both be present")
-	}
-	return nil
-}
-
 // loadScripts loads Lua scripts from the provided script paths
 func loadScripts(scriptPath string) (map[string][]byte, error) {
 	if scriptPath == "" {
@@ -98,29 +77,6 @@ func loadScripts(scriptPath string) (map[string][]byte, error) {
 	}
 
 	return ls, nil
-}
-
-// setupLogging configures logging based on the provided parameters
-func setupLogging(isDebug bool, logLevel, logFormat string) error {
-	switch logFormat {
-	case "json":
-		log.SetFormatter(&log.JSONFormatter{})
-	default:
-		log.SetFormatter(&log.TextFormatter{})
-	}
-
-	lvl := log.InfoLevel
-	if isDebug {
-		lvl = log.DebugLevel
-	} else {
-		parsedLvl, err := parseLogLevel(logLevel)
-		if err == nil {
-			lvl = parsedLvl
-		}
-	}
-
-	log.SetLevel(lvl)
-	return nil
 }
 
 // createPrometheusRegistry creates and configures a Prometheus registry
@@ -173,7 +129,7 @@ func main() {
 		isCluster                      = flag.Bool("is-cluster", getEnvBool("REDIS_EXPORTER_IS_CLUSTER", false), "Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).")
 		exportClientList               = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
 		exportClientPort               = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
-		showVersion                    = flag.Bool("version", false, "Show version information and exit")
+		showVersionAndExit             = flag.Bool("version", false, "Show version information and exit")
 		redisMetricsOnly               = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to also export go runtime metrics")
 		pingOnConnect                  = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclConfigMetrics              = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
@@ -190,43 +146,62 @@ func main() {
 	)
 	flag.Parse()
 
-	if *showVersion {
-		log.SetOutput(os.Stdout)
+	//
+	// parse and set log level, first check for --debug flag, then check if log level is set explicitly
+	//
+	var lvl slog.Level
+	var err error
+	if *isDebug {
+		lvl = slog.LevelDebug
+	} else if *showVersionAndExit {
+		lvl = slog.LevelInfo
+	} else if lvl, err = exporter.ParseLogLevel(*logLevel); err != nil {
+		fmt.Printf("Invalid log level: %s\n", *logLevel)
+		os.Exit(1)
 	}
-	log.Printf("Redis Metrics Exporter %s    build date: %s    sha1: %s    Go: %s    GOOS: %s    GOARCH: %s",
-		BuildVersion, BuildDate, BuildCommitSha,
-		runtime.Version(),
-		runtime.GOOS,
-		runtime.GOARCH,
-	)
-	if *showVersion {
+
+	// Setup logger handler based on format
+	var handler slog.Handler
+	switch *logFormat {
+	case "json":
+		handler = slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})
+	default:
+		handler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})
+	}
+
+	logger = slog.New(handler)
+	slog.SetDefault(logger)
+
+	slog.Info("Redis Metrics Exporter", "version", BuildVersion, "build_date", BuildDate, "commit_sha", BuildCommitSha, "go_version", runtime.Version(), "goos", runtime.GOOS, "goarch", runtime.GOARCH)
+	if *showVersionAndExit {
 		return
 	}
 
-	if err := setupLogging(*isDebug, *logLevel, *logFormat); err != nil {
-		log.Fatalf("Failed to setup logging: %v", err)
-	}
+	slog.Info("Setting log level", "level", lvl.String())
+
 	if *isDebug {
-		log.Debugln("Enabling debug output")
+		slog.Debug("Debug logging enabled")
 	}
-	log.Infof(`Setting log level to "%s"`, log.GetLevel().String())
 
 	to, err := time.ParseDuration(*connectionTimeout)
 	if err != nil {
-		log.Fatalf("Couldn't parse connection timeout duration, err: %s", err)
+		slog.Error("Couldn't parse connection timeout duration", "error", err)
+		os.Exit(1)
 	}
 
 	passwordMap := make(map[string]string)
 	if *redisPwd == "" && *redisPwdFile != "" {
 		passwordMap, err = exporter.LoadPwdFile(*redisPwdFile)
 		if err != nil {
-			log.Fatalf("Error loading redis passwords from file %s, err: %s", *redisPwdFile, err)
+			slog.Error("Error loading redis passwords from file", "file", *redisPwdFile, "error", err)
+			os.Exit(1)
 		}
 	}
 
 	ls, err := loadScripts(*scriptPath)
 	if err != nil {
-		log.Fatalf("Error loading script files: %s", err)
+		slog.Error("Error loading script files", "scriptPath", scriptPath, "error", err)
+		os.Exit(1)
 	}
 
 	registry := createPrometheusRegistry(*redisMetricsOnly)
@@ -282,39 +257,45 @@ func main() {
 		},
 	)
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Failed to create Redis exporter", "error", err)
+		os.Exit(1)
 	}
 
 	// Verify that initial client keypair and CA are accepted
-	if err := validateTLSClientConfig(*tlsClientCertFile, *tlsClientKeyFile); err != nil {
-		log.Fatal(err)
+	if (*tlsClientCertFile != "") != (*tlsClientKeyFile != "") {
+		slog.Error("TLS client key file and cert file should both be present")
+		os.Exit(1)
 	}
 	_, err = exp.CreateClientTLSConfig()
 	if err != nil {
-		log.Fatal(err)
+		slog.Error("Failed to create client TLS config", "error", err)
+		os.Exit(1)
 	}
 
-	log.Infof("Providing metrics at %s%s", *listenAddress, *metricPath)
-	log.Debugf("Configured redis addr: %#v", *redisAddr)
+	slog.Info("Providing metrics", "address", *listenAddress, "path", *metricPath)
+	slog.Debug("Configured redis address", "address", *redisAddr)
 	server := &http.Server{
 		Addr:    *listenAddress,
 		Handler: exp,
 	}
 	go func() {
 		if *tlsServerCertFile != "" && *tlsServerKeyFile != "" {
-			log.Debugf("Bind as TLS using cert %s and key %s", *tlsServerCertFile, *tlsServerKeyFile)
+			slog.Debug("Starting TLS server", "cert_file", *tlsServerCertFile, "key_file", *tlsServerKeyFile)
 
 			tlsConfig, err := exp.CreateServerTLSConfig(*tlsServerCertFile, *tlsServerKeyFile, *tlsServerCaCertFile, *tlsServerMinVersion)
 			if err != nil {
-				log.Fatal(err)
+				slog.Error("Failed to create server TLS config", "error", err)
+				os.Exit(1)
 			}
 			server.TLSConfig = tlsConfig
 			if err := server.ListenAndServeTLS("", ""); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Fatalf("TLS Server error: %v", err)
+				slog.Error("TLS Server error", "error", err)
+				os.Exit(1)
 			}
 		} else {
 			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Fatalf("Server error: %v", err)
+				slog.Error("Server error", "error", err)
+				os.Exit(1)
 			}
 		}
 	}()
@@ -323,14 +304,15 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	_quit := <-quit
-	log.Infof("Received %s signal, exiting", _quit.String())
+	slog.Info("Received signal, exiting", "signal", _quit.String())
 	// Create a context with a timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	// Shutdown the HTTP server gracefully
 	if err := server.Shutdown(ctx); err != nil {
-		log.Fatalf("Server shutdown failed: %v", err)
+		slog.Error("Server shutdown failed", "error", err)
+		os.Exit(1)
 	}
-	log.Infof("Server shut down gracefully")
+	slog.Info("Server shut down gracefully")
 }

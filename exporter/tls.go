@@ -4,9 +4,8 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"log/slog"
 	"os"
-
-	log "github.com/sirupsen/logrus"
 )
 
 // CreateClientTLSConfig verifies configured files and return a prepared tls.Config
@@ -107,7 +106,7 @@ func GetConfigForClientFunc(certFile, keyFile, caCertFile string) func(*tls.Clie
 // LoadKeyPair reads and parses a public/private key pair from a pair of files.
 // The files must contain PEM encoded data.
 func LoadKeyPair(certFile, keyFile string) (*tls.Certificate, error) {
-	log.Debugf("Load key pair: %s %s", certFile, keyFile)
+	slog.Debug("Load key pair", "cert", certFile, "key", keyFile)
 	cert, err := tls.LoadX509KeyPair(certFile, keyFile)
 	if err != nil {
 		return nil, err
@@ -118,7 +117,7 @@ func LoadKeyPair(certFile, keyFile string) (*tls.Certificate, error) {
 // LoadCAFile reads and parses CA certificates from a file into a pool.
 // The file must contain PEM encoded data.
 func LoadCAFile(caFile string) (*x509.CertPool, error) {
-	log.Debugf("Load CA cert file: %s", caFile)
+	slog.Debug("Load CA cert file", "file", caFile)
 	pemCerts, err := os.ReadFile(caFile)
 	if err != nil {
 		return nil, err
