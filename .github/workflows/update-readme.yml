@@ -1,0 +1,24 @@
+name: Update Docker Hub README
+
+env:
+    ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+on:
+  push:
+    branches: [ 'master' ]
+    paths:
+      - README.md
+      - '.github/workflows/update-readme.yml'
+
+jobs:
+  sync:
+    name: Update Docker Hub README
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Docker Hub Description
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: oliver006/redis_exporter
