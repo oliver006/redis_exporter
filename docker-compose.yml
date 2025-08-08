@@ -28,6 +28,7 @@ services:
 
   redis8:
     image: redis:8
+    command: "redis-server  --enable-debug-command yes --protected-mode no"
     ports:
       - "16388:6379"
 
