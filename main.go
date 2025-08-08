@@ -74,7 +74,6 @@ func main() {
 		scriptPath                     = flag.String("script", getEnv("REDIS_EXPORTER_SCRIPT", ""), "Comma separated list of path(s) to Redis Lua script(s) for gathering extra metrics")
 		listenAddress                  = flag.String("web.listen-address", getEnv("REDIS_EXPORTER_WEB_LISTEN_ADDRESS", ":9121"), "Address to listen on for web interface and telemetry.")
 		metricPath                     = flag.String("web.telemetry-path", getEnv("REDIS_EXPORTER_WEB_TELEMETRY_PATH", "/metrics"), "Path under which to expose metrics.")
-		logFormat                      = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
 		configCommand                  = flag.String("config-command", getEnv("REDIS_EXPORTER_CONFIG_COMMAND", "CONFIG"), "What to use for the CONFIG command, set to \"-\" to skip config metrics extraction")
 		connectionTimeout              = flag.String("connection-timeout", getEnv("REDIS_EXPORTER_CONNECTION_TIMEOUT", "15s"), "Timeout for connection to Redis instance")
 		tlsClientKeyFile               = flag.String("tls-client-key-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_KEY_FILE", ""), "Name of the client key file (including full path) if the server requires TLS client authentication")
@@ -85,7 +84,9 @@ func main() {
 		tlsServerCaCertFile            = flag.String("tls-server-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the web interface and telemetry should require TLS client authentication")
 		tlsServerMinVersion            = flag.String("tls-server-min-version", getEnv("REDIS_EXPORTER_TLS_SERVER_MIN_VERSION", "TLS1.2"), "Minimum TLS version that is acceptable by the web interface and telemetry when using TLS")
 		maxDistinctKeyGroups           = flag.Int64("max-distinct-key-groups", getEnvInt64("REDIS_EXPORTER_MAX_DISTINCT_KEY_GROUPS", 100), "The maximum number of distinct key groups with the most memory utilization to present as distinct metrics per database, the leftover key groups will be aggregated in the 'overflow' bucket")
-		isDebug                        = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information")
+		isDebug                        = flag.Bool("debug", getEnvBool("REDIS_EXPORTER_DEBUG", false), "Output verbose debug information (sets log level to DEBUG, takes precedence over \"--log-level\")")
+		logLevel                       = flag.String("log-level", getEnv("REDIS_EXPORTER_LOG_LEVEL", "INFO"), "Set log level")
+		logFormat                      = flag.String("log-format", getEnv("REDIS_EXPORTER_LOG_FORMAT", "txt"), "Log format, valid options are txt and json")
 		setClientName                  = flag.Bool("set-client-name", getEnvBool("REDIS_EXPORTER_SET_CLIENT_NAME", true), "Whether to set client name to redis_exporter")
 		isTile38                       = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
 		isCluster                      = flag.Bool("is-cluster", getEnvBool("REDIS_EXPORTER_IS_CLUSTER", false), "Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).")
@@ -126,11 +127,22 @@ func main() {
 	if *showVersion {
 		return
 	}
-	if *isDebug {
-		log.SetLevel(log.DebugLevel)
-		log.Debugln("Enabling debug output")
-	} else {
-		log.SetLevel(log.InfoLevel)
+
+	{
+		//
+		// parse and set log level, first check for --debug flag, then check if log level is set explicitly
+		//
+		lvl := log.InfoLevel
+		if *isDebug {
+			lvl = log.DebugLevel
+			log.Debugln("Enabling debug output")
+		} else {
+			if parsedLvl, err := log.ParseLevel(*logLevel); err == nil {
+				lvl = parsedLvl
+			}
+		}
+		log.Infof(`Setting log level to "%s"`, lvl.String())
+		log.SetLevel(lvl)
 	}
 
 	to, err := time.ParseDuration(*connectionTimeout)
