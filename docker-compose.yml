@@ -56,12 +56,6 @@ services:
     ports:
       - "16387:6379"
 
-  pwd-redis7:
-    image: redis:7.4
-    command: "redis-server --protected-mode no --requirepass redis-password"
-    ports:
-      - "16380:6379"
-
   pwd-user-redis7:
     image: redis:7.4
     command: "redis-server --protected-mode no --requirepass dummy --user exporter on +CLIENT +INFO +SELECT +SLOWLOG +LATENCY '>exporter-password'"
