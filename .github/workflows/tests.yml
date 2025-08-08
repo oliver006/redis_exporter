@@ -52,11 +52,10 @@ jobs:
           make test
 
 
-      - name: Run tests - valkey 8
+      - name: Run tests - redis 8
         env:
           LOG_LEVEL: "info"
-          TEST_REDIS_URI: "redis://localhost:16382"
-          TEST_VALKEY8_TLS_URI: "valkeys://localhost:16386"
+          TEST_REDIS_URI: "redis://localhost:16388"
           TEST_PWD_REDIS_URI: "redis://:redis-password@localhost:16380"
         run: |
           go test -v -race -p 1 ./...
