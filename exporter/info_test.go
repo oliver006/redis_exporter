@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -10,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 func TestKeyspaceStringParser(t *testing.T) {
@@ -172,7 +172,7 @@ func TestClusterMaster(t *testing.T) {
 	defer ts.Close()
 
 	body := downloadURL(t, ts.URL+"/metrics")
-	log.Debugf("master - body: %s", body)
+	slog.Debug("master - body", "body", body)
 	for _, want := range []string{
 		"test_instance_info{",
 		"test_master_repl_offset",
@@ -242,7 +242,7 @@ func TestClusterSlave(t *testing.T) {
 	defer ts.Close()
 
 	body := downloadURL(t, ts.URL+"/metrics")
-	log.Debugf("slave - body: %s", body)
+	slog.Debug("slave - body", "body", body)
 	for _, want := range []string{
 		"test_instance_info",
 		"test_master_last_io_seconds",
