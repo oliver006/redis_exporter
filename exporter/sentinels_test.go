@@ -327,3 +327,32 @@ func TestProcessSentinelSlaves(t *testing.T) {
 		})
 	}
 }
+
+func TestScrapeRedisHostSentinelPath(t *testing.T) {
+	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
+		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	e, _ := NewRedisExporter(
+		addr,
+		Options{Namespace: "test"},
+	)
+
+	chM := make(chan prometheus.Metric, 1000)
+	go func() {
+		e.scrapeRedisHost(chM)
+		close(chM)
+	}()
+
+	found := false
+	for m := range chM {
+		if strings.Contains(m.Desc().String(), "sentinel") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Expected to find sentinel metrics when scraping sentinel host via scrapeRedisHost()")
+	}
+}
