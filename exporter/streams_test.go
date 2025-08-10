@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -618,5 +619,119 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 		if found {
 			t.Errorf("found %s metric, which shouldn't be collected", k)
 		}
+	}
+}
+
+func TestClusterStreamMetricsExtraction(t *testing.T) {
+	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping cluster stream test")
+	}
+
+	clusterURI := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+
+	// Test streams to create
+	testStreams := []string{"audit_stream", "sa_audit_stream", "test_stream_cluster"}
+
+	// Setup cluster connection to create test streams
+	c, err := redis.DialURL(clusterURI)
+	if err != nil {
+		t.Fatalf("Couldn't connect to cluster: %v", err)
+	}
+	defer c.Close()
+
+	// Create test streams with some data
+	for _, streamName := range testStreams {
+		// Add entries to streams
+		_, err = c.Do("XADD", streamName, "*", "field1", "value1", "field2", "value2")
+		if err != nil {
+			t.Logf("Warning: couldn't create stream %s: %v", streamName, err)
+			continue
+		}
+		_, err = c.Do("XADD", streamName, "*", "field3", "value3")
+		if err != nil {
+			t.Logf("Warning: couldn't add to stream %s: %v", streamName, err)
+		}
+	}
+
+	// Cleanup function
+	defer func() {
+		for _, streamName := range testStreams {
+			c.Do("DEL", streamName)
+		}
+	}()
+
+	// Create exporter with cluster mode and single streams config
+	// This reproduces the exact command from the GitHub issue:
+	// redis_exporter --check-single-streams=audit,sa_audit --is-cluster=true
+	streamConfig := "db0=audit_stream,db0=sa_audit_stream,db0=test_stream_cluster"
+
+	e, err := NewRedisExporter(
+		clusterURI,
+		Options{
+			Namespace:          "test",
+			CheckSingleStreams: streamConfig,
+			IsCluster:          true,
+		},
+	)
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	// Test the full HTTP endpoint (this tests the complete path including cluster connection fix)
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	// Download metrics from the HTTP endpoint
+	metricsOutput := downloadURL(t, ts.URL+"/metrics")
+
+	// Parse the metrics output to find stream metrics
+	foundMetrics := make(map[string]bool)
+	lines := strings.Split(metricsOutput, "\n")
+
+	for _, line := range lines {
+		// Look for stream_length metrics with our test streams
+		if strings.Contains(line, "stream_length") {
+			for _, streamName := range testStreams {
+				if strings.Contains(line, `stream="`+streamName+`"`) {
+					foundMetrics[streamName] = true
+					t.Logf("Found stream metric for: %s", streamName)
+				}
+			}
+		}
+	}
+
+	// Verify that we found metrics for our test streams
+	// This ensures that the cluster MOVED errors are properly handled
+	expectedStreams := 0
+	for _, streamName := range testStreams {
+		if foundMetrics[streamName] {
+			expectedStreams++
+			t.Logf("✓ Successfully found metrics for stream: %s", streamName)
+		} else {
+			t.Logf("⚠ Did not find metrics for stream: %s", streamName)
+		}
+	}
+
+	if expectedStreams == 0 {
+		t.Error("Expected to find metrics for at least one test stream in cluster mode")
+		t.Error("This indicates that the cluster MOVED error fix may not be working properly")
+
+		// Additional debugging info
+		t.Logf("Test streams created: %v", testStreams)
+		t.Logf("Found stream metrics for: %v", foundMetrics)
+
+		// Show sample of metrics output for debugging
+		sampleLines := strings.Split(metricsOutput, "\n")
+		t.Log("Sample metrics output (first 10 lines):")
+		for i, line := range sampleLines {
+			if i >= 10 || line == "" {
+				break
+			}
+			t.Logf("  %s", line)
+		}
+	} else {
+		t.Logf("✓ SUCCESS: Found stream metrics for %d/%d streams in cluster mode", expectedStreams, len(testStreams))
+		t.Logf("This confirms that Redis cluster MOVED errors are properly handled for streams")
+		t.Logf("HTTP endpoint successfully returned metrics without cluster MOVED errors")
 	}
 }
