@@ -9,6 +9,7 @@ src/
 .idea
 .vscode/
 *.rdb
+main
 contrib/tls/ca.crt
 contrib/tls/ca.key
 contrib/tls/ca.txt
