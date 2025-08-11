@@ -11,7 +11,7 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-func TestExtractInfoMetricsSentinel(t *testing.T) {
+func TestSentinelExtractInfoMetrics(t *testing.T) {
 	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
 		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
 	}
@@ -72,7 +72,7 @@ type sentinelData struct {
 	ok                    bool
 }
 
-func TestParseSentinelMasterString(t *testing.T) {
+func TestSentinelParseSentinelMasterString(t *testing.T) {
 	tsts := []sentinelData{
 		{k: "master0", v: "name=user03,status=sdown,address=192.169.2.52:6381,slaves=1,sentinels=5", name: "user03", status: "sdown", address: "192.169.2.52:6381", slaves: 1, sentinels: 5, ok: true},
 		{k: "master1", v: "name=master,status=ok,address=127.0.0.1:6379,slaves=999,sentinels=500", name: "master", status: "ok", address: "127.0.0.1:6379", slaves: 999, sentinels: 500, ok: true},
@@ -99,7 +99,7 @@ func TestParseSentinelMasterString(t *testing.T) {
 	}
 }
 
-func TestExtractSentinelMetricsForRedis(t *testing.T) {
+func TestSentinelExtractSentinelMetricsForRedis(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")
 	}
@@ -139,7 +139,7 @@ func TestExtractSentinelMetricsForRedis(t *testing.T) {
 	}
 }
 
-func TestExtractSentinelMetricsForSentinel(t *testing.T) {
+func TestSentinelExtractSentinelMetricsForSentinel(t *testing.T) {
 	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
 		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
 	}
@@ -204,7 +204,7 @@ type sentinelSentinelsData struct {
 	expectedMetricValue map[string]int
 }
 
-func TestProcessSentinelSentinels(t *testing.T) {
+func TestSentinelProcessSentinels(t *testing.T) {
 	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
 		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
 	}
@@ -268,7 +268,7 @@ type sentinelSlavesData struct {
 	expectedMetricValue map[string]int
 }
 
-func TestProcessSentinelSlaves(t *testing.T) {
+func TestSentinelProcessSlaves(t *testing.T) {
 	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
 		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
 	}
@@ -325,5 +325,34 @@ func TestProcessSentinelSlaves(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestSentinelScrapeRedisHostSentinelPath(t *testing.T) {
+	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
+		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	e, _ := NewRedisExporter(
+		addr,
+		Options{Namespace: "test"},
+	)
+
+	chM := make(chan prometheus.Metric, 1000)
+	go func() {
+		e.scrapeRedisHost(chM)
+		close(chM)
+	}()
+
+	found := false
+	for m := range chM {
+		if strings.Contains(m.Desc().String(), "sentinel") {
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		t.Error("Expected to find sentinel metrics when scraping sentinel host via scrapeRedisHost()")
 	}
 }

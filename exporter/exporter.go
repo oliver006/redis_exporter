@@ -104,6 +104,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 	log.Debugf("NewRedisExporter = using redis uri: %s", uri)
 
+	if opts.Registry == nil {
+		opts.Registry = prometheus.NewRegistry()
+	}
+
 	e := &Exporter{
 		redisAddr: uri,
 		options:   opts,
@@ -664,6 +668,15 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 	return
 }
 
+// getKeyOperationConnection returns the appropriate Redis connection for key-based operations.
+// For cluster mode, it returns a cluster connection; otherwise, it returns the provided connection.
+func (e *Exporter) getKeyOperationConnection(defaultConn redis.Conn) (redis.Conn, error) {
+	if e.options.IsCluster {
+		return e.connectToRedisCluster()
+	}
+	return defaultConn, nil
+}
+
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	defer log.Debugf("scrapeRedisHost() done")
 
@@ -761,20 +774,43 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	// (can help with reducing workload on the master node)
 	log.Debugf("checkKeys metric collection for role: %s  SkipCheckKeysForRoleMaster flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
-		if err := e.extractCheckKeyMetrics(ch, c); err != nil {
-			log.Errorf("extractCheckKeyMetrics() err: %s", err)
+		// For key-based operations, use cluster connection if in cluster mode
+		keyConn, err := e.getKeyOperationConnection(c)
+		if err != nil {
+			log.Errorf("failed to get key operation connection: %s", err)
+		} else {
+			defer func() {
+				if keyConn != c {
+					keyConn.Close()
+				}
+			}()
+
+			if err := e.extractCheckKeyMetrics(ch, keyConn); err != nil {
+				log.Errorf("extractCheckKeyMetrics() err: %s", err)
+			}
+
+			e.extractCountKeysMetrics(ch, keyConn)
+
+			e.extractStreamMetrics(ch, keyConn)
 		}
-
-		e.extractCountKeysMetrics(ch, c)
-
-		e.extractStreamMetrics(ch, c)
 	} else {
 		log.Infof("skipping checkKeys metrics, role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	}
 
 	e.extractSlowLogMetrics(ch, c)
 
-	e.extractKeyGroupMetrics(ch, c, dbCount)
+	// Key groups also need cluster connection for key operations
+	keyGroupConn, err := e.getKeyOperationConnection(c)
+	if err != nil {
+		log.Errorf("failed to get key operation connection for key groups: %s", err)
+	} else {
+		defer func() {
+			if keyGroupConn != c {
+				keyGroupConn.Close()
+			}
+		}()
+		e.extractKeyGroupMetrics(ch, keyGroupConn, dbCount)
+	}
 
 	if strings.Contains(infoAll, "# Sentinel") {
 		e.extractSentinelMetrics(ch, c)

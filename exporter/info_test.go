@@ -141,7 +141,7 @@ func TestInclMetricsForEmptyDatabases(t *testing.T) {
 		t.Run(fmt.Sprintf("inclMetrics:%t", inclMetrics), func(t *testing.T) {
 			e, _ := NewRedisExporter(addr,
 				Options{
-					Namespace: "test", Registry: prometheus.NewRegistry(),
+					Namespace:                    "test",
 					InclMetricsForEmptyDatabases: inclMetrics,
 				})
 			ts := httptest.NewServer(e)
@@ -167,7 +167,7 @@ func TestClusterMaster(t *testing.T) {
 	}
 
 	addr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
-	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(addr, Options{Namespace: "test"})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -198,7 +198,6 @@ func TestClusterSkipCheckKeysIfMaster(t *testing.T) {
 			e, _ := NewRedisExporter(
 				uri,
 				Options{Namespace: "test",
-					Registry:                   prometheus.NewRegistry(),
 					CheckKeys:                  TestKeyNameHll,
 					SkipCheckKeysForRoleMaster: skip,
 					IsCluster:                  true,
@@ -237,7 +236,7 @@ func TestClusterSlave(t *testing.T) {
 	}
 
 	addr := os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
-	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(addr, Options{Namespace: "test"})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 

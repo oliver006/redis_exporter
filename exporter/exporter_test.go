@@ -19,7 +19,6 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
@@ -67,7 +66,7 @@ var (
 )
 
 func getTestExporter() *Exporter {
-	return getTestExporterWithOptions(Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	return getTestExporterWithOptions(Options{Namespace: "test"})
 }
 
 func getTestExporterWithOptions(opt Options) *Exporter {
@@ -80,7 +79,7 @@ func getTestExporterWithOptions(opt Options) *Exporter {
 }
 
 func getTestExporterWithAddr(addr string) *Exporter {
-	e, _ := NewRedisExporter(addr, Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(addr, Options{Namespace: "test"})
 	return e
 }
 
@@ -311,10 +310,8 @@ func deleteTestKeysCluster(t *testing.T, addr string) error {
 
 func TestIncludeSystemMemoryMetric(t *testing.T) {
 	for _, inc := range []bool{false, true} {
-		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", InclSystemMetrics: inc})
-		r.Register(e)
+		ts := httptest.NewServer(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		if inc && !strings.Contains(body, "total_system_memory_bytes") {
@@ -329,10 +326,8 @@ func TestIncludeSystemMemoryMetric(t *testing.T) {
 
 func TestIncludeConfigMetrics(t *testing.T) {
 	for _, inc := range []bool{false, true} {
-		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", InclConfigMetrics: inc})
-		r.Register(e)
+		ts := httptest.NewServer(e)
 
 		what := `test_config_key_value{key="appendonly",value="no"}`
 
@@ -358,10 +353,8 @@ func TestClientOutputBufferLimitMetrics(t *testing.T) {
 			`soft`,
 		} {
 			want := fmt.Sprintf("%s{class=\"%s\",limit=\"%s\"}", "config_client_output_buffer_limit_bytes", class, limit)
-			r := prometheus.NewRegistry()
-			ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 			e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test"})
-			r.Register(e)
+			ts := httptest.NewServer(e)
 
 			body := downloadURL(t, ts.URL+"/metrics")
 
@@ -371,10 +364,8 @@ func TestClientOutputBufferLimitMetrics(t *testing.T) {
 		}
 
 		want := fmt.Sprintf("%s{class=\"%s\",limit=\"soft\"}", "config_client_output_buffer_limit_overcome_seconds", class)
-		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test"})
-		r.Register(e)
+		ts := httptest.NewServer(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
 
@@ -386,14 +377,12 @@ func TestClientOutputBufferLimitMetrics(t *testing.T) {
 
 func TestExcludeConfigMetricsViaCONFIGCommand(t *testing.T) {
 	for _, inc := range []bool{false, true} {
-		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"),
 			Options{
 				Namespace:         "test",
 				ConfigCommandName: "-",
 				InclConfigMetrics: inc})
-		r.Register(e)
+		ts := httptest.NewServer(e)
 
 		what := `test_config_key_value{key="appendonly",value="no"}`
 
@@ -447,7 +436,7 @@ func TestNonExistingHost(t *testing.T) {
 }
 
 func TestKeysReset(t *testing.T) {
-	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + testKeys[0], Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", CheckSingleKeys: dbNumStrFull + "=" + testKeys[0]})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -470,11 +459,11 @@ func TestKeysReset(t *testing.T) {
 func TestRedisMetricsOnly(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
-		_, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: r, RedisMetricsOnly: inc})
+		e, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: r, RedisMetricsOnly: inc})
 		if err != nil {
 			t.Fatalf(`error when creating exporter with registry: %s`, err)
 		}
+		ts := httptest.NewServer(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		if inc && strings.Contains(body, "exporter_build_info") {
@@ -492,10 +481,8 @@ func TestConnectionDurations(t *testing.T) {
 	metric2 := "exporter_last_scrape_connect_time_seconds"
 
 	for _, inclPing := range []bool{false, true} {
-		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", PingOnConnect: inclPing})
-		r.Register(e)
+		ts := httptest.NewServer(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		if inclPing && !strings.Contains(body, metric1) {
@@ -524,10 +511,8 @@ func TestKeyDbMetrics(t *testing.T) {
 		`test_db_keys_cached`,
 		`test_storage_provider_read_hits`,
 	} {
-		r := prometheus.NewRegistry()
-		ts := httptest.NewServer(promhttp.HandlerFor(r, promhttp.HandlerOpts{}))
 		e, _ := NewRedisExporter(os.Getenv("TEST_KEYDB01_URI"), Options{Namespace: "test"})
-		r.Register(e)
+		ts := httptest.NewServer(e)
 
 		body := downloadURL(t, ts.URL+"/metrics")
 		if !strings.Contains(body, want) {

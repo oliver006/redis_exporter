@@ -13,7 +13,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -101,7 +100,6 @@ func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
 				LuaScript: map[string][]byte{
 					"test.lua": []byte(`return {"a", "11", "b", "12", "c", "13"}`),
 				},
-				Registry: prometheus.NewRegistry(),
 			}
 
 			options.CheckSingleKeys = tst.csk
@@ -220,7 +218,7 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 	setupTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 	defer deleteTestKeys(t, os.Getenv("TEST_REDIS_URI"))
 
-	e, _ := NewRedisExporter("", Options{Namespace: "test", InclSystemMetrics: false, Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter("", Options{Namespace: "test", InclSystemMetrics: false})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -295,7 +293,7 @@ func TestHttpHandlers(t *testing.T) {
 		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
 	}
 
-	e, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test"})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -379,7 +377,6 @@ func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 		t.Run(fmt.Sprintf("addr: %s, isCluster: %v", tst.addr, tst.isCluster), func(t *testing.T) {
 			e, _ := NewRedisExporter(tst.addr, Options{
 				Namespace: "test",
-				Registry:  prometheus.NewRegistry(),
 				IsCluster: tst.isCluster,
 			})
 			ts := httptest.NewServer(e)
@@ -398,7 +395,7 @@ func TestReloadHandlers(t *testing.T) {
 		t.Skipf("TEST_PWD_REDIS_URI not set - skipping")
 	}
 
-	eWithPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry(), RedisPwdFile: "../contrib/sample-pwd-file.json"})
+	eWithPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", RedisPwdFile: "../contrib/sample-pwd-file.json"})
 	ts := httptest.NewServer(eWithPwdfile)
 	defer ts.Close()
 
@@ -420,7 +417,7 @@ func TestReloadHandlers(t *testing.T) {
 		})
 	}
 
-	eWithnoPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry()})
+	eWithnoPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test"})
 	ts2 := httptest.NewServer(eWithnoPwdfile)
 	defer ts2.Close()
 
@@ -442,7 +439,7 @@ func TestReloadHandlers(t *testing.T) {
 		})
 	}
 
-	eWithMalformedPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", Registry: prometheus.NewRegistry(), RedisPwdFile: "../contrib/sample-pwd-file.json-malformed"})
+	eWithMalformedPwdfile, _ := NewRedisExporter(os.Getenv("TEST_PWD_REDIS_URI"), Options{Namespace: "test", RedisPwdFile: "../contrib/sample-pwd-file.json-malformed"})
 	ts3 := httptest.NewServer(eWithMalformedPwdfile)
 	defer ts3.Close()
 
@@ -653,7 +650,6 @@ func TestBasicAuth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{
 				Namespace:         "test",
-				Registry:          prometheus.NewRegistry(),
 				BasicAuthUsername: tt.configUsername,
 				BasicAuthPassword: tt.configPassword,
 			})
