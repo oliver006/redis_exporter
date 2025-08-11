@@ -633,15 +633,21 @@ func TestClusterStreamMetricsExtraction(t *testing.T) {
 	testStreams := []string{"audit_stream", "sa_audit_stream", "test_stream_cluster"}
 
 	// Setup cluster connection to create test streams
-	c, err := redis.DialURL(clusterURI)
+	// Use cluster-aware connection to avoid MOVED errors
+	tempExporter, err := NewRedisExporter(clusterURI, Options{IsCluster: true})
+	if err != nil {
+		t.Fatalf("Couldn't create temp exporter for cluster setup: %v", err)
+	}
+
+	c, err := tempExporter.connectToRedisCluster()
 	if err != nil {
 		t.Fatalf("Couldn't connect to cluster: %v", err)
 	}
 	defer c.Close()
 
-	// Create test streams with some data
+	// Create test streams with some data using cluster connection
 	for _, streamName := range testStreams {
-		// Add entries to streams
+		// Add entries to streams - cluster connection handles MOVED redirects automatically
 		_, err = c.Do("XADD", streamName, "*", "field1", "value1", "field2", "value2")
 		if err != nil {
 			t.Logf("Warning: couldn't create stream %s: %v", streamName, err)
@@ -653,10 +659,13 @@ func TestClusterStreamMetricsExtraction(t *testing.T) {
 		}
 	}
 
-	// Cleanup function
+	// Cleanup function - use the same cluster connection to avoid MOVED errors
 	defer func() {
 		for _, streamName := range testStreams {
-			c.Do("DEL", streamName)
+			_, err := c.Do("DEL", streamName)
+			if err != nil {
+				t.Logf("Warning: couldn't clean up stream %s: %v", streamName, err)
+			}
 		}
 	}()
 
@@ -681,8 +690,15 @@ func TestClusterStreamMetricsExtraction(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	// Download metrics from the HTTP endpoint
 	metricsOutput := downloadURL(t, ts.URL+"/metrics")
+
+	// Check if we got HTML instead of metrics (indicates an error during metrics collection)
+	if strings.Contains(metricsOutput, "<html>") {
+		t.Logf("Got HTML response instead of metrics, this indicates an error during metrics collection")
+		t.Logf("This could be due to Redis connection issues or cluster MOVED errors")
+		t.Logf("First 500 chars of response: %.500s...", metricsOutput)
+		t.Fatal("Expected Prometheus metrics but got HTML error page - check Redis cluster connectivity")
+	}
 
 	// Parse the metrics output to find stream metrics
 	foundMetrics := make(map[string]bool)

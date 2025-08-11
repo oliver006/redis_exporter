@@ -5,8 +5,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestLuaScript(t *testing.T) {
@@ -54,7 +52,7 @@ func TestLuaScript(t *testing.T) {
 			e, _ := NewRedisExporter(
 				os.Getenv("TEST_REDIS_URI"),
 				Options{
-					Namespace: "test", Registry: prometheus.NewRegistry(),
+					Namespace: "test",
 					LuaScript: map[string][]byte{"test.lua": []byte(tst.Script)},
 				})
 			ts := httptest.NewServer(e)

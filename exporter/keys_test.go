@@ -27,7 +27,7 @@ func TestKeyValuesAndSizes(t *testing.T) {
 		Options{
 			Namespace:       "test",
 			CheckSingleKeys: dbNumStrFull + "=" + url.QueryEscape(testKeys[0]),
-			Registry:        prometheus.NewRegistry()},
+		},
 	)
 	ts := httptest.NewServer(e)
 	defer ts.Close()
@@ -58,7 +58,7 @@ func TestKeyValuesAsLabel(t *testing.T) {
 				Namespace:                 "test",
 				CheckSingleKeys:           dbNumStrFull + "=" + url.QueryEscape(TestKeyNameSingleString),
 				DisableExportingKeyValues: exc,
-				Registry:                  prometheus.NewRegistry()},
+			},
 		)
 		ts := httptest.NewServer(e)
 
@@ -639,7 +639,7 @@ func TestCheckKeys(t *testing.T) {
 
 func TestCheckSingleKeyDefaultsTo0(t *testing.T) {
 	uri := os.Getenv("TEST_REDIS_URI")
-	e, _ := NewRedisExporter(uri, Options{Namespace: "test", CheckSingleKeys: "single", Registry: prometheus.NewRegistry()})
+	e, _ := NewRedisExporter(uri, Options{Namespace: "test", CheckSingleKeys: "single"})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
@@ -664,7 +664,6 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 				anotherAltDbNumStr + "=" + testKeys[0],
 			CheckKeys:          dbNumStr + "=" + "test*",
 			CheckKeysBatchSize: 1000,
-			Registry:           prometheus.NewRegistry(),
 		})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
@@ -708,7 +707,6 @@ func TestClusterGetKeyInfo(t *testing.T) {
 		Options{
 			Namespace:       "test",
 			CheckSingleKeys: strings.Join(AllTestKeys, ","),
-			Registry:        prometheus.NewRegistry(),
 			IsCluster:       true,
 		},
 	)
@@ -755,7 +753,6 @@ func TestGetKeyInfoWithMissingKey(t *testing.T) {
 		Options{
 			Namespace:       "test",
 			CheckSingleKeys: strings.Join(keys, ","),
-			Registry:        prometheus.NewRegistry(),
 		},
 	)
 	ts := httptest.NewServer(e)

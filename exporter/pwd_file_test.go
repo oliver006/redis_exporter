@@ -8,8 +8,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 func TestLoadPwdFile(t *testing.T) {
@@ -112,7 +110,6 @@ func TestHTTPScrapeWithPasswordFile(t *testing.T) {
 			LuaScript: map[string][]byte{
 				"test.lua": []byte(`return {"a", "11", "b", "12", "c", "13"}`),
 			},
-			Registry: prometheus.NewRegistry(),
 		}
 		t.Run(tst.name, func(t *testing.T) {
 			e, _ := NewRedisExporter(tst.addr, options)
@@ -194,7 +191,6 @@ func TestHTTPScrapeWithUsername(t *testing.T) {
 		options := Options{
 			Namespace:   "test",
 			PasswordMap: passwordMap,
-			Registry:    prometheus.NewRegistry(),
 		}
 		t.Run(tst.name, func(t *testing.T) {
 			e, _ := NewRedisExporter(tst.addr, options)

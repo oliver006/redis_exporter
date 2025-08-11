@@ -104,6 +104,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 	log.Debugf("NewRedisExporter = using redis uri: %s", uri)
 
+	if opts.Registry == nil {
+		opts.Registry = prometheus.NewRegistry()
+	}
+
 	e := &Exporter{
 		redisAddr: uri,
 		options:   opts,
