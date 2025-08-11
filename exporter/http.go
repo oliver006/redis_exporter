@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -157,10 +157,10 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "There is no pwd file specified", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Reload redisPwdFile")
+	slog.Debug("Reload redisPwdFile")
 	passwordMap, err := LoadPwdFile(e.options.RedisPwdFile)
 	if err != nil {
-		log.Errorf("Error reloading redis passwords from file %s, err: %s", e.options.RedisPwdFile, err)
+		slog.Error("Error reloading redis passwords from file", "file", e.options.RedisPwdFile, "error", err)
 		http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

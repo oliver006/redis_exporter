@@ -7,7 +7,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
+	"log/slog"
 )
 
 type scanStreamFixture struct {
@@ -531,8 +531,8 @@ func TestStreamsExtractStreamMetrics(t *testing.T) {
 
 	for m := range chM {
 		for k := range want {
-			log.Debugf("metric: %s", m.Desc().String())
-			log.Debugf("want: %s", k)
+			slog.Debug("metric", "desc", m.Desc().String())
+			slog.Debug("want", "key", k)
 
 			if strings.Contains(m.Desc().String(), k) {
 				want[k] = true
@@ -592,16 +592,16 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 
 	for m := range chM {
 		for k := range want {
-			log.Debugf("metric: %s", m.Desc().String())
-			log.Debugf("want: %s", k)
+			slog.Debug("metric", "desc", m.Desc().String())
+			slog.Debug("want", "key", k)
 
 			if strings.Contains(m.Desc().String(), k) {
 				want[k] = true
 			}
 		}
 		for k := range dontWant {
-			log.Debugf("metric: %s", m.Desc().String())
-			log.Debugf("don't want: %s", k)
+			slog.Debug("metric", "desc", m.Desc().String())
+			slog.Debug("don't want", "key", k)
 
 			if strings.Contains(m.Desc().String(), k) {
 				dontWant[k] = true
