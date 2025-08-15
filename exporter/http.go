@@ -93,7 +93,7 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	_, err = NewRedisExporter(target, opts)
 	if err != nil {
-		http.Error(w, "NewRedisExporter() err: err", http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("NewRedisExporter() error: %v", err), http.StatusBadRequest)
 		e.targetScrapeRequestErrors.Inc()
 		return
 	}
