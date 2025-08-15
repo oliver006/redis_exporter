@@ -56,6 +56,87 @@ func getEnvInt64(key string, defaultVal int64) int64 {
 	return defaultVal
 }
 
+// parseLogLevel parses a log level string and returns the corresponding logrus level
+func parseLogLevel(level string) (log.Level, error) {
+	switch strings.ToUpper(level) {
+	case "DEBUG":
+		return log.DebugLevel, nil
+	case "INFO":
+		return log.InfoLevel, nil
+	case "WARN", "WARNING":
+		return log.WarnLevel, nil
+	case "ERROR":
+		return log.ErrorLevel, nil
+	default:
+		return log.InfoLevel, errors.New("invalid log level: " + level)
+	}
+}
+
+// validateTLSClientConfig validates TLS client configuration
+func validateTLSClientConfig(certFile, keyFile string) error {
+	if (certFile != "") != (keyFile != "") {
+		return errors.New("TLS client key file and cert file should both be present")
+	}
+	return nil
+}
+
+// loadScripts loads Lua scripts from the provided script paths
+func loadScripts(scriptPath string) (map[string][]byte, error) {
+	if scriptPath == "" {
+		return nil, nil
+	}
+
+	scripts := strings.Split(scriptPath, ",")
+	ls := make(map[string][]byte, len(scripts))
+
+	for _, script := range scripts {
+		scriptContent, err := os.ReadFile(script)
+		if err != nil {
+			return nil, err
+		}
+		ls[script] = scriptContent
+	}
+
+	return ls, nil
+}
+
+// setupLogging configures logging based on the provided parameters
+func setupLogging(isDebug bool, logLevel, logFormat string) error {
+	switch logFormat {
+	case "json":
+		log.SetFormatter(&log.JSONFormatter{})
+	default:
+		log.SetFormatter(&log.TextFormatter{})
+	}
+
+	lvl := log.InfoLevel
+	if isDebug {
+		lvl = log.DebugLevel
+	} else {
+		parsedLvl, err := parseLogLevel(logLevel)
+		if err == nil {
+			lvl = parsedLvl
+		}
+	}
+
+	log.SetLevel(lvl)
+	return nil
+}
+
+// createPrometheusRegistry creates and configures a Prometheus registry
+func createPrometheusRegistry(redisMetricsOnly bool) *prometheus.Registry {
+	registry := prometheus.NewRegistry()
+	if !redisMetricsOnly {
+		registry.MustRegister(
+			// expose process metrics like CPU, Memory, file descriptor usage etc.
+			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
+			// expose all Go runtime metrics like GC stats, memory stats etc.
+			collectors.NewGoCollector(collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll)),
+		)
+	}
+	return registry
+}
+
 func main() {
 	var (
 		redisAddr                      = flag.String("redis.addr", getEnv("REDIS_ADDR", "redis://localhost:6379"), "Address of the Redis instance to scrape")
@@ -109,12 +190,6 @@ func main() {
 	)
 	flag.Parse()
 
-	switch *logFormat {
-	case "json":
-		log.SetFormatter(&log.JSONFormatter{})
-	default:
-		log.SetFormatter(&log.TextFormatter{})
-	}
 	if *showVersion {
 		log.SetOutput(os.Stdout)
 	}
@@ -128,22 +203,13 @@ func main() {
 		return
 	}
 
-	{
-		//
-		// parse and set log level, first check for --debug flag, then check if log level is set explicitly
-		//
-		lvl := log.InfoLevel
-		if *isDebug {
-			lvl = log.DebugLevel
-			log.Debugln("Enabling debug output")
-		} else {
-			if parsedLvl, err := log.ParseLevel(*logLevel); err == nil {
-				lvl = parsedLvl
-			}
-		}
-		log.Infof(`Setting log level to "%s"`, lvl.String())
-		log.SetLevel(lvl)
+	if err := setupLogging(*isDebug, *logLevel, *logFormat); err != nil {
+		log.Fatalf("Failed to setup logging: %v", err)
 	}
+	if *isDebug {
+		log.Debugln("Enabling debug output")
+	}
+	log.Infof(`Setting log level to "%s"`, log.GetLevel().String())
 
 	to, err := time.ParseDuration(*connectionTimeout)
 	if err != nil {
@@ -158,26 +224,12 @@ func main() {
 		}
 	}
 
-	var ls map[string][]byte
-	if *scriptPath != "" {
-		scripts := strings.Split(*scriptPath, ",")
-		ls = make(map[string][]byte, len(scripts))
-		for _, script := range scripts {
-			if ls[script], err = os.ReadFile(script); err != nil {
-				log.Fatalf("Error loading script file %s    err: %s", script, err)
-			}
-		}
+	ls, err := loadScripts(*scriptPath)
+	if err != nil {
+		log.Fatalf("Error loading script files: %s", err)
 	}
 
-	registry := prometheus.NewRegistry()
-	if !*redisMetricsOnly {
-		registry.MustRegister(
-			// expose process metrics like CPU, Memory, file descriptor usage etc.
-			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-			// expose all Go runtime metrics like GC stats, memory stats etc.
-			collectors.NewGoCollector(collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll)),
-		)
-	}
+	registry := createPrometheusRegistry(*redisMetricsOnly)
 
 	exp, err := exporter.NewRedisExporter(
 		*redisAddr,
@@ -234,8 +286,8 @@ func main() {
 	}
 
 	// Verify that initial client keypair and CA are accepted
-	if (*tlsClientCertFile != "") != (*tlsClientKeyFile != "") {
-		log.Fatal("TLS client key file and cert file should both be present")
+	if err := validateTLSClientConfig(*tlsClientCertFile, *tlsClientKeyFile); err != nil {
+		log.Fatal(err)
 	}
 	_, err = exp.CreateClientTLSConfig()
 	if err != nil {
