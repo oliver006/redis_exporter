@@ -1,12 +1,12 @@
 package exporter
 
 import (
+	"log/slog"
 	"strconv"
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 // All fields of the streamInfo struct must be exported
@@ -70,24 +70,24 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 		return nil, err
 	}
 
-	log.Debugf("getStreamInfo() stream: %#v", &stream)
+	slog.Debug("Retrieved stream info", "stream", &stream)
 	return &stream, nil
 }
 
 func getStreamEntryId(redisValue []interface{}, index int) string {
 	if values, ok := redisValue[index].([]interface{}); !ok || len(values) < 2 {
-		log.Debugf("Failed to parse StreamEntryId")
+		slog.Debug("Failed to parse StreamEntryId")
 		return ""
 	}
 
 	if len(redisValue) < index || redisValue[index] == nil {
-		log.Debugf("Failed to parse StreamEntryId")
+		slog.Debug("Failed to parse StreamEntryId")
 		return ""
 	}
 
 	entryId, ok := redisValue[index].([]interface{})[0].([]byte)
 	if !ok {
-		log.Debugf("Failed to parse StreamEntryId")
+		slog.Debug("Failed to parse StreamEntryId")
 		return ""
 	}
 	return string(entryId)
@@ -103,14 +103,14 @@ func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
 	for _, g := range groups {
 		v, err := redis.Values(g, nil)
 		if err != nil {
-			log.Errorf("Couldn't convert group values for stream '%s': %s", stream, err)
+			slog.Error("Couldn't convert group values for stream", "stream", stream, "error", err)
 			continue
 		}
-		log.Debugf("streamGroupsInfo value: %#v", v)
+		slog.Debug("streamGroupsInfo value", "value", v)
 
 		var group streamGroupsInfo
 		if err := redis.ScanStruct(v, &group); err != nil {
-			log.Errorf("Couldn't scan group in stream '%s': %s", stream, err)
+			slog.Error("Couldn't scan group in stream", "stream", stream, "error", err)
 			continue
 		}
 
@@ -122,7 +122,7 @@ func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
 		result = append(result, group)
 	}
 
-	log.Debugf("groups: %v", result)
+	slog.Debug("groups", "result", result)
 	return result, nil
 }
 
@@ -137,21 +137,21 @@ func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]stre
 
 		v, err := redis.Values(c, nil)
 		if err != nil {
-			log.Errorf("Couldn't convert consumer values for group '%s' in stream '%s': %s", group, stream, err)
+			slog.Error("Couldn't convert consumer values for group in stream", "group", group, "stream", stream, "error", err)
 			continue
 		}
-		log.Debugf("streamGroupConsumersInfo value: %#v", v)
+		slog.Debug("streamGroupConsumersInfo value", "value", v)
 
 		var consumer streamGroupConsumersInfo
 		if err := redis.ScanStruct(v, &consumer); err != nil {
-			log.Errorf("Couldn't scan consumers for  group '%s' in stream '%s': %s", group, stream, err)
+			slog.Error("Couldn't scan consumers for group in stream", "group", group, "stream", stream, "error", err)
 			continue
 		}
 
 		result = append(result, consumer)
 	}
 
-	log.Debugf("consumers: %v", result)
+	slog.Debug("consumers", "result", result)
 	return result, nil
 }
 
@@ -161,12 +161,12 @@ func parseStreamItemId(id string) float64 {
 	}
 	frags := strings.Split(id, "-")
 	if len(frags) == 0 {
-		log.Errorf("Couldn't parse StreamItemId: %s", id)
+		slog.Error("Couldn't parse StreamItemId", "id", id)
 		return 0
 	}
 	parsedId, err := strconv.ParseFloat(strings.Split(id, "-")[0], 64)
 	if err != nil {
-		log.Errorf("Couldn't parse given StreamItemId: [%s]   err: %s", id, err)
+		slog.Error("Couldn't parse given StreamItemId", "id", id, "error", err)
 	}
 	return parsedId
 }
@@ -174,33 +174,33 @@ func parseStreamItemId(id string) float64 {
 func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	streams, err := parseKeyArg(e.options.CheckStreams)
 	if err != nil {
-		log.Errorf("Couldn't parse given stream keys: %s", err)
+		slog.Error("Couldn't parse given stream keys", "error", err)
 		return
 	}
 
 	singleStreams, err := parseKeyArg(e.options.CheckSingleStreams)
 	if err != nil {
-		log.Errorf("Couldn't parse check-single-streams: %s", err)
+		slog.Error("Couldn't parse check-single-streams", "error", err)
 		return
 	}
 	allStreams := append([]dbKeyPair{}, singleStreams...)
 
 	scannedStreams, err := getKeysFromPatterns(c, streams, e.options.CheckKeysBatchSize)
 	if err != nil {
-		log.Errorf("Error expanding key patterns: %s", err)
+		slog.Error("Error expanding key patterns", "error", err)
 	} else {
 		allStreams = append(allStreams, scannedStreams...)
 	}
 
-	log.Debugf("allStreams: %#v", allStreams)
+	slog.Debug("allStreams", "allStreams", allStreams)
 	for _, k := range allStreams {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Debugf("Couldn't select database '%s' when getting stream info", k.db)
+			slog.Debug("Couldn't select database when getting stream info", "db", k.db)
 			continue
 		}
 		info, err := getStreamInfo(c, k.key)
 		if err != nil {
-			log.Errorf("couldn't get info for stream '%s', err: %s", k.key, err)
+			slog.Error("couldn't get info for stream", "stream", k.key, "error", err)
 			continue
 		}
 		dbLabel := "db" + k.db

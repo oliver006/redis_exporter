@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"io"
+	"log/slog"
 	"math/rand"
 	"net"
 	"net/http"
@@ -12,8 +13,6 @@ import (
 	"strings"
 	"sync"
 	"testing"
-
-	log "github.com/sirupsen/logrus"
 )
 
 func TestHTTPScrapeMetricsEndpoints(t *testing.T) {
@@ -537,7 +536,7 @@ func TestVerifyBasicAuth(t *testing.T) {
 			providedPass:  "",
 			authHeaderSet: false,
 			wantErr:       true,
-			wantErrString: "Unauthorized",
+			wantErrString: "unauthorized",
 		},
 		{
 			name:          "auth configured - correct credentials",
@@ -556,7 +555,7 @@ func TestVerifyBasicAuth(t *testing.T) {
 			providedPass:  "pass",
 			authHeaderSet: true,
 			wantErr:       true,
-			wantErrString: "Unauthorized",
+			wantErrString: "unauthorized",
 		},
 		{
 			name:          "auth configured - wrong password",
@@ -566,7 +565,7 @@ func TestVerifyBasicAuth(t *testing.T) {
 			providedPass:  "wrongpass",
 			authHeaderSet: true,
 			wantErr:       true,
-			wantErrString: "Unauthorized",
+			wantErrString: "unauthorized",
 		},
 	}
 
@@ -700,7 +699,7 @@ func downloadURL(t *testing.T, u string) string {
 }
 
 func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
-	log.Debugf("downloadURL() %s", u)
+	slog.Debug("downloadURL()", "url", u)
 
 	resp, err := http.Get(u)
 	if err != nil {

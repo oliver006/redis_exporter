@@ -1,23 +1,23 @@
 package exporter
 
 import (
+	"log/slog"
 	"strings"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	info, err := redis.String(doRedisCmd(c, "INFO", "MODULES"))
 	if err != nil {
-		log.Errorf("extractSearchMetrics() err: %s", err)
+		slog.Error("Failed to extract modules metrics", "error", err)
 		return
 	}
 
 	lines := strings.Split(info, "\r\n")
 	for _, line := range lines {
-		log.Debugf("info: %s", line)
+		slog.Debug("info", "line", line)
 
 		split := strings.Split(line, ":")
 		if len(split) != 2 {
