@@ -35,8 +35,15 @@ func TestKeyspaceStringParser(t *testing.T) {
 
 		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, ok: true},
 		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
+
+		{
+			db: "db0", stats: "keys=25714011,expires=25091314,avg_ttl=685620459,subexpiry=0",
+			keysTotal: 25714011, keysEx: 25091314, keysCached: 0, avgTTL: 685620.459000,
+			ok: true,
+		},
 	}
 
+	log.SetLevel(log.DebugLevel)
 	for _, tst := range tsts {
 		if kt, kx, ttl, kc, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
 
@@ -46,7 +53,12 @@ func TestKeyspaceStringParser(t *testing.T) {
 			}
 
 			if ok && (kt != tst.keysTotal || kx != tst.keysEx || kc != tst.keysCached || ttl != tst.avgTTL) {
-				t.Errorf("values not matching, db:%s stats:%s   %f %f %f %f", tst.db, tst.stats, kt, kx, kc, ttl)
+				t.Errorf("values not matching, db:%s stats:%s   %f != %f   %f != %f  %f != %f  %f != %f",
+					tst.db, tst.stats,
+					kt, tst.keysTotal,
+					kx, tst.keysEx,
+					kc, tst.keysCached,
+					ttl, tst.avgTTL)
 			}
 		}
 	}
