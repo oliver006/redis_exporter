@@ -30,7 +30,7 @@ jobs:
         username: ${{ secrets.QUAY_UBI_READONLY_USERNAME }}
         password: ${{ secrets.QUAY_UBI_READONLY_PASSWORD }}
     - name: build
-      uses: sysdiglabs/exporter-builder@v1.1
+      uses: sysdiglabs/exporter-builder@v1.2
       with:
         exporter: redis-exporter
         artifactory_token: ${{ secrets.GAR_DEV_RW_JSON_KEY }}
