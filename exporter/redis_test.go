@@ -117,9 +117,9 @@ func TestPasswordInvalid(t *testing.T) {
 }
 
 func TestConnectToClusterUsingPasswordFile(t *testing.T) {
-	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_PASSWORD_URI")
+	clusterUri := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_URI")
 	if clusterUri == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_PASSWORD_URI is not set")
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD_URI is not set")
 	}
 	passMap := map[string]string{clusterUri: "redis-password"}
 	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}

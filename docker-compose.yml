@@ -94,20 +94,19 @@ services:
       - "16402:6379"
 
   valkey-cluster:
-    image: oliver006/valkey-cluster:8.1.1
+    image: oliver006/valkey-cluster:8.1.3
     environment:
       - IP=0.0.0.0
     ports:
       - 7000-7005:7000-7005
       - 17000-17005:7000-7005
 
-  redis-cluster-password:
-    image: bitnami/redis-cluster:7.4
+  valkey-cluster-password:
+    image: oliver006/valkey-cluster:8.1.3
     environment:
-      - REDIS_PORT_NUMBER=7006
-      - REDIS_PASSWORD=redis-password
-      - REDIS_CLUSTER_CREATOR=yes
-      - REDIS_NODES=redis-cluster-password:7006
+      - IP=0.0.0.0
+      - INITIAL_PORT=7006
+      - VALKEY_PASSWORD=redis-password
     ports:
       - "17006:7006"
 
