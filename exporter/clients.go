@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -8,7 +9,6 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type ClientInfo struct {
@@ -50,7 +50,7 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 	for _, kvPart := range strings.Split(clientInfo, " ") {
 		vPart := strings.Split(kvPart, "=")
 		if len(vPart) != 2 {
-			log.Debugf("Invalid format for client list string, got: %s", kvPart)
+			slog.Debug("Invalid format for client list string", "kvPart", kvPart)
 			return nil, false
 		}
 
@@ -64,14 +64,14 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 		case "age":
 			createdAt, err := durationFieldToTimestamp(vPart[1])
 			if err != nil {
-				log.Debugf("could not parse 'age' field(%s): %s", vPart[1], err.Error())
+				slog.Debug("could not parse 'age' field", "value", vPart[1], "error", err.Error())
 				return nil, false
 			}
 			connectedClient.CreatedAt = createdAt
 		case "idle":
 			idleSinceTs, err := durationFieldToTimestamp(vPart[1])
 			if err != nil {
-				log.Debugf("could not parse 'idle' field(%s): %s", vPart[1], err.Error())
+				slog.Debug("could not parse 'idle' field", "value", vPart[1], "error", err.Error())
 				return nil, false
 			}
 			connectedClient.IdleSince = idleSinceTs
@@ -102,7 +102,7 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 		case "addr":
 			hostPortString := strings.Split(vPart[1], ":")
 			if len(hostPortString) < 2 {
-				log.Debug("Invalid value for 'addr' found in client info")
+				slog.Debug("Invalid value for 'addr' found in client info")
 				return nil, false
 			}
 			connectedClient.Host = strings.Join(hostPortString[:len(hostPortString)-1], ":")
@@ -126,7 +126,7 @@ func durationFieldToTimestamp(field string) (int64, error) {
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	reply, err := redis.String(doRedisCmd(c, "CLIENT", "LIST"))
 	if err != nil {
-		log.Errorf("CLIENT LIST err: %s", err)
+		slog.Error("CLIENT LIST err", "error", err)
 		return
 	}
 	e.parseConnectedClientMetrics(reply, ch)
@@ -137,7 +137,7 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 	for _, s := range strings.Split(input, "\n") {
 		info, ok := parseClientListString(s)
 		if !ok {
-			log.Debugf("parseClientListString( %s ) - couldn';t parse input", s)
+			slog.Debug("parseClientListString - couldn't parse input", "input", s)
 			continue
 		}
 		clientInfoLabels := []string{"id", "name", "flags", "db", "host"}

@@ -5,13 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -156,16 +156,20 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "There is no pwd file specified", http.StatusBadRequest)
 		return
 	}
-	log.Debugf("Reload redisPwdFile")
+
+	slog.Debug("Reload redisPwdFile", "file", e.options.RedisPwdFile)
+
 	passwordMap, err := LoadPwdFile(e.options.RedisPwdFile)
 	if err != nil {
-		log.Errorf("Error reloading redis passwords from file %s, err: %s", e.options.RedisPwdFile, err)
+		slog.Error("Error reloading redis passwords from file", "file", e.options.RedisPwdFile, "error", err)
 		http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	e.Lock()
 	e.options.PasswordMap = passwordMap
 	e.Unlock()
+
 	_, _ = w.Write([]byte(`ok`))
 }
 
@@ -174,20 +178,19 @@ func (e *Exporter) isBasicAuthConfigured() bool {
 }
 
 func (e *Exporter) verifyBasicAuth(user, password string, authHeaderSet bool) error {
-
 	if !e.isBasicAuthConfigured() {
 		return nil
 	}
 
 	if !authHeaderSet {
-		return errors.New("Unauthorized")
+		return errors.New("unauthorized")
 	}
 
 	userCorrect := subtle.ConstantTimeCompare([]byte(user), []byte(e.options.BasicAuthUsername))
 	passCorrect := subtle.ConstantTimeCompare([]byte(password), []byte(e.options.BasicAuthPassword))
 
 	if userCorrect == 0 || passCorrect == 0 {
-		return errors.New("Unauthorized")
+		return errors.New("unauthorized")
 	}
 
 	return nil

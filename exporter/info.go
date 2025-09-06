@@ -3,13 +3,13 @@ package exporter
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 // precompiled regexps
@@ -79,10 +79,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	masterPort := ""
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
-		log.Debugf("info: %s", line)
+		slog.Debug("info", "line", line)
 		if len(line) > 0 && strings.HasPrefix(line, "# ") {
 			fieldClass = line[2:]
-			log.Debugf("set fieldClass: %s", fieldClass)
+			slog.Debug("set fieldClass", "fieldClass", fieldClass)
 			continue
 		}
 
@@ -221,7 +221,7 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 	lines := strings.Split(info, "\r\n")
 
 	for _, line := range lines {
-		log.Debugf("info: %s", line)
+		slog.Debug("info", "line", line)
 
 		split := strings.Split(line, ":")
 		if len(split) != 2 {
@@ -241,33 +241,33 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
 */
 func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, keysCachedTotal float64, ok bool) {
-	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
+	slog.Debug("parseDBKeyspaceString", "inputKey", inputKey, "inputVal", inputVal)
 
 	if !strings.HasPrefix(inputKey, "db") {
-		log.Debugf("parseDBKeyspaceString inputKey not starting with 'db': [%s]", inputKey)
+		slog.Debug("parseDBKeyspaceString inputKey not starting with 'db'", "inputKey", inputKey)
 		return
 	}
 
 	split := strings.Split(inputVal, ",")
 	if len(split) < 2 || len(split) > 4 {
-		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
+		slog.Debug("parseDBKeyspaceString strings.Split(inputVal) invalid", "split", split)
 		return
 	}
 
 	var err error
 	if keysTotal, err = extractVal(split[0]); err != nil {
-		log.Debugf("parseDBKeyspaceString extractVal(split[0]) invalid, err: %s", err)
+		slog.Debug("parseDBKeyspaceString extractVal(split[0]) invalid", "error", err)
 		return
 	}
 	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
-		log.Debugf("parseDBKeyspaceString extractVal(split[1]) invalid, err: %s", err)
+		slog.Debug("parseDBKeyspaceString extractVal(split[1]) invalid", "error", err)
 		return
 	}
 
 	avgTTL = -1
 	if len(split) > 2 {
 		if avgTTL, err = extractVal(split[2]); err != nil {
-			log.Debugf("parseDBKeyspaceString extractVal(split[2]) invalid, err: %s", err)
+			slog.Debug("parseDBKeyspaceString extractVal(split[2]) invalid", "error", err)
 			return
 		}
 		avgTTL /= 1000
@@ -276,7 +276,7 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 	keysCachedTotal = -1
 	if len(split) > 3 {
 		if keysCachedTotal, err = extractVal(split[3]); err != nil {
-			log.Debugf("parseDBKeyspaceString extractVal(split[3]) invalid, err: %s", err)
+			slog.Debug("parseDBKeyspaceString extractVal(split[3]) invalid", "error", err)
 			return
 		}
 	}
@@ -298,14 +298,14 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 	for _, kvPart := range strings.Split(keyValues, ",") {
 		x := strings.Split(kvPart, "=")
 		if len(x) != 2 {
-			log.Debugf("Invalid format for connected slave string, got: %s", kvPart)
+			slog.Debug("Invalid format for connected slave string", "kvPart", kvPart)
 			return
 		}
 		connectedkeyValues[x[0]] = x[1]
 	}
 	offset, err := strconv.ParseFloat(connectedkeyValues["offset"], 64)
 	if err != nil {
-		log.Debugf("Can not parse connected slave offset, got: %s", connectedkeyValues["offset"])
+		slog.Debug("Can not parse connected slave offset", "offset", connectedkeyValues["offset"])
 		return
 	}
 
@@ -315,7 +315,7 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 	} else {
 		lag, err = strconv.ParseFloat(lagStr, 64)
 		if err != nil {
-			log.Debugf("Can not parse connected slave lag, got: %s", lagStr)
+			slog.Debug("Can not parse connected slave lag", "lagStr", lagStr)
 			return
 		}
 	}
@@ -540,7 +540,7 @@ func parseMetricsErrorStats(fieldKey string, fieldValue string) (errorType strin
 func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) (cmd string, calls float64, usecTotal float64) {
 	cmd, calls, rejectedCalls, failedCalls, usecTotal, extendedStats, err := parseMetricsCommandStats(fieldKey, fieldValue)
 	if err != nil {
-		log.Debugf("parseMetricsCommandStats( %s , %s ) err: %s", fieldKey, fieldValue, err)
+		slog.Debug("parseMetricsCommandStats err", "fieldKey", fieldKey, "fieldValue", fieldValue, "error", err)
 		return
 	}
 	e.createMetricDescription("commands_total", []string{"cmd"})

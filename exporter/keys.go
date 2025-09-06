@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"regexp"
 	"strconv"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
-	log "github.com/sirupsen/logrus"
 )
 
 type dbKeyPair struct {
@@ -19,7 +19,7 @@ type dbKeyPair struct {
 
 func getStringInfoNotPipelined(c redis.Conn, key string) (strVal string, keyType string, size int64, err error) {
 	if strVal, err = redis.String(doRedisCmd(c, "GET", key)); err != nil {
-		log.Errorf("GET %s err: %s", key, err)
+		slog.Error("GET err", "key", key, "error", err)
 	}
 
 	// Check PFCOUNT first because STRLEN on HyperLogLog strings returns the wrong length
@@ -44,7 +44,7 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 
 	switch keyType {
 	case "none":
-		log.Debugf("Key '%s' not found when trying to get type and size: using default '0.0'", keyName)
+		slog.Debug("Key not found when trying to get type and size: using default '0.0'", "key", keyName)
 		e.registerConstMetricGauge(ch, "key_size", 0.0, dbLabel, keyName)
 		return
 
@@ -65,7 +65,7 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 	}
 
 	if err != nil {
-		log.Errorf("getKeyInfo() err: %s", err)
+		slog.Error("Failed to get key info", "error", err)
 		return
 	}
 
@@ -89,25 +89,25 @@ func (e *Exporter) extractCheckKeyMetrics(ch chan<- prometheus.Metric, c redis.C
 	if err != nil {
 		return fmt.Errorf("couldn't parse check-keys: %w", err)
 	}
-	log.Debugf("keys: %#v", keys)
+	slog.Debug("keys", "keys", keys)
 
 	singleKeys, err := parseKeyArg(e.options.CheckSingleKeys)
 	if err != nil {
 		return fmt.Errorf("couldn't parse check-single-keys: %w", err)
 	}
-	log.Debugf("e.singleKeys: %#v", singleKeys)
+	slog.Debug("e.singleKeys", "singleKeys", singleKeys)
 
 	allKeys := append([]dbKeyPair{}, singleKeys...)
 
-	log.Debugf("e.keys: %#v", keys)
+	slog.Debug("e.keys", "keys", keys)
 
 	if scannedKeys, err := getKeysFromPatterns(c, keys, e.options.CheckKeysBatchSize); err == nil {
 		allKeys = append(allKeys, scannedKeys...)
 	} else {
-		log.Errorf("Error expanding key patterns: %#v", err)
+		slog.Error("Error expanding key patterns", "error", err)
 	}
 
-	log.Debugf("allKeys: %#v", allKeys)
+	slog.Debug("allKeys", "allKeys", allKeys)
 
 	/*
 		important: when adding, modifying, removing metrics both paths here
@@ -147,9 +147,9 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 	for dbNum, arrayOfKeys := range keysByDb {
 		dbLabel := "db" + dbNum
 
-		log.Debugf("c.Send() SELECT [%s]", dbNum)
+		slog.Debug("c.Send() SELECT", "db", dbNum)
 		if err := c.Send("SELECT", dbNum); err != nil {
-			log.Errorf("Couldn't select database [%s] when getting key info.", dbNum)
+			slog.Error("Couldn't select database when getting key info", "db", dbNum)
 			continue
 		}
 		/*
@@ -158,27 +158,27 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 		*/
 
 		for _, keyName := range arrayOfKeys {
-			log.Debugf("c.Send() TYPE [%v]", keyName)
+			slog.Debug("c.Send() TYPE", "key", keyName)
 			if err := c.Send("TYPE", keyName); err != nil {
-				log.Errorf("c.Send() TYPE err: %s", err)
+				slog.Error("Failed to send TYPE command", "error", err)
 				return
 			}
-			log.Debugf("c.Send() MEMORY USAGE [%v]", keyName)
+			slog.Debug("c.Send() MEMORY USAGE", "key", keyName)
 			if err := c.Send("MEMORY", "USAGE", keyName); err != nil {
-				log.Errorf("c.Send() MEMORY USAGE err: %s", err)
+				slog.Error("Failed to send MEMORY USAGE command", "error", err)
 				return
 			}
 		}
 
-		log.Debugf("c.Flush()")
+		slog.Debug("c.Flush()")
 		if err := c.Flush(); err != nil {
-			log.Errorf("FLUSH err: %s", err)
+			slog.Error("FLUSH err", "error", err)
 			return
 		}
 
 		// throwaway Receive() call for the response of the SELECT() call
 		if _, err := redis.String(c.Receive()); err != nil {
-			log.Errorf("Receive() err: %s", err)
+			slog.Error("Failed to receive response", "error", err)
 			continue
 		}
 
@@ -191,12 +191,12 @@ func (e *Exporter) extractCheckKeyMetricsPipelined(ch chan<- prometheus.Metric, 
 			var err error
 			keyTypes[idx], err = redis.String(c.Receive())
 			if err != nil {
-				log.Errorf("key: [%s] - Receive err: %s", keyName, err)
+				slog.Error("key - Receive err", "key", keyName, "error", err)
 				continue
 			}
 			memUsageInBytes, err := redis.Int64(c.Receive())
 			if err != nil {
-				// log.Errorf("key: [%s] - memUsageInBytes Receive() err: %s", keyName, err)
+				// slog.Error(fmt.Sprintf("key: [%s] - memUsageInBytes Receive() err: %s", keyName, err)
 				continue
 			}
 
@@ -223,66 +223,66 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 			continue
 
 		case "string":
-			log.Debugf("c.Send() PFCOUNT  args: [%v]", keyName)
+			slog.Debug("c.Send() PFCOUNT", "key", keyName)
 			if err := c.Send("PFCOUNT", keyName); err != nil {
-				log.Errorf("PFCOUNT err: %s", err)
+				slog.Error("PFCOUNT err", "error", err)
 				return
 			}
 
-			log.Debugf("c.Send() STRLEN  args: [%v]", keyName)
+			slog.Debug("c.Send() STRLEN", "key", keyName)
 			if err := c.Send("STRLEN", keyName); err != nil {
-				log.Errorf("STRLEN err: %s", err)
+				slog.Error("STRLEN err", "error", err)
 				return
 			}
 
-			log.Debugf("c.Send() GET  args: [%v]", keyName)
+			slog.Debug("c.Send() GET", "key", keyName)
 			if err := c.Send("GET", keyName); err != nil {
-				log.Errorf("GET err: %s", err)
+				slog.Error("GET err", "error", err)
 				return
 			}
 
 		case "list":
-			log.Debugf("c.Send() LLEN  args: [%v]", keyName)
+			slog.Debug("c.Send() LLEN", "key", keyName)
 			if err := c.Send("LLEN", keyName); err != nil {
-				log.Errorf("LLEN err: %s", err)
+				slog.Error("LLEN err", "error", err)
 				return
 			}
 
 		case "set":
-			log.Debugf("c.Send() SCARD  args: [%v]", keyName)
+			slog.Debug("c.Send() SCARD", "key", keyName)
 			if err := c.Send("SCARD", keyName); err != nil {
-				log.Errorf("SCARD err: %s", err)
+				slog.Error("SCARD err", "error", err)
 				return
 			}
 		case "zset":
-			log.Debugf("c.Send() ZCARD  args: [%v]", keyName)
+			slog.Debug("c.Send() ZCARD", "key", keyName)
 			if err := c.Send("ZCARD", keyName); err != nil {
-				log.Errorf("ZCARD err: %s", err)
+				slog.Error("ZCARD err", "error", err)
 				return
 			}
 
 		case "hash":
-			log.Debugf("c.Send() HLEN  args: [%v]", keyName)
+			slog.Debug("c.Send() HLEN", "key", keyName)
 			if err := c.Send("HLEN", keyName); err != nil {
-				log.Errorf("HLEN err: %s", err)
+				slog.Error("HLEN err", "error", err)
 				return
 			}
 
 		case "stream":
-			log.Debugf("c.Send() XLEN  args: [%v]", keyName)
+			slog.Debug("c.Send() XLEN", "key", keyName)
 			if err := c.Send("XLEN", keyName); err != nil {
-				log.Errorf("XLEN err: %s", err)
+				slog.Error("XLEN err", "error", err)
 				return
 			}
 		default:
-			log.Errorf("unknown type: %v for key: %v", keyType, keyName)
+			slog.Error("unknown type for key", "type", keyType, "key", keyName)
 			continue
 		}
 	}
 
-	log.Debugf("c.Flush()")
+	slog.Debug("c.Flush()")
 	if err := c.Flush(); err != nil {
-		log.Errorf("Flush() err: %s", err)
+		slog.Error("Failed to flush commands", "error", err)
 		return
 	}
 
@@ -295,7 +295,7 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 		switch keyType {
 		case "none":
-			log.Debugf("Key '%s' not found, skipping", keyName)
+			slog.Debug("Key not found, skipping", "key", keyName)
 
 		case "string":
 			hllSize, hllErr := redis.Int64(c.Receive())
@@ -303,10 +303,10 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 			var strValErr error
 			if strVal, strValErr = redis.String(c.Receive()); strValErr != nil {
-				log.Errorf("c.Receive() for GET %s err: %s", keyName, strValErr)
+				slog.Error("Failed to receive GET response", "key", keyName, "error", strValErr)
 			}
 
-			log.Debugf("Done with c.Receive() x 3")
+			slog.Debug("Done with c.Receive() x 3")
 
 			if hllErr == nil {
 				// hyperloglog
@@ -330,7 +330,7 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 		}
 
 		if err != nil {
-			log.Errorf("getKeyInfo() err: %s", err)
+			slog.Error("Failed to get key info", "error", err)
 			continue
 		}
 
@@ -356,14 +356,14 @@ func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metri
 
 		keyType, err := redis.String(doRedisCmd(c, "TYPE", k.key))
 		if err != nil {
-			log.Errorf("TYPE err: %s", keyType)
+			slog.Error("TYPE err", "error", keyType)
 			continue
 		}
 
 		if memUsageInBytes, err := redis.Int64(doRedisCmd(c, "MEMORY", "USAGE", k.key)); err == nil {
 			e.registerConstMetricGauge(ch, "key_memory_usage_bytes", float64(memUsageInBytes), "db"+k.db, k.key)
 		} else {
-			log.Errorf("MEMORY USAGE %s err: %s", k.key, err)
+			slog.Error("MEMORY USAGE err", "key", k.key, "error", err)
 		}
 
 		dbLabel := "db" + k.db
@@ -374,18 +374,18 @@ func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metri
 func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	cntKeys, err := parseKeyArg(e.options.CountKeys)
 	if err != nil {
-		log.Errorf("Couldn't parse given count keys: %s", err)
+		slog.Error("Couldn't parse given count keys", "error", err)
 		return
 	}
 
 	for _, k := range cntKeys {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Errorf("Couldn't select database '%s' when getting stream info", k.db)
+			slog.Error("Couldn't select database when getting stream info", "db", k.db)
 			continue
 		}
 		cnt, err := getKeysCount(c, k.key, e.options.CheckKeysBatchSize)
 		if err != nil {
-			log.Errorf("couldn't get key count for '%s', err: %s", k.key, err)
+			slog.Error("couldn't get key count", "key", k.key, "error", err)
 			continue
 		}
 		dbLabel := "db" + k.db
@@ -421,7 +421,7 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64) (expandedK
 			}
 			keyNames, err := redis.Strings(scanKeys(c, k.key, count))
 			if err != nil {
-				log.Errorf("error with SCAN for pattern: %#v err: %s", k.key, err)
+				slog.Error("error with SCAN for pattern", "pattern", k.key, "error", err)
 				continue
 			}
 
@@ -439,7 +439,7 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64) (expandedK
 // parseKeyArgs splits a command-line supplied argument into a slice of dbKeyPairs.
 func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 	if keysArgString == "" {
-		log.Debugf("parseKeyArg(): Got empty key arguments, parsing skipped")
+		slog.Debug("Got empty key arguments, skipping parsing")
 		return keys, err
 	}
 	for _, k := range strings.Split(keysArgString, ",") {
@@ -466,7 +466,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 		// We want to guarantee at the top level that invalid values
 		// will not fall into the final Redis call.
 		if db == "" || key == "" {
-			log.Errorf("parseKeyArg(): Empty value parsed in pair '%s=%s', skip", db, key)
+			slog.Error("Empty value parsed in pair, skipping", "db", db, "key", key)
 			continue
 		}
 

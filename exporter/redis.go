@@ -2,13 +2,13 @@ package exporter
 
 import (
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strings"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/mna/redisc"
-	log "github.com/sirupsen/logrus"
 )
 
 func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
@@ -54,7 +54,7 @@ func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
 	// strip solo ":" if present in uri that has a username (and no pwd)
 	uri = strings.Replace(uri, fmt.Sprintf(":@%s", u.Host), fmt.Sprintf("@%s", u.Host), 1)
 
-	log.Debugf("looking up in pwd map, uri: %s", uri)
+	slog.Debug("Looking up URI in pwd map", "uri", uri)
 	if pwd, ok := e.options.PasswordMap[uri]; ok && pwd != "" {
 		return pwd, true
 	}
@@ -72,15 +72,15 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		return nil, err
 	}
 
-	log.Debugf("Trying DialURL(): %s", uri)
+	slog.Debug("Trying to dial URL", "uri", uri)
 	c, err := redis.DialURL(uri, options...)
 	if err != nil {
-		log.Debugf("DialURL() failed, err: %s", err)
+		slog.Debug("Failed to dial URL", "error", err)
 		if frags := strings.Split(e.redisAddr, "://"); len(frags) == 2 {
-			log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
+			slog.Debug("Trying to dial", "protocol", frags[0], "address", frags[1])
 			c, err = redis.Dial(frags[0], frags[1], options...)
 		} else {
-			log.Debugf("Trying: Dial(): tcp %s", e.redisAddr)
+			slog.Debug("Trying to dial TCP", "address", e.redisAddr)
 			c, err = redis.Dial("tcp", e.redisAddr, options...)
 		}
 	}
@@ -112,27 +112,27 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		}
 	}
 
-	log.Debugf("Creating cluster object")
+	slog.Debug("Creating cluster object")
 	cluster := redisc.Cluster{
 		StartupNodes: []string{uri},
 		DialOptions:  options,
 	}
-	log.Debugf("Running refresh on cluster object")
+	slog.Debug("Running refresh on cluster object")
 	if err := cluster.Refresh(); err != nil {
-		log.Errorf("Cluster refresh failed: %v", err)
+		slog.Error("Cluster refresh failed", "error", err)
 		return nil, fmt.Errorf("cluster refresh failed: %w", err)
 	}
 
-	log.Debugf("Creating redis connection object")
+	slog.Debug("Creating redis connection object")
 	conn, err := cluster.Dial()
 	if err != nil {
-		log.Errorf("Dial failed: %v", err)
+		slog.Error("Dial failed", "error", err)
 		return nil, fmt.Errorf("dial failed: %w", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
-		log.Errorf("RetryConn failed: %v", err)
+		slog.Error("RetryConn failed", "error", err)
 		return nil, fmt.Errorf("retryConn failed: %w", err)
 	}
 
@@ -140,11 +140,11 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...interface{}) (interface{}, error) {
-	log.Debugf("c.Do() - running command: %s args: [%v]", cmd, args)
+	slog.Debug("c.Do() - running command", "cmd", cmd, "args", args)
 	res, err := c.Do(cmd, args...)
 	if err != nil {
-		log.Debugf("c.Do() - err: %s", err)
+		slog.Debug("Redis command failed", "error", err)
 	}
-	log.Debugf("c.Do() - done")
+	slog.Debug("c.Do() - done")
 	return res, err
 }
