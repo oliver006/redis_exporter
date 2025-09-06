@@ -110,12 +110,21 @@ services:
     ports:
       - "17006:7006"
 
-  redis-sentinel:
-    image: docker.io/bitnami/redis-sentinel:6.2-debian-10
-    environment:
-      - REDIS_MASTER_HOST=redis6
+
+  valkey-sentinel:
+    image: valkey/valkey:8
+    depends_on:
+      - valkey8
     ports:
       - "26379:26379"
+    command: >
+      sh -c 'echo "sentinel resolve-hostnames yes" > /etc/sentinel.conf &&
+            echo "sentinel monitor mymaster valkey8 6379 1" >> /etc/sentinel.conf &&
+            echo "sentinel down-after-milliseconds mymaster 1000" >> /etc/sentinel.conf &&
+            echo "sentinel failover-timeout mymaster 5000" >> /etc/sentinel.conf &&
+            echo "sentinel parallel-syncs mymaster 1" >> /etc/sentinel.conf &&
+            valkey-server /etc/sentinel.conf --sentinel'
+
 
   tile38:
     image: tile38/tile38:latest
