@@ -246,7 +246,7 @@ ACL SETUSER <<<USERNAME>>> -@all +@connection -command +client -hello +info -aut
 
 ### Run via Docker
 
-The latest release is automatically published to the [Docker registry](https://hub.docker.com/r/oliver006/redis_exporter/).
+The latest release is automatically published to [Docker Hub registry](https://hub.docker.com/r/oliver006/redis_exporter/)
 
 You can run it like this:
 
@@ -254,10 +254,14 @@ You can run it like this:
 docker run -d --name redis_exporter -p 9121:9121 oliver006/redis_exporter
 ```
 
-Docker images are also published to the [quay.io docker repo](https://quay.io/oliver006/redis_exporter) so you can pull them from there if for instance you run into rate limiting issues with Docker hub.
+Docker images are also published to the [Github Container Registry (ghcr.io)](https://github.com/oliver006/redis_exporter/pkgs/container/redis_exporter) and to [quay.io](https://quay.io/oliver006/redis_exporter) so you can pull them from there if for instance you run into rate limiting issues with Docker hub.
 
 ```sh
 docker run -d --name redis_exporter -p 9121:9121 quay.io/oliver006/redis_exporter
+
+# or 
+
+docker run -d --name redis_exporter -p 9121:9121 ghcr.io/oliver006/redis_exporter
 ```
 
 The `latest` docker image contains only the exporter binary.
