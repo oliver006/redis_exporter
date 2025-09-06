@@ -12,10 +12,10 @@ import (
 )
 
 func TestSentinelExtractInfoMetrics(t *testing.T) {
-	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
-		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test"},
@@ -140,10 +140,10 @@ func TestSentinelExtractSentinelMetricsForRedis(t *testing.T) {
 }
 
 func TestSentinelExtractSentinelMetricsForSentinel(t *testing.T) {
-	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
-		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test"},
@@ -205,10 +205,10 @@ type sentinelSentinelsData struct {
 }
 
 func TestSentinelProcessSentinels(t *testing.T) {
-	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
-		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test"},
@@ -269,10 +269,10 @@ type sentinelSlavesData struct {
 }
 
 func TestSentinelProcessSlaves(t *testing.T) {
-	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
-		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test"},
@@ -329,10 +329,10 @@ func TestSentinelProcessSlaves(t *testing.T) {
 }
 
 func TestSentinelScrapeRedisHostSentinelPath(t *testing.T) {
-	if os.Getenv("TEST_REDIS_SENTINEL_URI") == "" {
-		t.Skipf("TEST_REDIS_SENTINEL_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
 	}
-	addr := os.Getenv("TEST_REDIS_SENTINEL_URI")
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
 	e, _ := NewRedisExporter(
 		addr,
 		Options{Namespace: "test"},
