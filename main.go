@@ -124,15 +124,19 @@ func setupLogging(isDebug bool, logLevel, logFormat string) error {
 }
 
 // createPrometheusRegistry creates and configures a Prometheus registry
-func createPrometheusRegistry(redisMetricsOnly bool) *prometheus.Registry {
+func createPrometheusRegistry(redisMetricsOnly, inclGoRuntimeMetrics bool) *prometheus.Registry {
 	registry := prometheus.NewRegistry()
 	if !redisMetricsOnly {
 		registry.MustRegister(
 			// expose process metrics like CPU, Memory, file descriptor usage etc.
 			collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}),
-			// expose all Go runtime metrics like GC stats, memory stats etc.
-			collectors.NewGoCollector(collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll)),
 		)
+		if inclGoRuntimeMetrics {
+			registry.MustRegister(
+				// expose all Go runtime metrics like GC stats, memory stats etc.
+				collectors.NewGoCollector(collectors.WithGoCollectorRuntimeMetrics(collectors.MetricsAll)),
+			)
+		}
 	}
 	return registry
 }
@@ -174,7 +178,8 @@ func main() {
 		exportClientList               = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
 		exportClientPort               = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
 		showVersion                    = flag.Bool("version", false, "Show version information and exit")
-		redisMetricsOnly               = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to also export go runtime metrics")
+		redisMetricsOnly               = flag.Bool("redis-only-metrics", getEnvBool("REDIS_EXPORTER_REDIS_ONLY_METRICS", false), "Whether to export only Redis metrics (omit Go process+runtime metrics)")
+		inclGoRuntimeMetrics           = flag.Bool("include-go-runtime-metrics", getEnvBool("REDIS_EXPORTER_INCLUDE_GO_RUNTIME_METRICS", false), "Whether to include Go runtime metrics")
 		pingOnConnect                  = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclConfigMetrics              = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
 		inclModulesMetrics             = flag.Bool("include-modules-metrics", getEnvBool("REDIS_EXPORTER_INCL_MODULES_METRICS", false), "Whether to collect Redis Modules metrics")
@@ -229,7 +234,7 @@ func main() {
 		log.Fatalf("Error loading script files: %s", err)
 	}
 
-	registry := createPrometheusRegistry(*redisMetricsOnly)
+	registry := createPrometheusRegistry(*redisMetricsOnly, *inclGoRuntimeMetrics)
 
 	exp, err := exporter.NewRedisExporter(
 		*redisAddr,
