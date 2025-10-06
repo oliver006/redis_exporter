@@ -40,7 +40,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM alpine:3.21 AS alpine
+FROM alpine:3.22 AS alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
