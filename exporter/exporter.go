@@ -68,6 +68,8 @@ type Options struct {
 	CaCertFile                     string
 	InclConfigMetrics              bool
 	InclModulesMetrics             bool
+	InclSearchIndexesMetrics       bool
+	CheckSearchIndexes             string
 	DisableExportingKeyValues      bool
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
@@ -480,6 +482,30 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"number_of_distinct_key_groups":                      {txt: `Number of distinct key groups`, lbls: []string{"db"}},
 		"script_result":                                      {txt: "Result of the collect script evaluation", lbls: []string{"filename"}},
 		"script_values":                                      {txt: "Values returned by the collect script", lbls: []string{"key", "filename"}},
+		"search_index_num_docs":                              {txt: "Number of documents in search index", lbls: []string{"index_name"}},
+		"search_index_max_doc_id":                            {txt: "Maximum document ID in search index", lbls: []string{"index_name"}},
+		"search_index_num_terms":                             {txt: "Number of distinct terms in search index", lbls: []string{"index_name"}},
+		"search_index_num_records":                           {txt: "Total number of records in search index", lbls: []string{"index_name"}},
+		"search_index_inverted_size_bytes":                   {txt: "Memory used by the inverted index", lbls: []string{"index_name"}},
+		"search_index_total_inverted_index_blocks":           {txt: "Total number of blocks in the inverted index", lbls: []string{"index_name"}},
+		"search_index_vector_index_size_bytes":               {txt: "Memory used by the vector index, stores vectors associated with each document", lbls: []string{"index_name"}},
+		"search_index_offset_vectors_size_bytes":             {txt: "Memory used by the offset vectors, store positional information for terms in documents", lbls: []string{"index_name"}},
+		"search_index_doc_table_size_bytes":                  {txt: "Memory used by the document table, contains metadata about each document in the index", lbls: []string{"index_name"}},
+		"search_index_sortable_values_size_bytes":            {txt: "Memory used by sortable values, used for sorting purposes", lbls: []string{"index_name"}},
+		"search_index_key_table_size_bytes":                  {txt: "Memory used by the key table, stores mapping between document IDs and keys", lbls: []string{"index_name"}},
+		"search_index_tag_overhead_size_bytes":               {txt: "Memory overhead of the TAG TrieMaps", lbls: []string{"index_name"}},
+		"search_index_text_overhead_size_bytes":              {txt: "Memory overhead of the TEXT Tries", lbls: []string{"index_name"}},
+		"search_index_total_index_memory_size_bytes":         {txt: "Total memory used by search index", lbls: []string{"index_name"}},
+		"search_index_geoshapes_size_bytes":                  {txt: "Memory used by GEO-related fields", lbls: []string{"index_name"}},
+		"search_index_records_per_doc_avg":                   {txt: "Average number of records (including deletions) per document", lbls: []string{"index_name"}},
+		"search_index_bytes_per_record_avg":                  {txt: "Average size of each record in bytes", lbls: []string{"index_name"}},
+		"search_index_offsets_per_term_avg":                  {txt: "Average number of offsets (position information) per term", lbls: []string{"index_name"}},
+		"search_index_offset_bits_per_record_avg":            {txt: "Average number of bits used for offsets per record", lbls: []string{"index_name"}},
+		"search_index_indexing":                              {txt: "Indicates whether the index is currently being generated", lbls: []string{"index_name"}},
+		"search_index_percent_indexed":                       {txt: "Percentage of the index that has been successfully generated (0-1)", lbls: []string{"index_name"}},
+		"search_index_hash_indexing_failures":                {txt: "Number of failures encountered during indexing", lbls: []string{"index_name"}},
+		"search_index_number_of_uses_total":                  {txt: "Number of times the index has been used", lbls: []string{"index_name"}},
+		"search_index_cleaning":                              {txt: "Index deletion flag. A value of 1 indicates index deletion is in progress", lbls: []string{"index_name"}},
 		"sentinel_master_ckquorum_status":                    {txt: "Master ckquorum status", lbls: []string{"master_name", "message"}},
 		"sentinel_master_ok_sentinels":                       {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_ok_slaves":                          {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},
@@ -826,6 +852,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	if e.options.InclModulesMetrics {
 		e.extractModulesMetrics(ch, c)
+	}
+
+	if e.options.InclSearchIndexesMetrics {
+		e.extractSearchIndexesMetrics(ch, c)
 	}
 
 	if len(e.options.LuaScript) > 0 {
