@@ -8,7 +8,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// All fields of the streamInfo struct must be exported
+// All fields of the searchIndexInfo struct must be exported
 // because of redis.ScanStruct (reflect) limitations
 type searchIndexInfo struct {
 	IndexName                string  `redis:"index_name"`
