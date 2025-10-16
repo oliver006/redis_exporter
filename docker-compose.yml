@@ -136,8 +136,3 @@ services:
     image: tile38/tile38:latest
     ports:
       - "19851:9851"
-
-  redis-stack:
-    image: redis/redis-stack-server:7.4.0-v0
-    ports:
-      - "36379:6379"

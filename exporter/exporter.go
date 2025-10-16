@@ -313,13 +313,14 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			// Redis Modules metrics, RediSearch module
 			"search_number_of_indexes":   "search_number_of_indexes",
 			"search_used_memory_indexes": "search_used_memory_indexes_bytes",
-			"search_global_idle":         "search_global_idle",
-			"search_global_total":        "search_global_total",
-			"search_bytes_collected":     "search_collected_bytes",
 			"search_dialect_1":           "search_dialect_1",
 			"search_dialect_2":           "search_dialect_2",
 			"search_dialect_3":           "search_dialect_3",
 			"search_dialect_4":           "search_dialect_4",
+			// Legacy redis-stack v7.4 metrics
+			"search_global_idle":     "search_global_idle",
+			"search_global_total":    "search_global_total",
+			"search_bytes_collected": "search_collected_bytes",
 			// RediSearch module v8.0
 			"search_number_of_active_indexes":                 "search_number_of_active_indexes",
 			"search_number_of_active_indexes_running_queries": "search_number_of_active_indexes_running_queries",
@@ -336,6 +337,22 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_gc_total_docs_not_collected":              "search_gc_total_docs_not_collected",
 			"search_gc_marked_deleted_vectors":                "search_gc_marked_deleted_vectors",
 			"search_errors_indexing_failures":                 "search_errors_indexing_failures",
+			// Valkey v8 metrics
+			"bf_bloom_total_memory_bytes":                "bf_bloom_total_memory_bytes",
+			"bf_bloom_num_objects":                       "bf_bloom_num_objects",
+			"bf_bloom_num_filters_across_objects":        "bf_bloom_num_filters_across_objects",
+			"bf_bloom_num_items_across_objects":          "bf_bloom_num_items_across_objects",
+			"bf_bloom_capacity_across_objects":           "bf_bloom_capacity_across_objects",
+			"json_total_memory_bytes":                    "json_total_memory_bytes",
+			"json_num_documents":                         "json_num_documents",
+			"search_used_memory_bytes":                   "search_used_memory_bytes",
+			"search_number_of_attributes":                "search_number_of_attributes",
+			"search_total_indexed_documents":             "search_total_indexed_documents",
+			"search_query_queue_size":                    "search_query_queue_size",
+			"search_writer_queue_size":                   "search_writer_queue_size",
+			"search_string_interning_store_size":         "search_string_interning_store_size",
+			"search_vector_externing_hash_extern_errors": "search_vector_externing_hash_extern_errors",
+			"search_vector_externing_num_lru_entries":    "search_vector_externing_num_lru_entries",
 		},
 
 		metricMapCounters: map[string]string{
@@ -390,8 +407,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 			// Redis Modules metrics, RediSearch module
 			"search_total_indexing_time": "search_indexing_time_ms_total",
-			"search_total_cycles":        "search_cycles_total",
-			"search_total_ms_run":        "search_run_ms_total",
+			// Legacy redis-stack v7.4 metrics
+			"search_total_cycles": "search_cycles_total",
+			"search_total_ms_run": "search_run_ms_total",
 			// RediSearch module v8.0
 			"search_gc_total_cycles":               "search_gc_cycles_total", // search_gc metrics were renamed
 			"search_gc_total_ms_run":               "search_gc_run_ms_total", // in PR: https://github.com/RediSearch/RediSearch/pull/5616
@@ -399,6 +417,30 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_total_query_commands":          "search_query_commands_total",
 			"search_total_query_execution_time_ms": "search_query_execution_time_ms_total",
 			"search_total_active_queries":          "search_active_queries_total",
+			// Valkey v8 metrics
+			"bf_bloom_defrag_hits":                        "bf_bloom_defrag_hits_total",
+			"bf_bloom_defrag_misses":                      "bf_bloom_defrag_misses_total",
+			"search_worker_pool_suspend_cnt":              "search_worker_pool_suspend_count",
+			"search_writer_resumed_cnt":                   "search_writer_resumed_count",
+			"search_reader_resumed_cnt":                   "search_reader_resumed_count",
+			"search_writer_suspension_expired_cnt":        "search_writer_suspension_expired_count",
+			"search_rdb_load_success_cnt":                 "search_rdb_load_success_count",
+			"search_rdb_load_failure_cnt":                 "search_rdb_load_failure_count",
+			"search_rdb_save_success_cnt":                 "search_rdb_save_success_count",
+			"search_rdb_save_failure_cnt":                 "search_rdb_save_failure_count",
+			"search_successful_requests_count":            "search_successful_requests_count",
+			"search_failure_requests_count":               "search_failure_requests_count",
+			"search_hybrid_requests_count":                "search_hybrid_requests_count",
+			"search_inline_filtering_requests_count":      "search_inline_filtering_requests_count",
+			"search_hnsw_add_exceptions_count":            "search_hnsw_add_exceptions_count",
+			"search_hnsw_remove_exceptions_count":         "search_hnsw_remove_exceptions_count",
+			"search_hnsw_modify_exceptions_count":         "search_hnsw_modify_exceptions_count",
+			"search_hnsw_search_exceptions_count":         "search_hnsw_search_exceptions_count",
+			"search_hnsw_create_exceptions_count":         "search_hnsw_create_exceptions_count",
+			"search_vector_externing_entry_count":         "search_vector_externing_entry_count",
+			"search_vector_externing_generated_value_cnt": "search_vector_externing_generated_value_count",
+			"search_vector_externing_lru_promote_cnt":     "search_vector_externing_lru_promote_count",
+			"search_vector_externing_deferred_entry_cnt":  "search_vector_externing_deferred_entry_count",
 		},
 	}
 
