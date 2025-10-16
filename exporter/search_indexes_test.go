@@ -18,8 +18,8 @@ func setupSearchIndex(t *testing.T, addr string) error {
 	}
 	defer c.Close()
 
-	// create search index, based on https://redis.io/docs/latest/develop/get-started/document-database/
-	if _, err := doRedisCmd(c, "FT.CREATE", "idx:bicycle", "ON", "JSON", "PREFIX", "1", "bicycle:", "SCORE", "1.0", "SCHEMA", "$.brand", "AS", "brand", "TEXT", "WEIGHT", "1.0", "$.model", "AS", "model", "TEXT", "WEIGHT", "1.0", "$.description", "AS", "description", "TEXT", "WEIGHT", "1.0", "$.price", "AS", "price", "NUMERIC", "$.condition", "AS", "condition", "TAG", "SEPARATOR", ","); err != nil {
+	// create search index, based on https://redis.io/docs/latest/commands/ft.create and https://valkey.io/commands/ft.create
+	if _, err := doRedisCmd(c, "FT.CREATE", "test_index", "SCHEMA", "my_hash_field_key", "VECTOR", "HNSW", "10", "TYPE", "FLOAT32", "DIM", "20", "DISTANCE_METRIC", "COSINE", "M", "4", "EF_CONSTRUCTION", "100"); err != nil {
 		log.Printf("setupSearchIndex() - couldn't create search index, err: %s ", err)
 		return err
 	}
@@ -27,11 +27,16 @@ func setupSearchIndex(t *testing.T, addr string) error {
 }
 
 func TestExtractSearchIndexesMetrics(t *testing.T) {
-	if os.Getenv("TEST_REDIS8_URI") == "" {
-		t.Skipf("TEST_REDIS8_URI not set - skipping")
+	test_redis8_uri := os.Getenv("TEST_REDIS8_URI")
+	test_valkey8_bundle_uri := os.Getenv("TEST_VALKEY8_BUNDLE_URI")
+	if test_redis8_uri == "" || test_valkey8_bundle_uri == "" {
+		t.Skipf("TEST_REDIS8_URI or TEST_VALKEY8_BUNDLE_URI aren't set - skipping")
 	}
-	if err := setupSearchIndex(t, os.Getenv("TEST_REDIS8_URI")); err != nil {
-		t.Fatalf("couldn't create search index, err: %s ", err)
+	if err := setupSearchIndex(t, test_redis8_uri); err != nil {
+		t.Fatalf("couldn't create search index in TEST_REDIS8_URI (%s), err: %s ", test_redis8_uri, err)
+	}
+	if err := setupSearchIndex(t, test_valkey8_bundle_uri); err != nil {
+		t.Fatalf("couldn't create search index in TEST_VALKEY8_BUNDLE_URI (%s), err: %s ", test_valkey8_bundle_uri, err)
 	}
 
 	tsts := []struct {
@@ -39,8 +44,10 @@ func TestExtractSearchIndexesMetrics(t *testing.T) {
 		inclSearchIndexesMetrics bool
 		wantSearchIndexesMetrics bool
 	}{
-		{addr: os.Getenv("TEST_REDIS8_URI"), inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
-		{addr: os.Getenv("TEST_REDIS8_URI"), inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
+		{addr: test_redis8_uri, inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
+		{addr: test_redis8_uri, inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
+		{addr: test_valkey8_bundle_uri, inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
+		{addr: test_valkey8_bundle_uri, inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
 	}
 
 	for _, tst := range tsts {
