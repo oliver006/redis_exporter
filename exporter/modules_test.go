@@ -74,8 +74,8 @@ func TestModulesv74(t *testing.T) {
 }
 
 func TestModulesv80(t *testing.T) {
-	if os.Getenv("TEST_REDIS8_URI") == "" {
-		t.Skipf("TEST_REDIS8_URI not set - skipping")
+	if os.Getenv("TEST_REDIS8_URI") == "" || os.Getenv("TEST_REDIS_URI") == "" {
+		t.Skipf("TEST_REDIS8_URI or TEST_REDIS_URI aren't set - skipping")
 	}
 
 	tsts := []struct {

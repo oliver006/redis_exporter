@@ -37,6 +37,7 @@ test:
 	TEST_REDIS_URI="redis://localhost:6379" \
 	TEST_VALKEY7_URI="valkey://localhost:16384" \
 	TEST_VALKEY8_URI="valkey://localhost:16382" \
+	TEST_VALKEY8_BUNDLE_URI="valkey://localhost:16389" \
 	TEST_VALKEY8_TLS_URI="valkeys://localhost:16386" \
 	TEST_REDIS7_TLS_URI="rediss://localhost:16387" \
 	TEST_REDIS8_URI="redis://localhost:16388" \
