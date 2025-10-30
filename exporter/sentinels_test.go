@@ -356,3 +356,51 @@ func TestSentinelScrapeRedisHostSentinelPath(t *testing.T) {
 		t.Error("Expected to find sentinel metrics when scraping sentinel host via scrapeRedisHost()")
 	}
 }
+
+func TestSentinelScrapeAllConfig(t *testing.T) {
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
+	e, _ := NewRedisExporter(
+		addr,
+		Options{Namespace: "test",
+			InclConfigMetrics:   true,
+			RedactConfigMetrics: false,
+		},
+	)
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	defer c.Close()
+
+	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
+	if err != nil {
+		t.Logf("Redis INFO ALL err: %s", err)
+		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
+		if err != nil {
+			t.Fatalf("Redis INFO err: %s", err)
+		}
+	}
+
+	chM := make(chan prometheus.Metric, 1000)
+	if strings.Contains(infoAll, "# Sentinel") {
+		go func() {
+			e.extractSentinelConfig(chM, c)
+			close(chM)
+		}()
+	} else {
+		t.Fatalf("Couldn't find sentinel section in Redis INFO: %s", infoAll)
+	}
+	allFound := true
+	for m := range chM {
+		if !strings.Contains(m.Desc().String(), "sentinel_config") {
+			allFound = false
+			break
+		}
+	}
+	if !allFound {
+		t.Error("Expected to find sentinel config metrics when scraping sentinel config via extractSentinelConfig()")
+	}
+}
