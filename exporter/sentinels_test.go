@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -362,45 +363,28 @@ func TestSentinelScrapeAllConfig(t *testing.T) {
 		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
 	}
 	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
-	e, _ := NewRedisExporter(
-		addr,
-		Options{Namespace: "test",
-			InclConfigMetrics:   true,
-			RedactConfigMetrics: false,
-		},
-	)
-	c, err := redis.DialURL(addr)
-	if err != nil {
-		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
-	}
-	defer c.Close()
+	for _, inc := range []bool{false, true} {
+		e, _ := NewRedisExporter(
+			addr,
+			Options{Namespace: "test",
+				InclConfigMetrics: inc,
+			},
+		)
 
-	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
-	if err != nil {
-		t.Logf("Redis INFO ALL err: %s", err)
-		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
-		if err != nil {
-			t.Fatalf("Redis INFO err: %s", err)
-		}
-	}
+		ts := httptest.NewServer(e)
+		defer ts.Close()
 
-	chM := make(chan prometheus.Metric, 1000)
-	if strings.Contains(infoAll, "# Sentinel") {
-		go func() {
-			e.extractSentinelConfig(chM, c)
-			close(chM)
-		}()
-	} else {
-		t.Fatalf("Couldn't find sentinel section in Redis INFO: %s", infoAll)
-	}
-	allFound := true
-	for m := range chM {
-		if !strings.Contains(m.Desc().String(), "sentinel_config") {
-			allFound = false
-			break
+		body := downloadURL(t, ts.URL+"/metrics")
+		for _, want := range []string{
+			"sentinel_config_key_value",
+			"sentinel_config_value",
+		} {
+			if inc && !strings.Contains(body, want) {
+				t.Fatalf("didn't find metrics with sentinel_config, want: %s, body: %s", want, body)
+				return
+			} else if !inc && strings.Contains(body, want) {
+				t.Errorf("did NOT want metrics to include sentinel_config, have:\n%s", body)
+			}
 		}
-	}
-	if !allFound {
-		t.Error("Expected to find sentinel config metrics when scraping sentinel config via extractSentinelConfig()")
 	}
 }
