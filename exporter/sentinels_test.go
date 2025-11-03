@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -354,5 +355,36 @@ func TestSentinelScrapeRedisHostSentinelPath(t *testing.T) {
 
 	if !found {
 		t.Error("Expected to find sentinel metrics when scraping sentinel host via scrapeRedisHost()")
+	}
+}
+
+func TestSentinelScrapeAllConfig(t *testing.T) {
+	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
+		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
+	for _, inc := range []bool{false, true} {
+		e, _ := NewRedisExporter(
+			addr,
+			Options{Namespace: "test",
+				InclConfigMetrics: inc,
+			},
+		)
+
+		ts := httptest.NewServer(e)
+		defer ts.Close()
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		for _, want := range []string{
+			"sentinel_config_key_value",
+			"sentinel_config_value",
+		} {
+			if inc && !strings.Contains(body, want) {
+				t.Fatalf("didn't find metrics with sentinel_config, want: %s, body: %s", want, body)
+				return
+			} else if !inc && strings.Contains(body, want) {
+				t.Errorf("did NOT want metrics to include sentinel_config, have:\n%s", body)
+			}
+		}
 	}
 }

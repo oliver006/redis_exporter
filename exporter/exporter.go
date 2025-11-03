@@ -563,6 +563,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"sentinel_scripts_queue_length":                      {txt: "Queue of user scripts to execute"},
 		"sentinel_simulate_failure_flags":                    {txt: "Failures simulations"},
 		"sentinel_tilt":                                      {txt: "Sentinel is in TILT mode"},
+		"sentinel_config_key_value":                          {txt: `Sentinel global config key and value`, lbls: []string{"key", "value"}},
+		"sentinel_config_value":                              {txt: `Sentinel global config key and value as metric`, lbls: []string{"key"}},
 		"slave_info":                                         {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
 		"slave_repl_offset":                                  {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
@@ -882,6 +884,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	if strings.Contains(infoAll, "# Sentinel") {
 		e.extractSentinelMetrics(ch, c)
+
+		e.extractSentinelConfig(ch, c)
 	}
 
 	if e.options.ExportClientList {
