@@ -497,3 +497,79 @@ func TestMainFunctionsIntegration(t *testing.T) {
 		t.Error("Registry creation failed")
 	}
 }
+
+func TestValidateHashPassword(t *testing.T) {
+	tests := []struct {
+		name         string
+		hashPassword string
+		expectError  bool
+	}{
+		{
+			name:         "Valid bcrypt hash",
+			hashPassword: "$2a$10$7EqJtq98hPqEX7fNZaFWoO",
+			expectError:  false,
+		},
+		{
+			name:         "Invalid bcrypt hash",
+			hashPassword: "invalid-hash",
+			expectError:  true,
+		},
+		{
+			name:         "Empty hash",
+			hashPassword: "",
+			expectError:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateHashPassword(tt.hashPassword)
+			if (err != nil) != tt.expectError {
+				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+func TestValidateAuthParams(t *testing.T) {
+	tests := []struct {
+		name                  string
+		basicAuthPassword     string
+		basicAuthHashPassword string
+		expectError           bool
+	}{
+		{
+			name:                  "Both passwords set",
+			basicAuthPassword:     "password",
+			basicAuthHashPassword: "$2a$10$7EqJtq98hPqEX7fNZaFWoO",
+			expectError:           true,
+		},
+		{
+			name:                  "Only basicAuthPassword set",
+			basicAuthPassword:     "password",
+			basicAuthHashPassword: "",
+			expectError:           false,
+		},
+		{
+			name:                  "Only basicAuthHashPassword set",
+			basicAuthPassword:     "",
+			basicAuthHashPassword: "$2a$10$7EqJtq98hPqEX7fNZaFWoO",
+			expectError:           false,
+		},
+		{
+			name:                  "Neither password set",
+			basicAuthPassword:     "",
+			basicAuthHashPassword: "",
+			expectError:           false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validateAuthParams(tt.basicAuthPassword, tt.basicAuthHashPassword)
+			if (err != nil) != tt.expectError {
+				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}

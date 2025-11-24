@@ -714,3 +714,111 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 
 	return resp.StatusCode, string(body)
 }
+
+func TestVerifyBasicUser(t *testing.T) {
+	tests := []struct {
+		name         string
+		inputUser    string
+		expectedUser string
+		expectError  bool
+	}{
+		{
+			name:         "Correct user",
+			inputUser:    "admin",
+			expectedUser: "admin",
+			expectError:  false,
+		},
+		{
+			name:         "Incorrect user",
+			inputUser:    "user",
+			expectedUser: "admin",
+			expectError:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Exporter{
+				options: Options{
+					BasicAuthUsername: tt.expectedUser,
+				},
+			}
+			err := e.verifyBasicUser(tt.inputUser)
+			if (err != nil) != tt.expectError {
+				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+func TestValidateBasicAuthHashPassword(t *testing.T) {
+	tests := []struct {
+		name          string
+		storedHash    string
+		inputPassword string
+		expectError   bool
+	}{
+		{
+			name:          "Valid bcrypt hash",
+			storedHash:    "$2b$12$ODSJd0tmxY7H/adgD7R5SO43d8nmhUsa8OM6Weo7VFs3MbrsEY7tu",
+			inputPassword: "password",
+			expectError:   false,
+		},
+		{
+			name:          "Invalid bcrypt hash",
+			storedHash:    "$2b$12$ODSJd0tmxY7H/adgD7R5SO43d8nmhUsa8OM6Weo7VFs3MbrsEY7tu",
+			inputPassword: "wrongpassword",
+			expectError:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Exporter{
+				options: Options{
+					BasicAuthHashPassword: tt.storedHash,
+				},
+			}
+			err := e.validateBasicAuthHashPassword(tt.inputPassword)
+			if (err != nil) != tt.expectError {
+				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
+
+func TestValidateBasicAuthPassword(t *testing.T) {
+	tests := []struct {
+		name           string
+		storedPassword string
+		inputPassword  string
+		expectError    bool
+	}{
+		{
+			name:           "Correct password",
+			storedPassword: "password",
+			inputPassword:  "password",
+			expectError:    false,
+		},
+		{
+			name:           "Incorrect password",
+			storedPassword: "password",
+			inputPassword:  "wrongpassword",
+			expectError:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Exporter{
+				options: Options{
+					BasicAuthPassword: tt.storedPassword,
+				},
+			}
+			err := e.validateBasicAuthPassword(tt.inputPassword)
+			if (err != nil) != tt.expectError {
+				t.Errorf("Expected error: %v, got: %v", tt.expectError, err)
+			}
+		})
+	}
+}
