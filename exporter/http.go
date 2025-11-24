@@ -12,6 +12,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func (e *Exporter) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -170,11 +171,10 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (e *Exporter) isBasicAuthConfigured() bool {
-	return e.options.BasicAuthUsername != "" && e.options.BasicAuthPassword != ""
+	return e.options.BasicAuthUsername != "" && (e.options.BasicAuthPassword != "" || e.options.BasicAuthHashPassword != "")
 }
 
 func (e *Exporter) verifyBasicAuth(user, password string, authHeaderSet bool) error {
-
 	if !e.isBasicAuthConfigured() {
 		return nil
 	}
@@ -183,12 +183,24 @@ func (e *Exporter) verifyBasicAuth(user, password string, authHeaderSet bool) er
 		return errors.New("Unauthorized")
 	}
 
-	userCorrect := subtle.ConstantTimeCompare([]byte(user), []byte(e.options.BasicAuthUsername))
-	passCorrect := subtle.ConstantTimeCompare([]byte(password), []byte(e.options.BasicAuthPassword))
-
-	if userCorrect == 0 || passCorrect == 0 {
+	var (
+		userCorrect bool
+		passCorrect bool
+	)
+	userCorrect = subtle.ConstantTimeCompare([]byte(user), []byte(e.options.BasicAuthUsername)) > 0
+	if e.options.BasicAuthHashPassword != "" {
+		passCorrect = e.validateBasicAuthHashPassword(password)
+	} else {
+		passCorrect = subtle.ConstantTimeCompare([]byte(password), []byte(e.options.BasicAuthPassword)) > 0
+	}
+	if !userCorrect || !passCorrect {
 		return errors.New("Unauthorized")
 	}
 
 	return nil
+}
+
+func (e *Exporter) validateBasicAuthHashPassword(hashedPassword string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(e.options.BasicAuthHashPassword), []byte(hashedPassword))
+	return err == nil
 }

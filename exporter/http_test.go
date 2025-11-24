@@ -714,3 +714,39 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 
 	return resp.StatusCode, string(body)
 }
+
+func TestValidateBasicAuthHashPassword(t *testing.T) {
+	tests := []struct {
+		name          string
+		storedHash    string
+		inputPassword string
+		expectStatus  bool
+	}{
+		{
+			name:          "Valid bcrypt hash",
+			storedHash:    "$2b$12$ODSJd0tmxY7H/adgD7R5SO43d8nmhUsa8OM6Weo7VFs3MbrsEY7tu",
+			inputPassword: "password",
+			expectStatus:  true,
+		},
+		{
+			name:          "Invalid bcrypt hash",
+			storedHash:    "$2b$12$ODSJd0tmxY7H/adgD7R5SO43d8nmhUsa8OM6Weo7VFs3MbrsEY7tu",
+			inputPassword: "wrongpassword",
+			expectStatus:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Exporter{
+				options: Options{
+					BasicAuthHashPassword: tt.storedHash,
+				},
+			}
+			st := e.validateBasicAuthHashPassword(tt.inputPassword)
+			if st != tt.expectStatus {
+				t.Errorf("Expected error: %v, got: %v", tt.expectStatus, st)
+			}
+		})
+	}
+}
