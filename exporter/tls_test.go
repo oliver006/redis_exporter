@@ -35,7 +35,7 @@ func TestCreateClientTLSConfig(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			e := getTestExporterWithOptions(test.options)
 
-			_, err := e.CreateClientTLSConfig()
+			_, err := e.CreateClientTLSConfig("")
 			if test.expectSuccess && err != nil {
 				t.Errorf("Expected success for test: %s, got err: %s", test.name, err)
 				return

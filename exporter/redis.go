@@ -11,8 +11,12 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
-	tlsConfig, err := e.CreateClientTLSConfig()
+func (e *Exporter) configureOptions(uri string, useTLS bool) ([]redis.DialOption, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse redis uri: %w", err)
+	}
+	tlsConfig, err := e.CreateClientTLSConfig(u.Hostname())
 	if err != nil {
 		return nil, err
 	}
@@ -22,7 +26,7 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
 		redis.DialTLSConfig(tlsConfig),
-		redis.DialUseTLS(strings.HasPrefix(e.redisAddr, "rediss://")),
+		redis.DialUseTLS(useTLS),
 	}
 
 	if e.options.User != "" {
@@ -58,6 +62,14 @@ func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
 	if pwd, ok := e.options.PasswordMap[uri]; ok && pwd != "" {
 		return pwd, true
 	}
+
+	e.DiscoveredNodesPasswordsMutex.Lock()
+	defer e.DiscoveredNodesPasswordsMutex.Unlock()
+	if pwd, ok := e.DiscoveredNodesPasswords[uri]; ok && pwd != "" {
+		log.Debugf("found password for discovered node %s", uri)
+		return pwd, true
+	}
+
 	return "", false
 }
 
@@ -67,7 +79,7 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		uri = "redis://" + uri
 	}
 
-	options, err := e.configureOptions(uri)
+	options, err := e.configureOptions(uri, strings.HasPrefix(uri, "rediss://") || strings.HasPrefix(uri, "valkeys://"))
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +105,7 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 		uri = "redis://" + uri
 	}
 
-	options, err := e.configureOptions(uri)
+	options, err := e.configureOptions(uri, strings.HasPrefix(uri, "rediss://") || strings.HasPrefix(uri, "valkeys://"))
 	if err != nil {
 		return nil, err
 	}
@@ -115,6 +127,58 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	log.Debugf("Creating cluster object")
 	cluster := redisc.Cluster{
 		StartupNodes: []string{uri},
+		DialOptions:  options,
+	}
+	log.Debugf("Running refresh on cluster object")
+	if err := cluster.Refresh(); err != nil {
+		log.Errorf("Cluster refresh failed: %v", err)
+		return nil, fmt.Errorf("cluster refresh failed: %w", err)
+	}
+
+	log.Debugf("Creating redis connection object")
+	conn, err := cluster.Dial()
+	if err != nil {
+		log.Errorf("Dial failed: %v", err)
+		return nil, fmt.Errorf("dial failed: %w", err)
+	}
+
+	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
+	if err != nil {
+		log.Errorf("RetryConn failed: %v", err)
+		return nil, fmt.Errorf("retryConn failed: %w", err)
+	}
+
+	return c, err
+}
+
+func (e *Exporter) connectToRedisClusterWithURI(uri string) (redis.Conn, error) {
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+
+	options, err := e.configureOptions(uri, strings.HasPrefix(uri, "rediss://") || strings.HasPrefix(uri, "valkeys://"))
+	if err != nil {
+		return nil, err
+	}
+
+	// remove url scheme for redis.Cluster.StartupNodes
+	startupNode := uri
+	if strings.Contains(startupNode, "://") {
+		u, _ := url.Parse(startupNode)
+		if u.Port() == "" {
+			startupNode = u.Host + ":6379"
+		} else {
+			startupNode = u.Host
+		}
+	} else {
+		if frags := strings.Split(startupNode, ":"); len(frags) != 2 {
+			startupNode = startupNode + ":6379"
+		}
+	}
+
+	log.Debugf("Creating cluster object")
+	cluster := redisc.Cluster{
+		StartupNodes: []string{startupNode},
 		DialOptions:  options,
 	}
 	log.Debugf("Running refresh on cluster object")
