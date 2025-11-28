@@ -138,14 +138,14 @@ Prometheus uses file watches and all changes to the json file are applied immedi
 ### Prometheus Configuration to Scrape All Nodes in a Redis Cluster
 
 When using a Redis Cluster, the exporter provides a discovery endpoint that can be used to discover all nodes in the cluster.
-To use this feature, the exporter must be started with the `--is-cluster` flag.\
+To use this feature, pass the cluster configuration endpoint as the target parameter. Nodes discovered will subsequently be scraped for metrics using the same scheme and authentication credentials used for the discovery.
 The discovery endpoint is available at `/discover-cluster-nodes` and can be used in the Prometheus configuration like this:
 
 ```yaml
 scrape_configs:
   - job_name: 'redis_exporter_cluster_nodes'
     http_sd_configs:
-      - url: http://<<REDIS-EXPORTER-HOSTNAME>>:9121/discover-cluster-nodes
+      - url: http://<<REDIS-EXPORTER-HOSTNAME>>:9121/discover-cluster-nodes?target=redis://clustercfg:6379
         refresh_interval: 10m
     metrics_path: /scrape
     relabel_configs:
@@ -262,7 +262,7 @@ Docker images are also published to the [Github Container Registry (ghcr.io)](ht
 ```sh
 docker run -d --name redis_exporter -p 9121:9121 quay.io/oliver006/redis_exporter
 
-# or 
+# or
 
 docker run -d --name redis_exporter -p 9121:9121 ghcr.io/oliver006/redis_exporter
 ```
