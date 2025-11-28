@@ -115,7 +115,25 @@ services:
       - VALKEY_PASSWORD=redis-password
     ports:
       - "17006:7006"
+      - "7006-7011:7006-7011"
 
+  valkey-cluster-password-tls:
+    image: oliver006/valkey-cluster:8.1.3
+    volumes:
+      - ./contrib/tls:/tls
+    command: |
+      valkey-cluster --enable-debug-command yes --protected-mode no
+      --tls-port 6379 --port 0
+      --tls-cert-file     /tls/redis.crt
+      --tls-key-file      /tls/redis.key
+      --tls-ca-cert-file  /tls/ca.crt
+    environment:
+      - IP=0.0.0.0
+      - INITIAL_PORT=7012
+      - VALKEY_PASSWORD=redis-password
+    ports:
+      - "17012:7012"
+      - "7012-7017:7012-7017"
 
   valkey-sentinel:
     image: valkey/valkey:9

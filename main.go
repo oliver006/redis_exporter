@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"net/http"
+	"net/url"
 	"os"
 	"os/signal"
 	"runtime"
@@ -298,7 +299,11 @@ func main() {
 	if err := validateTLSClientConfig(*tlsClientCertFile, *tlsClientKeyFile); err != nil {
 		log.Fatal(err)
 	}
-	_, err = exp.CreateClientTLSConfig()
+	u, err := url.Parse(*redisAddr)
+	if err != nil {
+		log.Fatalf("Couldn't parse redis addr, err: %s", err)
+	}
+	_, err = exp.CreateClientTLSConfig(u.Hostname())
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -713,4 +714,399 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 	}
 
 	return resp.StatusCode, string(body)
+}
+
+func TestDiscoverClusterNodesHandlerWithTarget(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	valkeyClusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_URI")
+	valkeyClusterPassword := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD")
+	if clusterAddr == "" || valkeyClusterAddr == "" || valkeyClusterPassword == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or TEST_VALKEY_CLUSTER_PASSWORD_URI or TEST_VALKEY_CLUSTER_PASSWORD not set - skipping")
+	}
+
+	testCases := []struct {
+		name       string
+		addr       string
+		wantScheme string
+		auth       string
+		wants      []string
+	}{
+		{
+			name:       "redis_cluster",
+			addr:       clusterAddr,
+			auth:       "",
+			wantScheme: "redis",
+			wants: []string{
+				"127.0.0.1:7000",
+				"127.0.0.1:7001",
+				"127.0.0.1:7002",
+			},
+		},
+		{
+			name:       "valkey_cluster",
+			addr:       valkeyClusterAddr,
+			auth:       valkeyClusterPassword,
+			wantScheme: "redis", // TODO: change to "valkey" when valkey starts using valkey:// scheme internally
+			wants: []string{
+				"127.0.0.1:7006",
+				"127.0.0.1:7007",
+				"127.0.0.1:7008",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			passwordMap := map[string]string{
+				tc.addr: tc.auth,
+			}
+
+			e, _ := NewRedisExporter("", Options{
+				Namespace:   "test",
+				PasswordMap: passwordMap,
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+			q := u.Query()
+			q.Set("target", tc.addr)
+			u.RawQuery = q.Encode()
+
+			statusCode, body := downloadURLWithStatusCode(t, u.String())
+			if statusCode != http.StatusOK {
+				t.Fatalf("expected status code 200, got %d, body:\n\n%s", statusCode, body)
+			}
+
+			var discovery []struct {
+				Targets []string          `json:"targets"`
+				Labels  map[string]string `json:"labels"`
+			}
+
+			err := json.Unmarshal([]byte(body), &discovery)
+			if err != nil {
+				t.Fatalf("failed to unmarshal json: %s, body:\n\n%s", err, body)
+			}
+			t.Logf("Discovered nodes: %v", discovery[0].Targets)
+
+			if len(discovery) != 1 {
+				t.Fatalf("expected 1 discovery target, got %d", len(discovery))
+			}
+
+			// The cluster has 3 masters and 3 slaves, so 6 nodes in total.
+			if len(discovery[0].Targets) < 3 {
+				t.Fatalf("expected at least 3 targets, got %d", len(discovery[0].Targets))
+			}
+
+			// check if we have the masters
+			for _, want := range tc.wants {
+				found := false
+				for _, target := range discovery[0].Targets {
+					if !strings.HasPrefix(target, tc.wantScheme+"://") {
+						t.Errorf("expected scheme %s, got %s", tc.wantScheme, target)
+					}
+					if strings.Contains(target, want) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("want target %q, but not found in %v", want, discovery[0].Targets)
+				}
+			}
+		})
+	}
+}
+
+func TestDiscoverClusterNodesHandlerTLS(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI")
+	clusterPassword := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD")
+	if clusterAddr == "" || clusterPassword == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD or TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI not set - skipping")
+	}
+
+	testCases := []struct {
+		name           string
+		addr           string
+		auth           string
+		wantScheme     string
+		wantStatusCode int
+		wants          []string
+	}{
+		{
+			name:           "rediss",
+			addr:           clusterAddr,
+			auth:           clusterPassword,
+			wantScheme:     "rediss",
+			wantStatusCode: http.StatusOK,
+			wants: []string{
+				"127.0.0.1:7012",
+				"127.0.0.1:7013",
+				"127.0.0.1:7014",
+			},
+		},
+		{
+			name:           "valkeys",
+			addr:           strings.Replace(clusterAddr, "rediss://", "valkeys://", 1),
+			auth:           clusterPassword,
+			wantScheme:     "valkeys",
+			wantStatusCode: http.StatusOK,
+			wants: []string{
+				"127.0.0.1:7012",
+				"127.0.0.1:7013",
+				"127.0.0.1:7014",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetURI := tc.addr
+
+			passwordMap := map[string]string{
+				tc.addr: tc.auth,
+			}
+
+			e, _ := NewRedisExporter("", Options{
+				Namespace:           "test",
+				PasswordMap:         passwordMap,
+				SkipTLSVerification: true,
+				ClientCertFile:      "../contrib/tls/redis.crt",
+				ClientKeyFile:       "../contrib/tls/redis.key",
+				CaCertFile:          "../contrib/tls/ca.crt",
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+			q := u.Query()
+			q.Set("target", targetURI)
+			u.RawQuery = q.Encode()
+
+			statusCode, body := downloadURLWithStatusCode(t, u.String())
+			if statusCode != tc.wantStatusCode {
+				t.Fatalf("expected status code %d, got %d, body:\n\n%s", tc.wantStatusCode, statusCode, body)
+			}
+
+			if tc.wantStatusCode == http.StatusOK {
+				var discovery []struct {
+					Targets []string          `json:"targets"`
+					Labels  map[string]string `json:"labels"`
+				}
+
+				err := json.Unmarshal([]byte(body), &discovery)
+				if err != nil {
+					t.Fatalf("failed to unmarshal json: %s, body:\n\n%s", err, body)
+				}
+				t.Logf("Discovered nodes: %v", discovery[0].Targets)
+
+				if len(discovery) != 1 {
+					t.Fatalf("expected 1 discovery target, got %d", len(discovery))
+				}
+
+				// The cluster has 3 masters and 3 slaves, so 6 nodes in total.
+				if len(discovery[0].Targets) < 3 {
+					t.Fatalf("expected at least 3 targets, got %d", len(discovery[0].Targets))
+				}
+
+				// check if we have the masters
+				for _, want := range tc.wants {
+					found := false
+					for _, target := range discovery[0].Targets {
+						if !strings.HasPrefix(target, tc.wantScheme+"://") {
+							t.Errorf("expected scheme %s, got %s", tc.wantScheme, target)
+						}
+						if strings.Contains(target, want) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("want target %q, but not found in %v", want, discovery[0].Targets)
+					}
+				}
+			} else {
+				if !strings.Contains(body, "This instance has cluster support disabled") && !strings.Contains(body, "EOF") {
+					t.Errorf("expected error message, got: %s", body)
+				}
+			}
+		})
+	}
+}
+
+func TestDiscoverClusterNodesHandlerAuthFail(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_URI")
+	if clusterAddr == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD_URI not set - skipping")
+	}
+
+	e, _ := NewRedisExporter("", Options{Namespace: "test"})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+	q := u.Query()
+	q.Set("target", clusterAddr)
+	u.RawQuery = q.Encode()
+
+	statusCode, body := downloadURLWithStatusCode(t, u.String())
+	if statusCode != http.StatusInternalServerError {
+		t.Fatalf("expected status code 500, got %d", statusCode)
+	}
+
+	if !strings.Contains(body, "NOAUTH Authentication required") {
+		t.Errorf("expected error message, got: %s", body)
+	}
+}
+
+func TestScrapeDiscoveredNodeWithCachedPassword(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_URI")
+	clusterPass := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD")
+	if clusterAddr == "" || clusterPass == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD_URI or TEST_VALKEY_CLUSTER_PASSWORD not set - skipping")
+	}
+
+	passwordMap := map[string]string{
+		clusterAddr: clusterPass,
+	}
+
+	e, _ := NewRedisExporter("", Options{
+		Namespace:   "test",
+		PasswordMap: passwordMap,
+	})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	// 1. Discover cluster nodes
+	discoverURL, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+	q := discoverURL.Query()
+	q.Set("target", clusterAddr)
+	discoverURL.RawQuery = q.Encode()
+
+	discoverStatusCode, discoverBody := downloadURLWithStatusCode(t, discoverURL.String())
+	if discoverStatusCode != http.StatusOK {
+		t.Fatalf("discover endpoint expected status code 200, got %d, body:\n\n%s", discoverStatusCode, discoverBody)
+	}
+
+	var discovery []struct {
+		Targets []string          `json:"targets"`
+		Labels  map[string]string `json:"labels"`
+	}
+
+	err := json.Unmarshal([]byte(discoverBody), &discovery)
+	if err != nil {
+		t.Fatalf("failed to unmarshal discovery json: %s, body:\n\n%s", err, discoverBody)
+	}
+
+	if len(discovery) == 0 || len(discovery[0].Targets) == 0 {
+		t.Fatalf("no targets discovered")
+	}
+
+	// 2. Scrape a discovered node
+	discoveredNodeURI := discovery[0].Targets[0]
+	scrapeURL, _ := url.Parse(ts.URL + "/scrape")
+	q = scrapeURL.Query()
+	q.Set("target", discoveredNodeURI)
+	scrapeURL.RawQuery = q.Encode()
+
+	scrapeStatusCode, scrapeBody := downloadURLWithStatusCode(t, scrapeURL.String())
+	if scrapeStatusCode != http.StatusOK {
+		t.Fatalf("scrape endpoint expected status code 200, got %d, body:\n\n%s", scrapeStatusCode, scrapeBody)
+	}
+
+	// Assert some metric is present to confirm successful scrape
+	if !strings.Contains(scrapeBody, "test_up 1") {
+		t.Errorf("expected 'test_up 1' in scrape body, got: %s", scrapeBody)
+	}
+}
+
+func TestScrapeDiscoveredClusterNodesTLS(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI")
+	clusterPassword := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD")
+	if clusterAddr == "" || clusterPassword == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD or TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI not set - skipping")
+	}
+
+	testCases := []struct {
+		name       string
+		addr       string
+		auth       string
+		wantScheme string
+	}{
+		{
+			name:       "rediss",
+			addr:       clusterAddr,
+			auth:       clusterPassword,
+			wantScheme: "rediss",
+		},
+		{
+			name:       "valkeys",
+			addr:       strings.Replace(clusterAddr, "rediss://", "valkeys://", 1),
+			auth:       clusterPassword,
+			wantScheme: "valkeys",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			passwordMap := map[string]string{
+				tc.addr: tc.auth,
+			}
+
+			e, _ := NewRedisExporter("", Options{
+				Namespace:           "test",
+				PasswordMap:         passwordMap,
+				SkipTLSVerification: true,
+				ClientCertFile:      "../contrib/tls/redis.crt",
+				ClientKeyFile:       "../contrib/tls/redis.key",
+				CaCertFile:          "../contrib/tls/ca.crt",
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			discoverURL, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+			q := discoverURL.Query()
+			q.Set("target", tc.addr)
+			discoverURL.RawQuery = q.Encode()
+
+			discoverStatusCode, discoverBody := downloadURLWithStatusCode(t, discoverURL.String())
+			if discoverStatusCode != http.StatusOK {
+				t.Fatalf("discover endpoint expected status code 200, got %d, body:\n\n%s", discoverStatusCode, discoverBody)
+			}
+
+			var discovery []struct {
+				Targets []string          `json:"targets"`
+				Labels  map[string]string `json:"labels"`
+			}
+
+			err := json.Unmarshal([]byte(discoverBody), &discovery)
+			if err != nil {
+				t.Fatalf("failed to unmarshal discovery json: %s, body:\n\n%s", err, discoverBody)
+			}
+
+			if len(discovery) == 0 || len(discovery[0].Targets) == 0 {
+				t.Fatalf("no targets discovered")
+			}
+			t.Logf("Discovered nodes: %v", discovery[0].Targets)
+
+			for _, discoveredNodeURI := range discovery[0].Targets {
+				t.Run(fmt.Sprintf("scraping node %s", discoveredNodeURI), func(t *testing.T) {
+					scrapeURL, _ := url.Parse(ts.URL + "/scrape")
+					q = scrapeURL.Query()
+					q.Set("target", discoveredNodeURI)
+					scrapeURL.RawQuery = q.Encode()
+
+					scrapeStatusCode, scrapeBody := downloadURLWithStatusCode(t, scrapeURL.String())
+					if scrapeStatusCode != http.StatusOK {
+						t.Fatalf("scrape endpoint expected status code 200, got %d, body:\n\n%s", scrapeStatusCode, scrapeBody)
+					}
+
+					// Assert some metric is present to confirm successful scrape
+					if !strings.Contains(scrapeBody, "test_up 1") {
+						t.Errorf("expected 'test_up 1' in scrape body, got: %s", scrapeBody)
+					}
+				})
+			}
+		})
+	}
 }

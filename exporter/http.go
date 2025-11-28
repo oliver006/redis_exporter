@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -60,6 +61,10 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	opts := e.options
 
+	if pwd, ok := e.lookupPasswordInPasswordMap(target); ok {
+		opts.Password = pwd
+	}
+
 	// get rid of username/password info in "target" so users don't send them in plain text via http
 	// and save "user" in options so we can use it later when connecting to the redis instance
 	// the password will be looked up from the password file
@@ -104,12 +109,30 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
-	if !e.options.IsCluster {
-		http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
-		return
+	target := r.URL.Query().Get("target")
+	var c redis.Conn
+	var err error
+
+	// Store the original scheme for output
+	originalScheme := "redis" // Default to redis
+	if strings.HasPrefix(target, "rediss://") {
+		originalScheme = "rediss"
+	} else if strings.HasPrefix(target, "valkey://") {
+		originalScheme = "valkey"
+	} else if strings.HasPrefix(target, "valkeys://") {
+		originalScheme = "valkeys"
 	}
 
-	c, err := e.connectToRedisCluster()
+	if target == "" {
+		if !e.options.IsCluster {
+			http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
+			return
+		}
+		c, err = e.connectToRedisCluster()
+	} else {
+		c, err = e.connectToRedisClusterWithURI(target)
+	}
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Couldn't connect to redis cluster: %s", err), http.StatusInternalServerError)
 		return
@@ -122,6 +145,18 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if target != "" {
+		if password, ok := e.lookupPasswordInPasswordMap(target); ok {
+			e.DiscoveredNodesPasswordsMutex.Lock()
+			for _, node := range nodes {
+				nodeAddr := fmt.Sprintf("%s://%s", originalScheme, node)
+				e.DiscoveredNodesPasswords[nodeAddr] = password
+				log.Debugf("Cached password for discovered node: %s", nodeAddr)
+			}
+			e.DiscoveredNodesPasswordsMutex.Unlock()
+		}
+	}
+
 	discovery := []struct {
 		Targets []string          `json:"targets"`
 		Labels  map[string]string `json:"labels"`
@@ -132,13 +167,8 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 		},
 	}
 
-	isTls := strings.HasPrefix(e.redisAddr, "rediss://")
 	for i, node := range nodes {
-		if isTls {
-			discovery[0].Targets[i] = "rediss://" + node
-		} else {
-			discovery[0].Targets[i] = "redis://" + node
-		}
+		discovery[0].Targets[i] = fmt.Sprintf("%s://%s", originalScheme, node)
 	}
 
 	data, err := json.MarshalIndent(discovery, "", "  ")
@@ -174,7 +204,6 @@ func (e *Exporter) isBasicAuthConfigured() bool {
 }
 
 func (e *Exporter) verifyBasicAuth(user, password string, authHeaderSet bool) error {
-
 	if !e.isBasicAuthConfigured() {
 		return nil
 	}
