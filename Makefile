@@ -52,7 +52,7 @@ test:
 	TEST_REDIS_CLUSTER_MASTER_URI="redis://localhost:17000" \
 	TEST_REDIS_CLUSTER_SLAVE_URI="redis://localhost:17005" \
 	TEST_VALKEY_CLUSTER_PASSWORD_URI="redis://localhost:17006" \
-	TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI="redis://localhost:17012" \
+	TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI="rediss://localhost:17012" \
 	TEST_VALKEY_CLUSTER_PASSWORD="redis-password" \
 	TEST_TILE38_URI="redis://localhost:19851" \
 	TEST_VALKEY_SENTINEL_URI="redis://localhost:26379" \
