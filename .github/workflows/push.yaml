@@ -15,8 +15,9 @@ jobs:
     runs-on: tools-runner
     steps:
     - name: Trigger jenkins job to upload master to Quay.io
-      uses: draios/jenkins-job-trigger-action@1.1.0
+      uses: sysdiglabs/jenkins-job-trigger-action@1.1.0
       with:
+        jenkins_external_base_url: ${{ secrets.JENKINS_EXTERNAL_BASE_URL }}
         jenkins_url: ${{ secrets.JENKINS_INTERNAL_URL }}
         jenkins_user: ${{ secrets.JENKINS_BOT_API_USER }}
         jenkins_token: ${{ secrets.JENKINS_BOT_API_TOKEN }}
