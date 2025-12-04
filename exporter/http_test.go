@@ -511,14 +511,15 @@ func TestIsBasicAuthConfigured(t *testing.T) {
 
 func TestVerifyBasicAuth(t *testing.T) {
 	tests := []struct {
-		name          string
-		configUser    string
-		configPass    string
-		providedUser  string
-		providedPass  string
-		authHeaderSet bool
-		wantErr       bool
-		wantErrString string
+		name           string
+		configUser     string
+		configPass     string
+		configHashPass string
+		providedUser   string
+		providedPass   string
+		authHeaderSet  bool
+		wantErr        bool
+		wantErrString  string
 	}{
 		{
 			name:          "no auth configured - no credentials provided",
@@ -568,13 +569,43 @@ func TestVerifyBasicAuth(t *testing.T) {
 			wantErr:       true,
 			wantErrString: "Unauthorized",
 		},
+		{
+			name:           "auth configured with hash password - correct credentials",
+			configUser:     "user",
+			configHashPass: "$2b$12$slCbgjdTTCEZKRvp7fEd3exTXLqvq43kr3bZ6cGUfVLGJTC18SNJO",
+			providedUser:   "user",
+			providedPass:   "pass",
+			authHeaderSet:  true,
+			wantErr:        false,
+		},
+		{
+			name:           "auth configured with hash password - wrong username",
+			configUser:     "user",
+			configHashPass: "$2b$12$slCbgjdTTCEZKRvp7fEd3exTXLqvq43kr3bZ6cGUfVLGJTC18SNJO",
+			providedUser:   "wronguser",
+			providedPass:   "pass",
+			authHeaderSet:  true,
+			wantErr:        true,
+			wantErrString:  "Unauthorized",
+		},
+		{
+			name:           "auth configured with hash password - wrong password",
+			configUser:     "user",
+			configHashPass: "$2b$12$slCbgjdTTCEZKRvp7fEd3exTXLqvq43kr3bZ6cGUfVLGJTC18SNJO",
+			providedUser:   "user",
+			providedPass:   "wrongpass",
+			authHeaderSet:  true,
+			wantErr:        true,
+			wantErrString:  "Unauthorized",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e, _ := NewRedisExporter("", Options{
-				BasicAuthUsername: tt.configUser,
-				BasicAuthPassword: tt.configPass,
+				BasicAuthUsername:     tt.configUser,
+				BasicAuthPassword:     tt.configPass,
+				BasicAuthHashPassword: tt.configHashPass,
 			})
 
 			err := e.verifyBasicAuth(tt.providedUser, tt.providedPass, tt.authHeaderSet)
@@ -597,12 +628,13 @@ func TestBasicAuth(t *testing.T) {
 	}
 
 	tests := []struct {
-		name           string
-		username       string
-		password       string
-		configUsername string
-		configPassword string
-		wantStatusCode int
+		name               string
+		username           string
+		password           string
+		configUsername     string
+		configPassword     string
+		configHashPassword string
+		wantStatusCode     int
 	}{
 		{
 			name:           "No auth configured - no credentials provided",
@@ -644,14 +676,47 @@ func TestBasicAuth(t *testing.T) {
 			configPassword: "testpass",
 			wantStatusCode: http.StatusUnauthorized,
 		},
+		{
+			name:               "Auth configured with hash password - correct credentials",
+			username:           "testuser",
+			password:           "testpass",
+			configUsername:     "testuser",
+			configHashPassword: "$2b$12$6LXQAFSyKb4lP67Zrk7rtOTyXhpomZZAQbRmvj90mCJ0Lgs3jTmhi",
+			wantStatusCode:     http.StatusOK,
+		},
+		{
+			name:               "Auth configured with hash password - wrong password",
+			username:           "testuser",
+			password:           "wrongpass",
+			configUsername:     "testuser",
+			configHashPassword: "$2b$12$6LXQAFSyKb4lP67Zrk7rtOTyXhpomZZAQbRmvj90mCJ0Lgs3jTmhi",
+			wantStatusCode:     http.StatusUnauthorized,
+		},
+		{
+			name:               "Auth configured with hash password - wrong username",
+			username:           "wronguser",
+			password:           "testpass",
+			configUsername:     "testuser",
+			configHashPassword: "$2b$12$6LXQAFSyKb4lP67Zrk7rtOTyXhpomZZAQbRmvj90mCJ0Lgs3jTmhi",
+			wantStatusCode:     http.StatusUnauthorized,
+		},
+		{
+			name:               "Auth configured with hash password - no credentials provided",
+			username:           "",
+			password:           "",
+			configUsername:     "testuser",
+			configHashPassword: "$2b$12$6LXQAFSyKb4lP67Zrk7rtOTyXhpomZZAQbRmvj90mCJ0Lgs3jTmhi",
+			wantStatusCode:     http.StatusUnauthorized,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{
-				Namespace:         "test",
-				BasicAuthUsername: tt.configUsername,
-				BasicAuthPassword: tt.configPassword,
+				Namespace:             "test",
+				BasicAuthUsername:     tt.configUsername,
+				BasicAuthPassword:     tt.configPassword,
+				BasicAuthHashPassword: tt.configHashPassword,
 			})
 			ts := httptest.NewServer(e)
 			defer ts.Close()
@@ -713,4 +778,53 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 	}
 
 	return resp.StatusCode, string(body)
+}
+
+func TestValidateBasicAuthPassword(t *testing.T) {
+	tests := []struct {
+		name               string
+		configHashPassword string
+		configPassword     string
+		inputPassword      string
+		expectStatus       bool
+	}{
+		{
+			name:           "Valid password",
+			configPassword: "password",
+			inputPassword:  "password",
+			expectStatus:   true,
+		}, {
+			name:           "Invalid password",
+			configPassword: "password",
+			inputPassword:  "wrongpassword",
+			expectStatus:   false,
+		},
+		{
+			name:               "Valid  hash password",
+			configHashPassword: "$2b$12$ODSJd0tmxY7H/adgD7R5SO43d8nmhUsa8OM6Weo7VFs3MbrsEY7tu",
+			inputPassword:      "password",
+			expectStatus:       true,
+		},
+		{
+			name:               "Invalid bcrypt hash",
+			configHashPassword: "$2b$12$ODSJd0tmxY7H/adgD7R5SO43d8nmhUsa8OM6Weo7VFs3MbrsEY7tu",
+			inputPassword:      "wrongpassword",
+			expectStatus:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := &Exporter{
+				options: Options{
+					BasicAuthHashPassword: tt.configHashPassword,
+					BasicAuthPassword:     tt.configPassword,
+				},
+			}
+			st := e.validateBasicAuthPassword(tt.inputPassword)
+			if st != tt.expectStatus {
+				t.Errorf("Expected error: %v, got: %v", tt.expectStatus, st)
+			}
+		})
+	}
 }

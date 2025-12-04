@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/oliver006/redis_exporter/exporter"
 )
@@ -76,6 +77,17 @@ func parseLogLevel(level string) (log.Level, error) {
 func validateTLSClientConfig(certFile, keyFile string) error {
 	if (certFile != "") != (keyFile != "") {
 		return errors.New("TLS client key file and cert file should both be present")
+	}
+	return nil
+}
+
+func validateAuthParams(basicAuthPassword, basicAuthHashPassword string) error {
+	if basicAuthPassword != "" && basicAuthHashPassword != "" {
+		return errors.New("cannot set both basic auth password and basic auth hash password")
+	}
+	if basicAuthHashPassword != "" {
+		_, err := bcrypt.Cost([]byte(basicAuthHashPassword))
+		return err
 	}
 	return nil
 }
@@ -192,8 +204,10 @@ func main() {
 		skipTLSVerification            = flag.Bool("skip-tls-verification", getEnvBool("REDIS_EXPORTER_SKIP_TLS_VERIFICATION", false), "Whether to to skip TLS verification")
 		skipCheckKeysForRoleMaster     = flag.Bool("skip-checkkeys-for-role-master", getEnvBool("REDIS_EXPORTER_SKIP_CHECKKEYS_FOR_ROLE_MASTER", false), "Whether to skip gathering the check-keys metrics (size, val) when the instance is of type master (reduce load on master nodes)")
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
-		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication")
-		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
+		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication, conflicts with --basic-auth-hash-password")
+		basicAuthHashPassword          = flag.String("basic-auth-hash-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_HASH_PASSWORD", ""), "Hashed password for basic authentication, bcrypt format, conflicts with --basic-auth-password")
+
+		inclMetricsForEmptyDatabases = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
 	)
 	flag.Parse()
 
@@ -287,10 +301,15 @@ func main() {
 			},
 			BasicAuthUsername:            *basicAuthUsername,
 			BasicAuthPassword:            *basicAuthPassword,
+			BasicAuthHashPassword:        *basicAuthHashPassword,
 			InclMetricsForEmptyDatabases: *inclMetricsForEmptyDatabases,
 		},
 	)
 	if err != nil {
+		log.Fatal(err)
+	}
+	// Validate auth parameters
+	if err := validateAuthParams(*basicAuthPassword, *basicAuthHashPassword); err != nil {
 		log.Fatal(err)
 	}
 
