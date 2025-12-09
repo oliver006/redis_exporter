@@ -257,14 +257,16 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"module_fork_last_cow_size":    "module_fork_last_cow_size",
 
 			// # Stats
-			"current_eviction_exceeded_time": "current_eviction_exceeded_time_ms",
-			"pubsub_channels":                "pubsub_channels",
-			"pubsub_patterns":                "pubsub_patterns",
-			"pubsubshard_channels":           "pubsubshard_channels", // Added in Redis 7.0.3
-			"latest_fork_usec":               "latest_fork_usec",
-			"tracking_total_keys":            "tracking_total_keys",
-			"tracking_total_items":           "tracking_total_items",
-			"tracking_total_prefixes":        "tracking_total_prefixes",
+			"current_eviction_exceeded_time":         "current_eviction_exceeded_time_ms",
+			"pubsub_channels":                        "pubsub_channels",
+			"pubsub_patterns":                        "pubsub_patterns",
+			"pubsubshard_channels":                   "pubsubshard_channels", // Added in Redis 7.0.3
+			"latest_fork_usec":                       "latest_fork_usec",
+			"tracking_total_keys":                    "tracking_total_keys",
+			"tracking_total_items":                   "tracking_total_items",
+			"tracking_total_prefixes":                "tracking_total_prefixes",
+			"instantaneous_eventloop_cycles_per_sec": "instantaneous_eventloop_cycles_per_sec", // Added in Redis 7.0
+			"instantaneous_eventloop_duration_usec":  "instantaneous_eventloop_duration_usec",  // Added in Redis 7.0
 
 			// # Replication
 			"connected_slaves":               "connected_slaves",
@@ -377,6 +379,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"total_eviction_exceeded_time":   "eviction_exceeded_time_ms_total",
 			"keyspace_hits":                  "keyspace_hits_total",
 			"keyspace_misses":                "keyspace_misses_total",
+
+			"eventloop_cycles":           "eventloop_cycles_total",                // Added in Redis 7.0
+			"eventloop_duration_sum":     "eventloop_duration_sum_usec_total",     // Added in Redis 7.0
+			"eventloop_duration_cmd_sum": "eventloop_duration_cmd_sum_usec_total", // Added in Redis 7.0
 
 			"used_cpu_sys":              "cpu_sys_seconds_total",
 			"used_cpu_user":             "cpu_user_seconds_total",
