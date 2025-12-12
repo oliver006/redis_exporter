@@ -1,0 +1,73 @@
+name: "[PR] Vulnerability Scanning"
+on:
+  pull_request:
+    branches: 
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Permissions key is required for CodeQL SARIF Upload, per the docs:
+    # https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/uploading-a-sarif-file-to-github
+    permissions:
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Docker Image Build for security scan - Alpine
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          target: alpine
+          tags: app:alpine
+          file: Dockerfile
+          build-args: "GOARCH=amd64"
+
+      - name: Docker Image Build for security scan - Scratch
+        uses: docker/build-push-action@v6
+        with:
+          push: false
+          target: scratch-release
+          tags: app:scratch
+          file: Dockerfile
+          build-args: "GOARCH=amd64"
+      
+      - uses: anchore/scan-action@v6
+        if: always()
+        id: scan-alpine
+        with:
+          image: "app:alpine"
+          severity-cutoff: "low"
+          by-cve: true
+          fail-build: true
+
+      - uses: anchore/scan-action@v6
+        if: always()
+        id: scan-scratch
+        with:
+          image: "app:scratch"
+          severity-cutoff: "low"
+          by-cve: true
+          fail-build: true
+      
+      - name: upload Anchore scan SARIF report
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.scan-alpine.outputs.sarif }}
+          category: alpine-vulnerability-scan
+      
+      - name: Inspect action SARIF report for alpine build
+        if: always()
+        run: cat ${{ steps.scan-alpine.outputs.sarif }}
+
+      - name: upload Anchore scan SARIF report
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.scan-scratch.outputs.sarif }}
+          category: scratch-vulnerability-scan
+
+      - name: Inspect action SARIF report for scratch build
+        if: always()
+        run: cat ${{ steps.scan-scratch.outputs.sarif }}

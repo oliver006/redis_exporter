@@ -1,0 +1,63 @@
+name: "Vulnerability Scanning (Cron/Manual/Release)"
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Release"]
+    types: 
+      - completed
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    # Permissions key is required for CodeQL SARIF Upload, per the docs:
+    # https://docs.github.com/en/code-security/code-scanning/integrating-with-code-scanning/uploading-a-sarif-file-to-github
+    permissions:
+      security-events: write
+      
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Anchore Scan - Official Alpine Release
+        uses: anchore/scan-action@v6
+        if: always()
+        id: scan-release-alpine
+        with:
+          image: "oliver006/redis_exporter:alpine" 
+          severity-cutoff: "low"
+          by-cve: true
+          fail-build: true 
+          
+      - name: Anchore Scan - Official Scratch Release
+        uses: anchore/scan-action@v6
+        if: always()
+        id: scan-release-scratch
+        with:
+          image: "oliver006/redis_exporter:latest" 
+          severity-cutoff: "low"
+          by-cve: true
+          fail-build: true
+          
+      - name: Upload Anchore SARIF (Release Alpine)
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: ${{ steps.scan-release-alpine.outputs.sarif }}
+          category: release-alpine-vulnerability-scan
+      
+      - name: Inspect action SARIF report for alpine build
+        if: always()
+        run: cat ${{ steps.scan-release-alpine.outputs.sarif }}
+      
+      - name: Upload Anchore SARIF (Release Scratch)
+        uses: github/codeql-action/upload-sarif@v4
+        if: always()
+        with:
+          sarif_file: ${{ steps.scan-release-scratch.outputs.sarif }}
+          category: release-scratch-vulnerability-scan
+      
+      - name: Inspect action SARIF report for scratch build
+        if: always()
+        run: cat ${{ steps.scan-release-scratch.outputs.sarif }}
