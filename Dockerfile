@@ -1,9 +1,10 @@
 ARG TARGETPLATFORM
+ARG ALPINE_VERSION=3.23
 
 #
 # build container
 #
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine${ALPINE_VERSION} AS builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
@@ -40,7 +41,7 @@ ENTRYPOINT [ "/redis_exporter" ]
 #
 # Alpine release container
 #
-FROM alpine:3.22 AS alpine
+FROM alpine:${ALPINE_VERSION} AS alpine
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
