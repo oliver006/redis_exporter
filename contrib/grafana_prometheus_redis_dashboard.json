@@ -140,7 +140,7 @@
             "type": "prometheus",
             "uid": "${DS_PROM}"
           },
-          "expr": "max(max_over_time(redis_uptime_in_seconds{instance=~\"$instance\"}[$__interval]))",
+          "expr": "max(max_over_time(redis_uptime_in_seconds{namespace=~\"$namespace\", instance=~\"$instance\"}[$__interval]))",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -227,7 +227,7 @@
             "type": "prometheus",
             "uid": "${DS_PROM}"
           },
-          "expr": "sum(redis_connected_clients{instance=~\"$instance\"})",
+          "expr": "sum(redis_connected_clients{namespace=~\"$namespace\", instance=~\"$instance\"})",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -318,7 +318,7 @@
             "type": "prometheus",
             "uid": "${DS_PROM}"
           },
-          "expr": "sum(100 * (redis_memory_used_bytes{instance=~\"$instance\"}  / redis_memory_max_bytes{instance=~\"$instance\"}))",
+          "expr": "sum(100 * (redis_memory_used_bytes{namespace=~\"$namespace\", instance=~\"$instance\"}  / redis_memory_max_bytes{namespace=~\"$namespace\", instance=~\"$instance\"}))",
           "format": "time_series",
           "intervalFactor": 2,
           "legendFormat": "",
@@ -420,7 +420,7 @@
             "type": "prometheus",
             "uid": "${DS_PROM}"
           },
-          "expr": "sum(rate(redis_commands_total{instance=~\"$instance\"} [1m])) by (cmd)",
+          "expr": "sum(rate(redis_commands_total{namespace=~\"$namespace\", instance=~\"$instance\"} [1m])) by (cmd)",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1420,7 +1420,7 @@
             "type": "prometheus",
             "uid": "${DS_PROM}"
           },
-          "expr": "sum(irate(redis_commands_duration_seconds_total{instance =~ \"$instance\"}[1m])) by (cmd)\n  /\nsum(irate(redis_commands_total{instance =~ \"$instance\"}[1m])) by (cmd)\n",
+          "expr": "sum(irate(redis_commands_duration_seconds_total{namespace=~\"$namespace\", instance =~ \"$instance\"}[1m])) by (cmd)\n  /\nsum(irate(redis_commands_total{namespace=~\"$namespace\", instance =~ \"$instance\"}[1m])) by (cmd)\n",
           "format": "time_series",
           "interval": "",
           "intervalFactor": 2,
@@ -1639,6 +1639,6 @@
   "timezone": "browser",
   "title": "Redis Dashboard for Prometheus Redis Exporter 1.x",
   "uid": "e008bc3f-81a2-40f9-baf2-a33fd8dec7ec",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
