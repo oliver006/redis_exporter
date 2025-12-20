@@ -100,7 +100,7 @@ services:
       - "16402:6379"
 
   valkey-cluster:
-    image: oliver006/valkey-cluster:8.1.4
+    image: oliver006/valkey-cluster:8.1.5
     command: valkey-cluster
     environment:
       - IP=0.0.0.0
@@ -109,7 +109,7 @@ services:
       - 17000-17005:7000-7005
 
   valkey-cluster-password:
-    image: oliver006/valkey-cluster:8.1.4
+    image: oliver006/valkey-cluster:8.1.5
     command: |
       valkey-cluster --port 7006
     environment:
@@ -121,7 +121,7 @@ services:
       - "7006-7011:7006-7011"
 
   valkey-cluster-password-tls:
-    image: oliver006/valkey-cluster:8.1.4
+    image: oliver006/valkey-cluster:8.1.5
     volumes:
       - ./contrib/tls:/tls
     command: |
