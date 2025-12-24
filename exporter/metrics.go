@@ -89,6 +89,9 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 		desc = e.mustFindMetricDescription(metric)
 	}
 
+	if e.options.AppendInstanceRoleLabel { // append instance_role label to all metrics
+		labelValues = append(labelValues, e.instanceRole)
+	}
 	m, err := prometheus.NewConstMetric(desc, valType, val, labelValues...)
 	if err != nil {
 		log.Debugf("registerConstMetric( %s , %.2f) err: %s", metric, val, err)
@@ -99,6 +102,9 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 }
 
 func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric string, count uint64, sum float64, latencyMap map[float64]float64, labelValues ...string) {
+	if e.options.AppendInstanceRoleLabel { // append instance_role label to all metrics
+		labelValues = append(labelValues, e.instanceRole)
+	}
 	// Create a constant summary from values we got from a 3rd party telemetry system.
 	summary := prometheus.MustNewConstSummary(
 		e.mustFindMetricDescription(metric),
@@ -110,6 +116,9 @@ func (e *Exporter) registerConstSummary(ch chan<- prometheus.Metric, metric stri
 }
 
 func (e *Exporter) registerConstHistogram(ch chan<- prometheus.Metric, metric string, count uint64, sum float64, buckets map[float64]uint64, labelValues ...string) {
+	if e.options.AppendInstanceRoleLabel { // append instance_role label to all metrics
+		labelValues = append(labelValues, e.instanceRole)
+	}
 	histogram := prometheus.MustNewConstHistogram(
 		e.mustFindMetricDescription(metric),
 		count, sum,
@@ -130,6 +139,9 @@ func (e *Exporter) mustFindMetricDescription(metricName string) *prometheus.Desc
 func (e *Exporter) createMetricDescription(metricName string, labels []string) *prometheus.Desc {
 	if desc, found := e.metricDescriptions[metricName]; found {
 		return desc
+	}
+	if e.options.AppendInstanceRoleLabel {
+		labels = append(labels, "instance_role") // append instance_role label to all metrics
 	}
 	d := newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
 	e.metricDescriptions[metricName] = d

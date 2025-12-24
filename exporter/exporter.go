@@ -29,7 +29,8 @@ type BuildInfo struct {
 type Exporter struct {
 	sync.Mutex
 
-	redisAddr string
+	redisAddr    string
+	instanceRole string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -92,6 +93,7 @@ type Options struct {
 	BasicAuthHashPassword          string
 	SkipCheckKeysForRoleMaster     bool
 	InclMetricsForEmptyDatabases   bool
+	AppendInstanceRoleLabel        bool
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -594,6 +596,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
 	} {
+		if e.options.AppendInstanceRoleLabel {
+			desc.lbls = append(desc.lbls, "instance_role") // append instance_role label to all metrics
+		}
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
 
