@@ -81,14 +81,15 @@ func (e *Exporter) extractSentinelMetrics(ch chan<- prometheus.Metric, c redis.C
 		masterParallelSyncs, _ := strconv.ParseFloat(masterDetailMap["parallel-syncs"], 64)
 		masterDownAfterMs, _ := strconv.ParseFloat(masterDetailMap["down-after-milliseconds"], 64)
 		masterConfigEpoch, _ := strconv.ParseFloat(masterDetailMap["config-epoch"], 64)
-		masterLastOkPingReply, _ := strconv.ParseFloat(masterDetailMap["last-ok-ping-reply"], 64)
+		masterLastOkPingReplyMs, _ := strconv.ParseFloat(masterDetailMap["last-ok-ping-reply"], 64)
+		masterLastOkPingReplySeconds := masterLastOkPingReplyMs / 1000.0
 
 		e.registerConstMetricGauge(ch, "sentinel_master_setting_ckquorum", masterCkquorum, masterName, masterAddr)
 		e.registerConstMetricGauge(ch, "sentinel_master_setting_failover_timeout", masterFailoverTimeout, masterName, masterAddr)
 		e.registerConstMetricGauge(ch, "sentinel_master_setting_parallel_syncs", masterParallelSyncs, masterName, masterAddr)
 		e.registerConstMetricGauge(ch, "sentinel_master_setting_down_after_milliseconds", masterDownAfterMs, masterName, masterAddr)
 		e.registerConstMetricGauge(ch, "sentinel_master_config_epoch", masterConfigEpoch, masterName, masterAddr)
-		e.registerConstMetricGauge(ch, "sentinel_master_last_ok_ping_reply_ms", masterLastOkPingReply, masterName, masterAddr)
+		e.registerConstMetricGauge(ch, "sentinel_master_last_ok_ping_reply_seconds", masterLastOkPingReplySeconds, masterName, masterAddr)
 
 		sentinelDetails, _ := redis.Values(doRedisCmd(c, "SENTINEL", "SENTINELS", masterName))
 		log.Debugf("Sentinel details for master %s: %s", masterName, sentinelDetails)
