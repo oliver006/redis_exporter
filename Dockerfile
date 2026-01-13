@@ -27,7 +27,7 @@ USER 59000:59000
 EXPOSE     9121
 ENTRYPOINT [ "/redis_exporter" ]
 
-FROM quay.io/sysdig/sysdig-stig-mini-ubi9:1.4.5 as ubi
+FROM quay.io/sysdig/sysdig-stig-mini-ubi9:1.4.10 as ubi
 
 COPY --from=builder /redis_exporter /redis_exporter
 COPY --from=builder /etc/ssl/certs /etc/ssl/certs
