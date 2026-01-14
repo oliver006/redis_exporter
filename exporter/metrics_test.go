@@ -21,21 +21,30 @@ func TestSanitizeMetricName(t *testing.T) {
 }
 
 func TestRegisterConstHistogram(t *testing.T) {
-	exp := getTestExporter()
 	metricName := "foo"
-	ch := make(chan prometheus.Metric)
-	go func() {
-		exp.createMetricDescription(metricName, []string{"test"})
-		exp.registerConstHistogram(ch, metricName, 12, .24, map[float64]uint64{}, "test")
-		close(ch)
-	}()
+	for _, inc := range []bool{false, true} {
+		exp := getTestExporter()
+		exp.options.AppendInstanceRoleLabel = inc
+		ch := make(chan prometheus.Metric)
+		go func() {
+			exp.createMetricDescription(metricName, []string{"test"})
+			exp.registerConstHistogram(ch, metricName, 12, .24, map[float64]uint64{}, "test")
+			close(ch)
+		}()
 
-	for m := range ch {
-		if strings.Contains(m.Desc().String(), metricName) {
-			return
+		for m := range ch {
+			if strings.Contains(m.Desc().String(), metricName) {
+				if inc && !strings.Contains(m.Desc().String(), "instance_role") {
+					t.Errorf("want metrics to include instance_role label, have:\n%s", m.Desc().String())
+				}
+				if !inc && strings.Contains(m.Desc().String(), "instance_role") {
+					t.Errorf("did NOT want metrics to include instance_role label, have:\n%s", m.Desc().String())
+				}
+				continue
+			}
+			t.Errorf("Histogram was not registered")
 		}
 	}
-	t.Errorf("Histogram was not registered")
 }
 
 func TestFindOrCreateMetricsDescriptionFindExisting(t *testing.T) {
