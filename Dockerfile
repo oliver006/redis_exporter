@@ -4,7 +4,7 @@ ARG ALPINE_VERSION=3.23
 #
 # build container
 #
-FROM --platform=$BUILDPLATFORM golang:1.25-alpine${ALPINE_VERSION} AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25.5-alpine${ALPINE_VERSION} AS builder
 WORKDIR /go/src/github.com/oliver006/redis_exporter/
 
 ADD . /go/src/github.com/oliver006/redis_exporter/
