@@ -249,7 +249,7 @@ func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64,
 	}
 
 	split := strings.Split(inputVal, ",")
-	if len(split) < 2 || len(split) > 4 {
+	if len(split) < 2 {
 		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
 		return
 	}
