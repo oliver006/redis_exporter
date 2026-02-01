@@ -222,9 +222,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"active_defrag_key_hits":   "defrag_key_hits",
 			"active_defrag_key_misses": "defrag_key_misses",
 
-			// https://github.com/antirez/redis/blob/0af467d18f9d12b137af3b709c0af579c29d8414/src/expire.c#L297-L299
-			"expired_time_cap_reached_count": "expired_time_cap_reached_total",
-
 			// # Persistence
 			"loading":                      "loading_dump_file",
 			"async_loading":                "async_loading", // Added in Redis 7.0
@@ -730,7 +727,7 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 		if strKey == "client-output-buffer-limit" {
 			// client-output-buffer-limit "normal 0 0 0 slave 1610612736 1610612736 0 pubsub 33554432 8388608 60"
 			splitVal := strings.Split(strVal, " ")
-			for i := 0; i < len(splitVal); i += 4 {
+			for i := 0; i+3 < len(splitVal); i += 4 {
 				class := splitVal[i]
 				if val, err := strconv.ParseFloat(splitVal[i+1], 64); err == nil {
 					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_bytes", val, class, "hard")
@@ -745,15 +742,6 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 		}
 	}
 	return
-}
-
-// getKeyOperationConnection returns the appropriate Redis connection for key-based operations.
-// For cluster mode, it returns a cluster connection; otherwise, it returns the provided connection.
-func (e *Exporter) getKeyOperationConnection(defaultConn redis.Conn) (redis.Conn, error) {
-	if e.options.IsCluster {
-		return e.connectToRedisCluster()
-	}
-	return defaultConn, nil
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
@@ -849,27 +837,38 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractLatencyMetrics(ch, infoAll, c)
 	}
 
+	var keyConn redis.Conn
+	if e.options.IsCluster {
+		//
+		// in cluster mode we need to create a new, cluster-aware connection
+		// to properly handle cluster-redirects
+		//
+		k, keyConnErr := e.connectToRedisCluster()
+		if keyConnErr != nil {
+			log.Errorf("failed to get key operation connection: %s", keyConnErr)
+		} else {
+			//
+			// The "defer keyConn.Close()" ensures this temporary cluster connection gets
+			// cleaned up after key metrics extraction, while avoiding closing the original
+			// connection "c" which is still needed.
+			//
+			defer k.Close()
+			keyConn = k
+		}
+	} else {
+		// not in cluster mode - we can use our existing connection for retrieving keys and such
+		keyConn = c
+	}
+
 	// skip these metrics for master if SkipCheckKeysForRoleMaster is set
 	// (can help with reducing workload on the master node)
 	log.Debugf("checkKeys metric collection for role: %s  SkipCheckKeysForRoleMaster flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	if role == InstanceRoleSlave || !e.options.SkipCheckKeysForRoleMaster {
-		// For key-based operations, use cluster connection if in cluster mode
-		keyConn, err := e.getKeyOperationConnection(c)
-		if err != nil {
-			log.Errorf("failed to get key operation connection: %s", err)
-		} else {
-			defer func() {
-				if keyConn != c {
-					keyConn.Close()
-				}
-			}()
-
+		if keyConn != nil {
 			if err := e.extractCheckKeyMetrics(ch, keyConn); err != nil {
 				log.Errorf("extractCheckKeyMetrics() err: %s", err)
 			}
-
 			e.extractCountKeysMetrics(ch, keyConn)
-
 			e.extractStreamMetrics(ch, keyConn)
 		}
 	} else {
@@ -878,17 +877,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	e.extractSlowLogMetrics(ch, c)
 
-	// Key groups also need cluster connection for key operations
-	keyGroupConn, err := e.getKeyOperationConnection(c)
-	if err != nil {
-		log.Errorf("failed to get key operation connection for key groups: %s", err)
-	} else {
-		defer func() {
-			if keyGroupConn != c {
-				keyGroupConn.Close()
-			}
-		}()
-		e.extractKeyGroupMetrics(ch, keyGroupConn, dbCount)
+	if keyConn != nil {
+		e.extractKeyGroupMetrics(ch, keyConn, dbCount)
 	}
 
 	if strings.Contains(infoAll, "# Sentinel") {

@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
 	"sync"
 
 	"github.com/gomodule/redigo/redis"
@@ -63,7 +62,7 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 		return
 	}
 
-	for i := 0; i < len(reply); i += 2 {
+	for i := 0; i+1 < len(reply); i += 2 {
 		cmd, _ := redis.String(reply[i], nil)
 		details, _ := redis.Values(reply[i+1], nil)
 
@@ -76,7 +75,7 @@ func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metr
 
 		buckets := map[float64]uint64{}
 
-		for j := 0; j < len(bucketInfo); j += 2 {
+		for j := 0; j+1 < len(bucketInfo); j += 2 {
 			usec := float64(bucketInfo[j])
 			count := bucketInfo[j+1]
 			buckets[usec] = count
@@ -94,7 +93,7 @@ func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
 
 	matches := extractUsecRegexp.FindAllStringSubmatch(infoAll, -1)
 	for _, match := range matches {
-		if !strings.HasPrefix(match[1], cmd) {
+		if match[1] != cmd && !strings.HasPrefix(match[1], cmd+"|") {
 			continue
 		}
 
