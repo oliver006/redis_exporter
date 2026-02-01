@@ -222,9 +222,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"active_defrag_key_hits":   "defrag_key_hits",
 			"active_defrag_key_misses": "defrag_key_misses",
 
-			// https://github.com/antirez/redis/blob/0af467d18f9d12b137af3b709c0af579c29d8414/src/expire.c#L297-L299
-			"expired_time_cap_reached_count": "expired_time_cap_reached_total",
-
 			// # Persistence
 			"loading":                      "loading_dump_file",
 			"async_loading":                "async_loading", // Added in Redis 7.0
