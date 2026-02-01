@@ -730,7 +730,7 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 		if strKey == "client-output-buffer-limit" {
 			// client-output-buffer-limit "normal 0 0 0 slave 1610612736 1610612736 0 pubsub 33554432 8388608 60"
 			splitVal := strings.Split(strVal, " ")
-			for i := 0; i < len(splitVal); i += 4 {
+			for i := 0; i+3 < len(splitVal); i += 4 {
 				class := splitVal[i]
 				if val, err := strconv.ParseFloat(splitVal[i+1], 64); err == nil {
 					e.registerConstMetricGauge(ch, "config_client_output_buffer_limit_bytes", val, class, "hard")
