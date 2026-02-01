@@ -15,7 +15,7 @@ func (e *Exporter) extractTile38Metrics(ch chan<- prometheus.Metric, c redis.Con
 		return
 	}
 
-	for i := 0; i < len(info); i += 2 {
+	for i := 0; i+1 < len(info); i += 2 {
 		fieldKey := info[i]
 		if !strings.HasPrefix(fieldKey, "tile38_") {
 			fieldKey = "tile38_" + fieldKey
