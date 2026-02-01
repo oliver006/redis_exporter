@@ -4,7 +4,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
 	"sync"
 
 	"github.com/gomodule/redigo/redis"
@@ -94,7 +93,7 @@ func extractTotalUsecForCommand(infoAll string, cmd string) uint64 {
 
 	matches := extractUsecRegexp.FindAllStringSubmatch(infoAll, -1)
 	for _, match := range matches {
-		if !strings.HasPrefix(match[1], cmd) {
+		if match[1] != cmd && !strings.HasPrefix(match[1], cmd+"|") {
 			continue
 		}
 
