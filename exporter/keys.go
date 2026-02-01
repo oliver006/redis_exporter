@@ -44,8 +44,7 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 
 	switch keyType {
 	case "none":
-		log.Debugf("Key '%s' not found when trying to get type and size: using default '0.0'", keyName)
-		e.registerConstMetricGauge(ch, "key_size", 0.0, dbLabel, keyName)
+		log.Debugf("Key '%s' not found, skipping", keyName)
 		return
 
 	case "string":
