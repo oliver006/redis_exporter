@@ -10,6 +10,8 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+var reSentinelMaster = regexp.MustCompile(`^master\d+`)
+
 func (e *Exporter) handleMetricsSentinel(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
 	switch fieldKey {
 	case
@@ -197,7 +199,7 @@ valid examples:
 */
 func parseSentinelMasterString(master string, masterInfo string) (masterName string, masterStatus string, masterAddr string, masterSlaves float64, masterSentinels float64, ok bool) {
 	ok = false
-	if matched, _ := regexp.MatchString(`^master\d+`, master); !matched {
+	if !reSentinelMaster.MatchString(master) {
 		return
 	}
 	matchedMasterInfo := make(map[string]string)
