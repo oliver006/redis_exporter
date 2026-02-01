@@ -30,13 +30,20 @@ func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Co
 			if len(module) != 7 {
 				continue
 			}
+			extractModuleVal := func(s string) string {
+				parts := strings.SplitN(s, "=", 2)
+				if len(parts) != 2 {
+					return ""
+				}
+				return parts[1]
+			}
 			e.registerConstMetricGauge(ch, "module_info", 1,
-				strings.Split(module[0], "=")[1],
-				strings.Split(module[1], "=")[1],
-				strings.Split(module[2], "=")[1],
-				strings.Split(module[3], "=")[1],
-				strings.Split(module[4], "=")[1],
-				strings.Split(module[5], "=")[1],
+				extractModuleVal(module[0]),
+				extractModuleVal(module[1]),
+				extractModuleVal(module[2]),
+				extractModuleVal(module[3]),
+				extractModuleVal(module[4]),
+				extractModuleVal(module[5]),
 			)
 			continue
 		}
