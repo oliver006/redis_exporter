@@ -1,0 +1,67 @@
+# Production Docker Compose example for Redis Exporter with Prometheus
+# This setup provides a complete monitoring stack for Redis/Valkey
+
+services:
+  # Redis instance (replace with your production Redis)
+  redis:
+    image: redis:7
+    command: redis-server --requirepass ${REDIS_PASSWORD:-your-redis-password}
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-your-redis-password}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Redis Exporter
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    environment:
+      - REDIS_ADDR=redis://redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-your-redis-password}
+      # Optional: Enable debug mode
+      # - REDIS_EXPORTER_DEBUG=true
+      # Optional: Check specific keys
+      # - REDIS_EXPORTER_CHECK_KEYS=user:*,session:*
+    ports:
+      - "9121:9121"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Prometheus (optional - for complete monitoring stack)
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - redis-exporter
+    restart: unless-stopped
+
+volumes:
+  redis-data:
+  prometheus-data:
+
+# Usage:
+#   1. Create a .env file with REDIS_PASSWORD=your-secure-password
+#   2. Create prometheus.yml (see example below)
+#   3. Run: docker-compose -f docker-compose-production.yml up -d
+#
+# Example prometheus.yml:
+#   global:
+#     scrape_interval: 15s
+#   scrape_configs:
+#     - job_name: 'redis'
+#       static_configs:
+#         - targets: ['redis-exporter:9121']

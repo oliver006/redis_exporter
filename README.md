@@ -300,6 +300,18 @@ redis_exporter container can access it:
 docker run -d --name redis_exporter --network host oliver006/redis_exporter
 ```
 
+### Docker Compose Production Example
+
+For a complete monitoring stack with Redis, Redis Exporter, and Prometheus, see [docker-compose-production.yml](contrib/docker-compose-production.yml).
+
+Quick start:
+```sh
+cd contrib
+# Create .env file with your Redis password
+echo "REDIS_PASSWORD=your-secure-password" > .env
+docker-compose -f docker-compose-production.yml up -d
+```
+
 ### Run on Kubernetes
 
 [Here](contrib/k8s-redis-and-exporter-deployment.yaml) is an example Kubernetes deployment configuration for how to deploy the redis_exporter as a sidecar to a Redis instance.
