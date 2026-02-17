@@ -10,12 +10,13 @@ package exporter
 
 import (
 	"fmt"
-	"github.com/mna/redisc"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mna/redisc"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
@@ -470,6 +471,26 @@ func TestRedisMetricsOnly(t *testing.T) {
 			t.Errorf("want metrics to include exporter_build_info, have:\n%s", body)
 		} else if !inc && !strings.Contains(body, "exporter_build_info") {
 			t.Errorf("did NOT want metrics to include exporter_build_info, have:\n%s", body)
+		}
+
+		ts.Close()
+	}
+}
+
+func TestRedisAppendInstanceRoleLabel(t *testing.T) {
+	for _, inc := range []bool{false, true} {
+		r := prometheus.NewRegistry()
+		e, err := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", Registry: r, AppendInstanceRoleLabel: inc})
+		if err != nil {
+			t.Fatalf(`error when creating exporter with registry: %s`, err)
+		}
+		ts := httptest.NewServer(e)
+
+		body := downloadURL(t, ts.URL+"/metrics")
+		if inc && !strings.Contains(body, "instance_role") {
+			t.Errorf("want metrics to include instance_role label, have:\n%s", body)
+		} else if !inc && strings.Contains(body, "instance_role") {
+			t.Errorf("did NOT want metrics to include instance_role label, have:\n%s", body)
 		}
 
 		ts.Close()
