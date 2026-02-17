@@ -45,6 +45,9 @@ type Exporter struct {
 	mux *http.ServeMux
 
 	buildInfo BuildInfo
+
+	DiscoveredNodesPasswords      map[string]string
+	DiscoveredNodesPasswordsMutex sync.Mutex
 }
 
 type Options struct {
@@ -134,6 +137,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			Name:      "target_scrape_request_errors_total",
 			Help:      "Errors in requests to the exporter",
 		}),
+
+		DiscoveredNodesPasswords: make(map[string]string),
 
 		metricMapGauges: map[string]string{
 			// # Server
@@ -741,7 +746,7 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []in
 			}
 		}
 	}
-	return
+	return dbCount, err
 }
 
 func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
