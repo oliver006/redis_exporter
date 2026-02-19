@@ -1,7 +1,7 @@
 # Prometheus Valkey & Redis Metrics Exporter
 
 [![Tests](https://github.com/oliver006/redis_exporter/actions/workflows/tests.yml/badge.svg)](https://github.com/oliver006/redis_exporter/actions/workflows/tests.yml)
-[![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg) [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
+ [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg) [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
 
 Prometheus exporter for Valkey metrics (Redis-compatible).\
 Supports Valkey 7.x, 8.x, 9.x (and Redis)
@@ -369,8 +369,8 @@ When a single Redis instance is used for multiple purposes, it is useful to be a
 
 To enable memory usage aggregation by key groups, simply specify a non-empty comma-separated list of LUA regular expressions through the `check-key-groups` redis_exporter parameter. On each aggregation of memory metrics by key groups, redis_exporter will set up a `SCAN` cursor through all keys for each Redis database to be processed in batches via a LUA script. Each key batch is then processed by the same LUA script on a key-by-key basis as follows:
 
-1. The `MEMORY USAGE` command is called to gather memory usage for each key
-2. The specified LUA regexes are applied to each key in the specified order, and the group name that a given key belongs to will be derived from concatenating the capture groups of the first regex that matches the key. For example, applying the regex `^(.*)_[^_]+$` to the key `key_exp_Nick` would yield a group name of `key_exp`. If none of the specified regexes matches a key, the key will be assigned to the `unclassified` group
+  1. The `MEMORY USAGE` command is called to gather memory usage for each key
+  2. The specified LUA regexes are applied to each key in the specified order, and the group name that a given key belongs to will be derived from concatenating the capture groups of the first regex that matches the key. For example, applying the regex `^(.*)_[^_]+$` to the key `key_exp_Nick` would yield a group name of `key_exp`. If none of the specified regexes matches a key, the key will be assigned to the `unclassified` group
 
 Once a key has been classified, the memory usage and key counter for the corresponding group will be incremented in a local LUA table. This aggregated metrics table will then be returned alongside the next `SCAN` cursor position to redis_exporter when all keys in a batch have been processed, and redis_exporter can aggregate the data from all batches into a single table of grouped memory usage metrics for the Prometheus metrics scrapper.
 
