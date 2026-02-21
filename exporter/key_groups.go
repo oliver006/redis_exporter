@@ -102,7 +102,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 	if len(keyGroupsNoEmptyStrings) == 0 {
 		return allMetrics
 	}
-	for db := 0; db < dbCount; db++ {
+	for db := range dbCount {
 		if _, err := doRedisCmd(c, "SELECT", db); err != nil {
 			log.Errorf("Couldn't select database %d when getting key info.", db)
 			continue
@@ -148,7 +148,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 
 func gatherKeyGroupMetrics(c redis.Conn, batchSize int64, keyGroups []string) (map[string]*keyGroupMetrics, error) {
 	allGroups := make(map[string]*keyGroupMetrics)
-	keysAndArgs := []interface{}{0, batchSize}
+	keysAndArgs := []any{0, batchSize}
 	for _, keyGroup := range keyGroups {
 		keysAndArgs = append(keysAndArgs, keyGroup)
 	}

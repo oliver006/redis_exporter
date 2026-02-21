@@ -441,7 +441,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 		log.Debugf("parseKeyArg(): Got empty key arguments, parsing skipped")
 		return keys, err
 	}
-	for _, k := range strings.Split(keysArgString, ",") {
+	for k := range strings.SplitSeq(keysArgString, ",") {
 		var db string
 		var key string
 		if k == "" {
@@ -481,7 +481,7 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 
 // scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
 // This function was adapted from: https://github.com/reisinger/examples-redigo
-func scanKeys(c redis.Conn, pattern string, count int64) (keys []interface{}, err error) {
+func scanKeys(c redis.Conn, pattern string, count int64) (keys []any, err error) {
 	if pattern == "" {
 		return keys, fmt.Errorf("pattern shouldn't be empty")
 	}

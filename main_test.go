@@ -340,8 +340,8 @@ func TestLoadScripts(t *testing.T) {
 
 			// Verify content for successful cases
 			if !tt.expectError && tt.expectedLen > 0 {
-				scripts := strings.Split(tt.scriptPath, ",")
-				for _, scriptPath := range scripts {
+				scripts := strings.SplitSeq(tt.scriptPath, ",")
+				for scriptPath := range scripts {
 					if content, exists := result[scriptPath]; !exists {
 						t.Errorf("loadScripts(%s) missing script %s", tt.scriptPath, scriptPath)
 					} else if len(content) == 0 {

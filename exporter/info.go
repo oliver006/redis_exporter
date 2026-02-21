@@ -160,7 +160,7 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	e.generateCommandLatencySummaries(ch, cmdLatencyMap, cmdCount, cmdSum)
 
 	if e.options.InclMetricsForEmptyDatabases {
-		for dbIndex := 0; dbIndex < dbCount; dbIndex++ {
+		for dbIndex := range dbCount {
 			dbName := "db" + strconv.Itoa(dbIndex)
 			if _, exists := handledDBs[dbName]; !exists {
 				e.registerConstMetricGauge(ch, "db_keys", 0, dbName)
@@ -218,9 +218,9 @@ func (e *Exporter) generateCommandLatencySummaries(ch chan<- prometheus.Metric, 
 }
 
 func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info string) {
-	lines := strings.Split(info, "\r\n")
+	lines := strings.SplitSeq(info, "\r\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		log.Debugf("info: %s", line)
 
 		split := strings.Split(line, ":")
@@ -295,7 +295,7 @@ func parseConnectedSlaveString(slaveName string, keyValues string) (offset float
 		return
 	}
 	connectedkeyValues := make(map[string]string)
-	for _, kvPart := range strings.Split(keyValues, ",") {
+	for kvPart := range strings.SplitSeq(keyValues, ",") {
 		x := strings.Split(kvPart, "=")
 		if len(x) != 2 {
 			log.Debugf("Invalid format for connected slave string, got: %s", kvPart)

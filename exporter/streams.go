@@ -74,13 +74,13 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 	return &stream, nil
 }
 
-func getStreamEntryId(redisValue []interface{}, index int) string {
+func getStreamEntryId(redisValue []any, index int) string {
 	if index >= len(redisValue) || redisValue[index] == nil {
 		log.Debugf("Failed to parse StreamEntryId")
 		return ""
 	}
 
-	values, ok := redisValue[index].([]interface{})
+	values, ok := redisValue[index].([]any)
 	if !ok || len(values) < 1 {
 		log.Debugf("Failed to parse StreamEntryId")
 		return ""

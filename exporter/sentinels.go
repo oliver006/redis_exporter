@@ -140,7 +140,7 @@ func (e *Exporter) extractSentinelConfig(ch chan<- prometheus.Metric, c redis.Co
 	}
 }
 
-func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentinelDetails []interface{}, labels ...string) {
+func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentinelDetails []any, labels ...string) {
 
 	// If we are here then this master is in ok state
 	masterOkSentinels := 1
@@ -167,7 +167,7 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 	e.registerConstMetricGauge(ch, "sentinel_master_ok_sentinels", float64(masterOkSentinels), labels...)
 }
 
-func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetails []interface{}, labels ...string) {
+func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetails []any, labels ...string) {
 	masterOkSlaves := 0
 	for _, slaveDetail := range slaveDetails {
 		slaveDetailMap, err := redis.StringMap(slaveDetail, nil)
@@ -203,7 +203,7 @@ func parseSentinelMasterString(master string, masterInfo string) (masterName str
 		return
 	}
 	matchedMasterInfo := make(map[string]string)
-	for _, kvPart := range strings.Split(masterInfo, ",") {
+	for kvPart := range strings.SplitSeq(masterInfo, ",") {
 		x := strings.Split(kvPart, "=")
 		if len(x) != 2 {
 			log.Errorf("Invalid format for sentinel's master string, got: %s", kvPart)
