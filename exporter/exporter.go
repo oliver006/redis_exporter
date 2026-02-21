@@ -676,7 +676,7 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.targetScrapeRequestErrors
 }
 
-func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []interface{}) (dbCount int, err error) {
+func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []any) (dbCount int, err error) {
 	if len(config)%2 != 0 {
 		return 0, fmt.Errorf("invalid config: %#v", config)
 	}

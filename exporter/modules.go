@@ -15,8 +15,8 @@ func (e *Exporter) extractModulesMetrics(ch chan<- prometheus.Metric, c redis.Co
 		return
 	}
 
-	lines := strings.Split(info, "\r\n")
-	for _, line := range lines {
+	lines := strings.SplitSeq(info, "\r\n")
+	for line := range lines {
 		log.Debugf("info: %s", line)
 
 		split := strings.Split(line, ":")

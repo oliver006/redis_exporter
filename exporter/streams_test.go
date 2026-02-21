@@ -185,8 +185,8 @@ func TestStreamsScanStreamGroups123(t *testing.T) {
 	}
 
 	fixtures := []keyFixture{
-		{"XADD", "test_stream_1", []interface{}{"1638006862521-0", "field_1", "str_1"}},
-		{"XADD", "test_stream_2", []interface{}{"1638006862522-0", "field_pattern_1", "str_pattern_1"}},
+		{"XADD", "test_stream_1", []any{"1638006862521-0", "field_1", "str_1"}},
+		{"XADD", "test_stream_2", []any{"1638006862522-0", "field_pattern_1", "str_pattern_1"}},
 	}
 	// Create test streams
 	c.Do("XGROUP", "CREATE", "test_stream_1", "test_group_1", "$", "MKSTREAM")
@@ -299,8 +299,8 @@ func TestStreamsScanStreamGroupsUsingValKey7(t *testing.T) {
 	}
 
 	fixtures := []keyFixture{
-		{"XADD", "test_stream_1", []interface{}{"1638006862521-0", "field_1", "str_1"}},
-		{"XADD", "test_stream_2", []interface{}{"1638006862522-0", "field_pattern_1", "str_pattern_1"}},
+		{"XADD", "test_stream_1", []any{"1638006862521-0", "field_1", "str_1"}},
+		{"XADD", "test_stream_2", []any{"1638006862522-0", "field_pattern_1", "str_pattern_1"}},
 	}
 
 	// Create test streams
@@ -413,8 +413,8 @@ func TestStreamsScanStreamGroupsConsumers(t *testing.T) {
 	}
 
 	fixtures := []keyFixture{
-		{"XADD", "single_consumer_stream", []interface{}{"*", "field_1", "str_1"}},
-		{"XADD", "multiple_consumer_stream", []interface{}{"*", "field_pattern_1", "str_pattern_1"}},
+		{"XADD", "single_consumer_stream", []any{"*", "field_1", "str_1"}},
+		{"XADD", "multiple_consumer_stream", []any{"*", "field_pattern_1", "str_pattern_1"}},
 	}
 
 	// Create test streams
@@ -702,9 +702,9 @@ func TestClusterStreamMetricsExtraction(t *testing.T) {
 
 	// Parse the metrics output to find stream metrics
 	foundMetrics := make(map[string]bool)
-	lines := strings.Split(metricsOutput, "\n")
+	lines := strings.SplitSeq(metricsOutput, "\n")
 
-	for _, line := range lines {
+	for line := range lines {
 		// Look for stream_length metrics with our test streams
 		if strings.Contains(line, "stream_length") {
 			for _, streamName := range testStreams {
