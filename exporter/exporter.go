@@ -29,7 +29,8 @@ type BuildInfo struct {
 type Exporter struct {
 	sync.Mutex
 
-	redisAddr string
+	redisAddr    string
+	instanceRole string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -93,6 +94,18 @@ type Options struct {
 	BasicAuthHashPassword          string
 	SkipCheckKeysForRoleMaster     bool
 	InclMetricsForEmptyDatabases   bool
+	AppendInstanceRoleLabel        bool
+}
+
+func getInstanceRoleFromInfo(info string) string {
+	for line := range strings.SplitSeq(info, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "role:") {
+			split := strings.SplitN(line, ":", 2)
+			return split[1]
+		}
+	}
+	return ""
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -594,6 +607,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
 	} {
+		if e.options.AppendInstanceRoleLabel {
+			desc.lbls = append(desc.lbls, "instance_role") // append instance_role label to all metrics
+		}
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
 
@@ -813,6 +829,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 	}
 	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
+	e.instanceRole = getInstanceRoleFromInfo(infoAll)
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {

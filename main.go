@@ -207,8 +207,8 @@ func main() {
 		basicAuthUsername              = flag.String("basic-auth-username", getEnv("REDIS_EXPORTER_BASIC_AUTH_USERNAME", ""), "Username for basic authentication")
 		basicAuthPassword              = flag.String("basic-auth-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_PASSWORD", ""), "Password for basic authentication, conflicts with --basic-auth-hash-password")
 		basicAuthHashPassword          = flag.String("basic-auth-hash-password", getEnv("REDIS_EXPORTER_BASIC_AUTH_HASH_PASSWORD", ""), "Hashed password for basic authentication, bcrypt format, conflicts with --basic-auth-password")
-
-		inclMetricsForEmptyDatabases = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
+		inclMetricsForEmptyDatabases   = flag.Bool("include-metrics-for-empty-databases", getEnvBool("REDIS_EXPORTER_INCL_METRICS_FOR_EMPTY_DATABASES", true), "Whether to emit db metrics (like db_keys) for empty databases")
+		appendInstanceRoleLabel        = flag.Bool("append-instance-role-label", getEnvBool("REDIS_APPEND_INSTANCE_ROLE_LABEL", false), "Whether to append 'instance_role' label to all exporter metrics")
 	)
 	flag.Parse()
 
@@ -305,6 +305,7 @@ func main() {
 			BasicAuthPassword:            *basicAuthPassword,
 			BasicAuthHashPassword:        *basicAuthHashPassword,
 			InclMetricsForEmptyDatabases: *inclMetricsForEmptyDatabases,
+			AppendInstanceRoleLabel:      *appendInstanceRoleLabel,
 		},
 	)
 	if err != nil {
