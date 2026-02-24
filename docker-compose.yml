@@ -81,12 +81,6 @@ services:
     ports:
       - "16383:6379"
 
-  redis-2-8:
-    image: redis:2.8
-    command: "redis-server"
-    ports:
-      - "16381:6379"
-
   keydb-01:
     image: "eqalpha/keydb:x86_64_v6.3.4"
     command: "keydb-server --protected-mode no"

@@ -21,7 +21,7 @@ func (e *Exporter) getClusterNodes(c redis.Conn) ([]string, error) {
 	nodes := []string{}
 
 	for _, line := range lines {
-		if node, ok := parseClusterNodeString(line); ok {
+		if node, ok := parseClusterNodeString(line, e.options.ClusterDiscoverHostnames); ok {
 			nodes = append(nodes, node)
 		}
 	}
@@ -33,7 +33,7 @@ func (e *Exporter) getClusterNodes(c redis.Conn) ([]string, error) {
 <id> <ip:port@cport[,hostname]> <flags> <master> <ping-sent> <pong-recv> <config-epoch> <link-state> <slot> <slot> ... <slot>
 eaf69c70d876558a948ba62af0884a37d42c9627 127.0.0.1:7002@17002 master - 0 1742836359057 3 connected 10923-16383
 */
-func parseClusterNodeString(node string) (string, bool) {
+func parseClusterNodeString(node string, resolveHostname bool) (string, bool) {
 	log.Debugf("parseClusterNodeString node: [%s]", node)
 
 	fields := strings.Fields(node)
@@ -48,5 +48,9 @@ func parseClusterNodeString(node string) (string, bool) {
 		return "", false
 	}
 
+	// address[1] = ip, address[2] = port, address[4] = hostname (may be empty)
+	if resolveHostname && len(address) >= 5 && address[4] != "" {
+		return address[4] + ":" + address[2], true
+	}
 	return address[1] + ":" + address[2], true
 }

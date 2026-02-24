@@ -20,9 +20,13 @@ func (e *Exporter) extractSlowLogMetrics(ch chan<- prometheus.Metric, c redis.Co
 
 	if len(values) > 0 {
 		if values, err = redis.Values(values[0], err); err == nil && len(values) > 0 {
-			slowlogLastID = values[0].(int64)
+			if id, ok := values[0].(int64); ok {
+				slowlogLastID = id
+			}
 			if len(values) > 2 {
-				lastSlowExecutionDurationSeconds = float64(values[2].(int64)) / 1e6
+				if dur, ok := values[2].(int64); ok {
+					lastSlowExecutionDurationSeconds = float64(dur) / 1e6
+				}
 			}
 		}
 	}

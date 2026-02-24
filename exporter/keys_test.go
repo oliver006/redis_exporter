@@ -274,16 +274,16 @@ func TestParseKeyArg(t *testing.T) {
 type keyFixture struct {
 	command string
 	key     string
-	args    []interface{}
+	args    []any
 }
 
-func newKeyFixture(command string, key string, args ...interface{}) keyFixture {
+func newKeyFixture(command string, key string, args ...any) keyFixture {
 	return keyFixture{command, key, args}
 }
 
 func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	for _, f := range fixtures {
-		args := append([]interface{}{f.key}, f.args...)
+		args := append([]any{f.key}, f.args...)
 		if _, err := c.Do(f.command, args...); err != nil {
 			t.Fatalf("Error creating fixture: %#v, %#v", f, err)
 		}
@@ -303,13 +303,13 @@ func TestScanKeys(t *testing.T) {
 	var fixtures []keyFixture
 
 	// Make 1000 keys that match
-	for i := 0; i < numKeys; i++ {
+	for i := range numKeys {
 		key := fmt.Sprintf("get_keys_test_shouldmatch_%v", i)
 		fixtures = append(fixtures, newKeyFixture("SET", key, "Woohoo!"))
 	}
 
 	// And 1000 that don't
-	for i := 0; i < numKeys; i++ {
+	for i := range numKeys {
 		key := fmt.Sprintf("get_keys_test_shouldnotmatch_%v", i)
 		fixtures = append(fixtures, newKeyFixture("SET", key, "Rats!"))
 	}
@@ -790,11 +790,11 @@ func TestGetKeysCount(t *testing.T) {
 	}
 
 	fixtures := []keyFixture{
-		{"SET", "count_test:keys_count_test_string1", []interface{}{"Woohoo!"}},
-		{"SET", "count_test:keys_count_test_string2", []interface{}{"!oohooW"}},
-		{"LPUSH", "count_test:keys_count_test_list1", []interface{}{"listval1", "listval2", "listval3"}},
-		{"LPUSH", "count_test:keys_count_test_list2", []interface{}{"listval1", "listval2", "listval3"}},
-		{"LPUSH", "count_test:keys_count_test_list3", []interface{}{"listval1", "listval2", "listval3"}},
+		{"SET", "count_test:keys_count_test_string1", []any{"Woohoo!"}},
+		{"SET", "count_test:keys_count_test_string2", []any{"!oohooW"}},
+		{"LPUSH", "count_test:keys_count_test_list1", []any{"listval1", "listval2", "listval3"}},
+		{"LPUSH", "count_test:keys_count_test_list2", []any{"listval1", "listval2", "listval3"}},
+		{"LPUSH", "count_test:keys_count_test_list3", []any{"listval1", "listval2", "listval3"}},
 	}
 
 	createKeyFixtures(t, c, fixtures)

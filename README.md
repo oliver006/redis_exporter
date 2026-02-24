@@ -4,7 +4,24 @@
  [![Coverage Status](https://coveralls.io/repos/github/oliver006/redis_exporter/badge.svg?branch=master)](https://coveralls.io/github/oliver006/redis_exporter?branch=master) [![codecov](https://codecov.io/gh/oliver006/redis_exporter/branch/master/graph/badge.svg)](https://codecov.io/gh/oliver006/redis_exporter) [![docker_pulls](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg)](https://img.shields.io/docker/pulls/oliver006/redis_exporter.svg) [![Stand With Ukraine](https://raw.githubusercontent.com/vshymanskyy/StandWithUkraine/main/badges/StandWithUkraine.svg)](https://stand-with-ukraine.pp.ua)
 
 Prometheus exporter for Valkey metrics (Redis-compatible).\
-Supports Valkey and Redis 2.x, 3.x, 4.x, 5.x, 6.x, and 7.x
+Supports Valkey 7.x, 8.x, 9.x (and Redis)
+
+
+```
+
+           ____  _                ___ ____ _____ 
+          / ___|| |_ ___  _ __   |_ _/ ___| ____|
+          \___ \| __/ _ \| '_ \   | | |   |  _|  
+           ___) | || (_) | |_) |  | | |___| |___ 
+          |____/ \__\___/| .__/  |___\____|_____|
+                         |_|                     
+
+           Stop ICE's Attack On Our Communities!
+
+
+```
+
+
 
 #### Ukraine is still suffering from Russian aggression, [please consider supporting Red Cross Ukraine with a donation](https://redcross.org.ua/en/).
 
@@ -200,6 +217,7 @@ P.S. Consider using `-append-instance-role-label` option to easily distinguish m
 | ping-on-connect                     | REDIS_EXPORTER_PING_ON_CONNECT                   | Whether to ping the redis instance after connecting and record the duration as a metric, defaults to false.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | is-tile38                           | REDIS_EXPORTER_IS_TILE38                         | Whether to scrape Tile38 specific metrics, defaults to false.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | is-cluster                          | REDIS_EXPORTER_IS_CLUSTER                        | Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| cluster-discover-hostnames          | REDIS_EXPORTER_CLUSTER_DISCOVER_HOSTNAMES        | Whether to use hostname for cluster node discovery if available via `/discover-cluster-nodes` endpoint, defaults to false.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | export-client-list                  | REDIS_EXPORTER_EXPORT_CLIENT_LIST                | Whether to scrape Client List specific metrics, defaults to false.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | export-client-port                  | REDIS_EXPORTER_EXPORT_CLIENT_PORT                | Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | skip-tls-verification               | REDIS_EXPORTER_SKIP_TLS_VERIFICATION             | Whether to skip TLS verification when the exporter connects to a Redis instance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
