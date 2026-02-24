@@ -180,6 +180,12 @@ scrape_configs:
         - <<REDIS-EXPORTER-HOSTNAME>>:9121
 ```
 
+By default, Redis cluster node discovery will use the IP address of the nodes. If the cluster is running with
+`--cluster-preferred-endpoint-type hostname` and `--cluster-announce-hostname <cluster-node-name>` then you can set the
+`--cluster-discover-hostnames` flag or the`REDIS_EXPORTER_CLUSTER_DISCOVER_HOSTNAMES` environment variable to `true` and
+the discovery endpoint will return hostnames instead of IP addresses for the nodes. This flag is helpful when the cluster
+is deployed in container environments.
+
 P.S. Consider using `-append-instance-role-label` option to easily distinguish master and replica nodes metrics.
 
 ### Command line flags
