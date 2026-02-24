@@ -96,6 +96,17 @@ type Options struct {
 	AppendInstanceRoleLabel        bool
 }
 
+func getInstanceRoleFromInfo(info string) string {
+	for line := range strings.SplitSeq(info, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "role:") {
+			split := strings.SplitN(line, ":", 2)
+			return split[1]
+		}
+	}
+	return ""
+}
+
 // NewRedisExporter returns a new exporter of Redis metrics.
 func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	log.Debugf("NewRedisExporter options: %#v", opts)
@@ -827,6 +838,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 	}
 	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
+	e.instanceRole = getInstanceRoleFromInfo(infoAll)
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {

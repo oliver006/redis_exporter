@@ -170,7 +170,6 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	}
 
 	instanceRole := keyValues["role"]
-	e.instanceRole = instanceRole
 
 	lbls := []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id", "master_replid"}
 	lblVals := []string{
