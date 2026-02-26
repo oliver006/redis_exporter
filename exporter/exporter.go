@@ -74,6 +74,7 @@ type Options struct {
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
 	InclSystemMetrics              bool
+	InclRdbFileSizeMetric          bool
 	SkipTLSVerification            bool
 	SetClientName                  bool
 	IsTile38                       bool
@@ -593,6 +594,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"stream_radix_tree_keys":                             {txt: `Radix tree keys count"`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
+		"rdb_current_size_bytes":                             {txt: "Current RDB file size in bytes"},
 	} {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
@@ -910,6 +912,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 				return err
 			}
 		}
+	}
+
+	if e.options.InclRdbFileSizeMetric {
+		e.extractRdbFileSizeMetric(ch, c)
 	}
 
 	return nil
