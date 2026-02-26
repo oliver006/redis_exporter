@@ -33,6 +33,7 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, configM
 			e.registerConstMetricGauge(ch, "rdb_current_size_bytes", 0)
 			return
 		}
+
 		if os.IsPermission(err) {
 			log.Warnf("Permission denied accessing RDB file: %s", rdbPath)
 			return
