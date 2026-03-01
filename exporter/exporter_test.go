@@ -489,6 +489,8 @@ func TestRedisAppendInstanceRoleLabel(t *testing.T) {
 		body := downloadURL(t, ts.URL+"/metrics")
 		if inc && !strings.Contains(body, "instance_role") {
 			t.Errorf("want metrics to include instance_role label, have:\n%s", body)
+		} else if inc && strings.Contains(body, "instance_role=\"\"") {
+			t.Errorf("want metrics to include instance_role label and it should be set (found {instance_role=''}), have:\n%s", body)
 		} else if !inc && strings.Contains(body, "instance_role") {
 			t.Errorf("did NOT want metrics to include instance_role label, have:\n%s", body)
 		}
@@ -981,6 +983,34 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 		if !found {
 			t.Errorf("didn't find metric: %s", k)
 		}
+	}
+}
+
+func TestGetInstanceRoleFromInfo(t *testing.T) {
+	tests := []struct {
+		name string
+		info string
+		want string
+	}{
+		{
+			name: "role_present",
+			info: "# Replication\nrole:master\nconnected_slaves:2\n",
+			want: "master",
+		},
+		{
+			name: "role_missing",
+			info: "# Server\nredis_version:6.2.0\n",
+			want: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getInstanceRoleFromInfo(tt.info)
+			if got != tt.want {
+				t.Errorf("getInstanceRoleFromInfo() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 
