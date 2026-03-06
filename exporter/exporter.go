@@ -554,6 +554,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"search_index_number_of_uses_total":                  {txt: "Number of times the index has been used", lbls: []string{"index_name"}},
 		"search_index_cleaning":                              {txt: "Index deletion flag. A value of 1 indicates index deletion is in progress", lbls: []string{"index_name"}},
 		"sentinel_master_ckquorum_status":                    {txt: "Master ckquorum status", lbls: []string{"master_name", "message"}},
+		"sentinel_peer_info":                                 {txt: "Other Sentinel peers discovered via SENTINEL SENTINELS (one scrape from one Sentinel)", lbls: []string{"master_name", "master_address", "name", "ip", "port", "runid", "flags"}},
 		"sentinel_master_ok_sentinels":                       {txt: "The number of okay sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_ok_slaves":                          {txt: "The number of okay slaves of the master", lbls: []string{"master_name", "master_address"}},
 		"sentinel_master_sentinels":                          {txt: "The number of sentinels monitoring this master", lbls: []string{"master_name", "master_address"}},

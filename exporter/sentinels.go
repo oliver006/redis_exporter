@@ -144,6 +144,12 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 
 	// If we are here then this master is in ok state
 	masterOkSentinels := 1
+	masterName := ""
+	masterAddr := ""
+	if len(labels) >= 2 {
+		masterName = labels[0]
+		masterAddr = labels[1]
+	}
 
 	for _, sentinelDetail := range sentinelDetails {
 		sentinelDetailMap, err := redis.StringMap(sentinelDetail, nil)
@@ -151,6 +157,28 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 			log.Debugf("Error getting sentinelDetailMap from sentinelDetail: %s, err: %s", sentinelDetail, err)
 			continue
 		}
+
+		name := ""
+		if v, ok := sentinelDetailMap["name"]; ok {
+			name = v
+		}
+		ip := ""
+		if v, ok := sentinelDetailMap["ip"]; ok {
+			ip = v
+		}
+		port := ""
+		if v, ok := sentinelDetailMap["port"]; ok {
+			port = v
+		}
+		runid := ""
+		if v, ok := sentinelDetailMap["runid"]; ok {
+			runid = v
+		}
+		flags := ""
+		if v, ok := sentinelDetailMap["flags"]; ok {
+			flags = v
+		}
+		e.registerConstMetricGauge(ch, "sentinel_peer_info", 1, masterName, masterAddr, name, ip, port, runid, flags)
 
 		sentinelFlags, ok := sentinelDetailMap["flags"]
 		if !ok {
