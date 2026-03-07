@@ -767,6 +767,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	startTime := time.Now()
 	c, err := e.connectToRedis()
 	connectTookSeconds := time.Since(startTime).Seconds()
+	e.registerConstMetricGauge(ch, "exporter_last_scrape_connect_time_seconds", connectTookSeconds)
 
 	if err != nil {
 		var redactedAddr string
@@ -781,15 +782,6 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		return err
 	}
 	defer c.Close()
-
-	// Get redis role right after connect before metrics register
-	infoTmp, err := redis.String(doRedisCmd(c, "INFO"))
-	if err != nil {
-		log.Errorf("Redis INFO err: %s", err)
-		return err
-	}
-	e.instanceRole = getInstanceRoleFromInfo(infoTmp)
-	e.registerConstMetricGauge(ch, "exporter_last_scrape_connect_time_seconds", connectTookSeconds)
 
 	log.Debugf("connected to: %s", e.redisAddr)
 	log.Debugf("connecting took %f seconds", connectTookSeconds)
@@ -812,6 +804,18 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 	}
 
+	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
+	if err != nil || infoAll == "" {
+		log.Debugf("Redis INFO ALL err: %s", err)
+		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
+		if err != nil {
+			log.Errorf("Redis INFO err: %s", err)
+			return err
+		}
+	}
+	e.instanceRole = getInstanceRoleFromInfo(infoAll)
+	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
+
 	dbCount := 0
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
@@ -826,17 +830,6 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			log.Debugf("Redis CONFIG err: %s", err)
 		}
 	}
-
-	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
-	if err != nil || infoAll == "" {
-		log.Debugf("Redis INFO ALL err: %s", err)
-		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
-		if err != nil {
-			log.Errorf("Redis INFO err: %s", err)
-			return err
-		}
-	}
-	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
