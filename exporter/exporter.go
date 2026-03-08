@@ -813,7 +813,9 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			return err
 		}
 	}
-	e.instanceRole = getInstanceRoleFromInfo(infoAll)
+	if e.options.AppendInstanceRoleLabel {
+		e.instanceRole = getInstanceRoleFromInfo(infoAll)
+	}
 	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
 
 	dbCount := 0
