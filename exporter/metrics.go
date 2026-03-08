@@ -3,7 +3,6 @@ package exporter
 import (
 	"fmt"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -12,10 +11,6 @@ import (
 )
 
 var metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
-var skipInstanceRoleLabel = []string{ // These metrics are collected before instanceRole set
-	"exporter_last_scrape_connect_time_seconds",
-	"exporter_last_scrape_ping_time_seconds",
-}
 
 func sanitizeMetricName(n string) string {
 	return metricNameRE.ReplaceAllString(n, "_")
@@ -94,7 +89,7 @@ func (e *Exporter) registerConstMetric(ch chan<- prometheus.Metric, metric strin
 		desc = e.mustFindMetricDescription(metric)
 	}
 
-	if e.options.AppendInstanceRoleLabel && !slices.Contains(skipInstanceRoleLabel, metric) {
+	if e.options.AppendInstanceRoleLabel && metric != "exporter_last_scrape_connect_time_seconds" && metric != "exporter_last_scrape_ping_time_seconds" {
 		labelValues = append(labelValues, e.instanceRole) // append instance_role label to all metrics
 	}
 	m, err := prometheus.NewConstMetric(desc, valType, val, labelValues...)
@@ -145,8 +140,8 @@ func (e *Exporter) createMetricDescription(metricName string, labels []string) *
 	if desc, found := e.metricDescriptions[metricName]; found {
 		return desc
 	}
-	if e.options.AppendInstanceRoleLabel && !slices.Contains(skipInstanceRoleLabel, metricName) {
-		labels = append(labels, "instance_role") // append instance_role label to all metrics
+	if e.options.AppendInstanceRoleLabel && metricName != "exporter_last_scrape_connect_time_seconds" && metricName != "exporter_last_scrape_ping_time_seconds" {
+		labels = append(labels, "instance_role") // append instance_role label to all metrics (except 2 collected before instanceRole)
 	}
 	d := newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
 	e.metricDescriptions[metricName] = d
