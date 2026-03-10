@@ -29,7 +29,8 @@ type BuildInfo struct {
 type Exporter struct {
 	sync.Mutex
 
-	redisAddr string
+	redisAddr    string
+	instanceRole string
 
 	totalScrapes              prometheus.Counter
 	scrapeDuration            prometheus.Summary
@@ -94,6 +95,18 @@ type Options struct {
 	BasicAuthHashPassword          string
 	SkipCheckKeysForRoleMaster     bool
 	InclMetricsForEmptyDatabases   bool
+	AppendInstanceRoleLabel        bool
+}
+
+func getInstanceRoleFromInfo(info string) string {
+	for line := range strings.SplitSeq(info, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "role:") {
+			split := strings.SplitN(line, ":", 2)
+			return split[1]
+		}
+	}
+	return ""
 }
 
 // NewRedisExporter returns a new exporter of Redis metrics.
@@ -596,6 +609,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"up":                                                 {txt: "Information about the Redis instance"},
 		"rdb_current_size_bytes":                             {txt: "Current RDB file size in bytes"},
 	} {
+		if e.options.AppendInstanceRoleLabel {
+			desc.lbls = append(desc.lbls, "instance_role") // append instance_role label to all metrics
+		}
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
 
@@ -790,6 +806,21 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 	}
 
+	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
+	if err != nil || infoAll == "" {
+		log.Debugf("Redis INFO ALL err: %s", err)
+		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
+		if err != nil {
+			log.Errorf("Redis INFO err: %s", err)
+			return err
+		}
+	}
+	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
+
+	if e.options.AppendInstanceRoleLabel {
+		e.instanceRole = getInstanceRoleFromInfo(infoAll)
+	}
+
 	dbCount := 0
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
@@ -804,17 +835,6 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			log.Debugf("Redis CONFIG err: %s", err)
 		}
 	}
-
-	infoAll, err := redis.String(doRedisCmd(c, "INFO", "ALL"))
-	if err != nil || infoAll == "" {
-		log.Debugf("Redis INFO ALL err: %s", err)
-		infoAll, err = redis.String(doRedisCmd(c, "INFO"))
-		if err != nil {
-			log.Errorf("Redis INFO err: %s", err)
-			return err
-		}
-	}
-	log.Debugf("Redis INFO ALL result: [%#v]", infoAll)
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
@@ -914,7 +934,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		}
 	}
 
-	if e.options.InclRdbFileSizeMetric {
+	if e.options.ConfigCommandName != "-" && e.options.InclRdbFileSizeMetric {
 		e.extractRdbFileSizeMetric(ch, c)
 	}
 

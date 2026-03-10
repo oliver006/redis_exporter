@@ -10,8 +10,6 @@ import (
 )
 
 func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, c redis.Conn) {
-	// Get RDB dir and filename in a single CONFIG GET call.
-	// CONFIG GET returns a flat array: [key1, value1, key2, value2, ...]
 	result, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "dir", "dbfilename"))
 	if err != nil || len(result) < 4 {
 		log.Debugf("Failed to get RDB config from CONFIG GET dir dbfilename: %s", err)
@@ -29,11 +27,9 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, c redis
 		return
 	}
 
-	// Construct full path
 	rdbPath := filepath.Join(dir, dbfilename)
 	log.Debugf("RDB file path: %s", rdbPath)
 
-	// Get file size
 	fileInfo, err := os.Stat(rdbPath)
 	if err != nil {
 		if os.IsNotExist(err) {

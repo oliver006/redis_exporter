@@ -15,7 +15,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Set up Docker
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Set up Docker Compose
         run: sudo apt-get install docker-compose
@@ -33,7 +33,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Install Dependencies
         run: go mod tidy
@@ -89,7 +89,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Install Dependencies
         run: go mod tidy
@@ -97,7 +97,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.5.0
+          version: v2.11.2
           args: "--tests=false"
 
       - name: Run checks
@@ -116,7 +116,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.25'
+          go-version: '1.26'
 
       - name: Install Dependencies
         run: go mod tidy
@@ -128,10 +128,10 @@ jobs:
         run: make mixin
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Test Docker Image Build - Alpine
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           push: false
           target: alpine
@@ -140,7 +140,7 @@ jobs:
           build-args: "GOARCH=amd64"
 
       - name: Test Docker Image Build - Scratch
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           push: false
           target: scratch-release
