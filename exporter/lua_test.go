@@ -49,9 +49,9 @@ func TestLuaScript(t *testing.T) {
 			Wants:         []string{`test_exporter_last_scrape_error{err="strconv.ParseFloat: parsing \"abc\": invalid syntax"} 1`, `test_script_result{filename="test.lua"} 0`},
 		},
 		{
-			Name:   "borked3",
-			Script: `redis.call('SET', 'foo', 'bar'); return {"key1", "123"}`,
-			// ScriptRO:      true,
+			Name:          "borked3",
+			Script:        `redis.call('SET', 'foo', 'bar'); return {"key1", "123"}`,
+			ScriptRO:      true,
 			ExpectedKeys:  1,
 			ExpectedError: true,
 			Wants:         []string{`test_exporter_last_scrape_error{err="ERR Write commands are not allowed from read-only scripts. script:`, `test_script_result{filename="test.lua"} 0`},
