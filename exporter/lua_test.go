@@ -48,13 +48,22 @@ func TestLuaScript(t *testing.T) {
 			ExpectedError: true,
 			Wants:         []string{`test_exporter_last_scrape_error{err="strconv.ParseFloat: parsing \"abc\": invalid syntax"} 1`, `test_script_result{filename="test.lua"} 0`},
 		},
+		{
+			Name:          "borked3",
+			Script:        `redis.call('SET', 'foo', 'bar'); return {"key1", "123"}`,
+			ScriptRO:      true,
+			ExpectedKeys:  1,
+			ExpectedError: true,
+			Wants:         []string{`test_exporter_last_scrape_error{err="ERR Write commands are not allowed from read-only scripts. script:`, `test_script_result{filename="test.lua"} 0`},
+		},
 	} {
 		t.Run(tst.Name, func(t *testing.T) {
 			e, _ := NewRedisExporter(
 				os.Getenv("TEST_REDIS_URI"),
 				Options{
-					Namespace: "test",
-					LuaScript: map[string][]byte{"test.lua": []byte(tst.Script)},
+					Namespace:   "test",
+					LuaScript:   map[string][]byte{"test.lua": []byte(tst.Script)},
+					LuaScriptRO: tst.ScriptRO,
 				})
 			ts := httptest.NewServer(e)
 			defer ts.Close()
