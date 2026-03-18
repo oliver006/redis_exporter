@@ -11,6 +11,7 @@ func TestLuaScript(t *testing.T) {
 	for _, tst := range []struct {
 		Name          string
 		Script        string
+		ScriptRO      bool
 		ExpectedKeys  int
 		ExpectedError bool
 		Wants         []string
