@@ -10,7 +10,7 @@ import (
 
 func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn, filename string, script []byte) error {
 	luaCMD := "EVAL"
-	if e.options.LuaScriptRO {
+	if e.options.LuaScriptReadOnly {
 		luaCMD = "EVAL_RO"
 	}
 

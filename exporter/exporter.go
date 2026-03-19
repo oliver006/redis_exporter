@@ -64,7 +64,7 @@ type Options struct {
 	MaxDistinctKeyGroups           int64
 	CountKeys                      string
 	LuaScript                      map[string][]byte
-	LuaScriptRO                    bool
+	LuaScriptReadOnly              bool
 	ClientCertFile                 string
 	ClientKeyFile                  string
 	CaCertFile                     string
