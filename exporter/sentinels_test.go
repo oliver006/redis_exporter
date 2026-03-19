@@ -199,10 +199,11 @@ func TestSentinelExtractSentinelMetricsForSentinel(t *testing.T) {
 }
 
 type sentinelSentinelsData struct {
-	name                string
-	sentinelDetails     []any
-	labels              []string
-	expectedMetricValue map[string]int
+	name                  string
+	sentinelDetails       []any
+	labels                []string
+	expectedMetricValue   map[string]int
+	expectedPeerInfoCount int
 }
 
 func TestSentinelProcessSentinels(t *testing.T) {
@@ -222,11 +223,11 @@ func TestSentinelProcessSentinels(t *testing.T) {
 		"sentinel_master_ok_sentinels": 2,
 	}
 	tsts := []sentinelSentinelsData{
-		{"1/1 okay sentinel", []any{[]any{[]byte("")}}, []string{"mymaster", "172.17.0.7:26379"}, oneOkSentinelExpectedMetricValue},
-		{"1/3 okay sentinel", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("o_down,s_down,sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("flags"), []byte("s_down,sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, oneOkSentinelExpectedMetricValue},
-		{"2/3 okay sentinel(string is not byte slice)", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("flags"), "sentinel", []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, twoOkSentinelExpectedMetricValue},
-		{"2/3 okay sentinel", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("flags"), []byte("s_down,sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, twoOkSentinelExpectedMetricValue},
-		{"2/3 okay sentinel(missing flags)", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, twoOkSentinelExpectedMetricValue},
+		{"1/1 okay sentinel", []any{[]any{[]byte("")}}, []string{"mymaster", "172.17.0.7:26379"}, oneOkSentinelExpectedMetricValue, 0},
+		{"1/3 okay sentinel", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("o_down,s_down,sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("flags"), []byte("s_down,sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, oneOkSentinelExpectedMetricValue, 2},
+		{"2/3 okay sentinel(string is not byte slice)", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("flags"), "sentinel", []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, twoOkSentinelExpectedMetricValue, 2},
+		{"2/3 okay sentinel", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("flags"), []byte("s_down,sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, twoOkSentinelExpectedMetricValue, 2},
+		{"2/3 okay sentinel(missing flags)", []any{[]any{[]byte("name"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("ip"), []byte("172.17.0.8"), []byte("port"), []byte("26379"), []byte("runid"), []byte("284bc2ef46881bd71e81610152cb96031d211d28"), []byte("flags"), []byte("sentinel"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823816"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}, []any{[]byte("name"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("ip"), []byte("172.17.0.7"), []byte("port"), []byte("26379"), []byte("runid"), []byte("c3ab3cdcaeb193bb49b16d4d3da88def984ab3bf"), []byte("link-pending-commands"), []byte("38"), []byte("link-refcount"), []byte("1"), []byte("last-ping-sent"), []byte("11828891"), []byte("last-ok-ping-reply"), []byte("11829539"), []byte("last-ping-reply"), []byte("11829539"), []byte("s-down-time"), []byte("11823815"), []byte("down-after-milliseconds"), []byte("5000"), []byte("last-hello-message"), []byte("11829434"), []byte("voted-leader"), []byte("?"), []byte("voted-leader-epoch"), []byte("0")}}, []string{"mymaster", "172.17.0.7:26379"}, twoOkSentinelExpectedMetricValue, 2},
 	}
 	for _, tst := range tsts {
 		t.Run(tst.name, func(t *testing.T) {
@@ -237,11 +238,21 @@ func TestSentinelProcessSentinels(t *testing.T) {
 			}()
 			want := map[string]bool{
 				"sentinel_master_ok_sentinels": false,
+				"sentinel_peer_info":           false,
 			}
+			peerInfoCount := 0
 
 			for m := range chM {
+				descStr := m.Desc().String()
+				if strings.Contains(descStr, "sentinel_peer_info") {
+					peerInfoCount++
+					want["sentinel_peer_info"] = true
+				}
 				for k := range want {
-					if strings.Contains(m.Desc().String(), k) {
+					if k == "sentinel_peer_info" {
+						continue
+					}
+					if strings.Contains(descStr, k) {
 						want[k] = true
 						got := &dto.Metric{}
 						m.Write(got)
@@ -253,7 +264,15 @@ func TestSentinelProcessSentinels(t *testing.T) {
 					}
 				}
 			}
+			if tst.expectedPeerInfoCount > 0 {
+				if peerInfoCount != tst.expectedPeerInfoCount {
+					t.Errorf("sentinel_peer_info: expected count %d, got %d", tst.expectedPeerInfoCount, peerInfoCount)
+				}
+			}
 			for k, found := range want {
+				if k == "sentinel_peer_info" && tst.expectedPeerInfoCount == 0 {
+					continue
+				}
 				if !found {
 					t.Errorf("didn't find metric %s", k)
 				}
@@ -267,6 +286,77 @@ type sentinelSlavesData struct {
 	slaveDetails        []any
 	labels              []string
 	expectedMetricValue map[string]int
+}
+
+// TestSentinelPeerInfoMetric verifies sentinel_peer_info is emitted with correct labels (no live Sentinel required).
+func TestSentinelPeerInfoMetric(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:26379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter: %v", err)
+	}
+	// One peer with all labels; one peer with missing "flags" (tests safe map access).
+	sentinelDetails := []any{
+		[]any{
+			[]byte("name"), []byte("runid-peer1"),
+			[]byte("ip"), []byte("10.0.0.1"),
+			[]byte("port"), []byte("26379"),
+			[]byte("runid"), []byte("runid-peer1"),
+			[]byte("flags"), []byte("sentinel"),
+		},
+		[]any{
+			[]byte("name"), []byte("runid-peer2"),
+			[]byte("ip"), []byte("10.0.0.2"),
+			[]byte("port"), []byte("26380"),
+			[]byte("runid"), []byte("runid-peer2"),
+			// no "flags" key - must not panic, label should be empty
+		},
+	}
+	labels := []string{"mymaster", "127.0.0.1:6379"}
+
+	chM := make(chan prometheus.Metric, 16)
+	go func() {
+		e.processSentinelSentinels(chM, sentinelDetails, labels...)
+		close(chM)
+	}()
+
+	var peerInfoMetrics []*dto.Metric
+	for m := range chM {
+		if strings.Contains(m.Desc().String(), "sentinel_peer_info") {
+			got := &dto.Metric{}
+			_ = m.Write(got)
+			peerInfoMetrics = append(peerInfoMetrics, got)
+		}
+	}
+
+	if len(peerInfoMetrics) != 2 {
+		t.Fatalf("expected 2 sentinel_peer_info metrics, got %d", len(peerInfoMetrics))
+	}
+
+	labelMap := func(metric *dto.Metric) map[string]string {
+		out := make(map[string]string)
+		for _, lp := range metric.GetLabel() {
+			out[lp.GetName()] = lp.GetValue()
+		}
+		return out
+	}
+
+	// First peer: all labels set
+	l0 := labelMap(peerInfoMetrics[0])
+	if l0["master_name"] != "mymaster" || l0["master_address"] != "127.0.0.1:6379" {
+		t.Errorf("first peer: wrong master labels: master_name=%q master_address=%q", l0["master_name"], l0["master_address"])
+	}
+	if l0["name"] != "runid-peer1" || l0["ip"] != "10.0.0.1" || l0["port"] != "26379" || l0["runid"] != "runid-peer1" || l0["flags"] != "sentinel" {
+		t.Errorf("first peer: wrong peer labels: name=%q ip=%q port=%q runid=%q flags=%q", l0["name"], l0["ip"], l0["port"], l0["runid"], l0["flags"])
+	}
+
+	// Second peer: flags missing in input -> must be empty string (no panic)
+	l1 := labelMap(peerInfoMetrics[1])
+	if l1["name"] != "runid-peer2" || l1["ip"] != "10.0.0.2" || l1["port"] != "26380" || l1["runid"] != "runid-peer2" {
+		t.Errorf("second peer: wrong labels: name=%q ip=%q port=%q runid=%q", l1["name"], l1["ip"], l1["port"], l1["runid"])
+	}
+	if l1["flags"] != "" {
+		t.Errorf("second peer: expected empty flags when key missing, got %q", l1["flags"])
+	}
 }
 
 func TestSentinelProcessSlaves(t *testing.T) {
