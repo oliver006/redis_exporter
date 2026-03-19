@@ -778,6 +778,25 @@ func downloadURLWithStatusCode(t *testing.T, u string) (int, string) {
 	return resp.StatusCode, string(body)
 }
 
+func TestScrapeEndpointDisabled(t *testing.T) {
+	e, _ := NewRedisExporter("", Options{
+		Namespace:             "test",
+		DisableScrapeEndpoint: true,
+	})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	resp, err := http.Get(ts.URL + "/scrape")
+	if err != nil {
+		t.Fatalf("Failed to send request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNotFound {
+		t.Errorf("Expected status code %d for disabled /scrape endpoint, got %d", http.StatusNotFound, resp.StatusCode)
+	}
+}
+
 func TestValidateBasicAuthPassword(t *testing.T) {
 	tests := []struct {
 		name               string
