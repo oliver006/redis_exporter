@@ -30,6 +30,10 @@ func (e *Exporter) healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (e *Exporter) indexHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/" {
+		http.NotFound(w, r)
+		return
+	}
 	_, _ = w.Write([]byte(`<html>
 <head><title>Redis Exporter ` + e.buildInfo.Version + `</title></head>
 <body>
