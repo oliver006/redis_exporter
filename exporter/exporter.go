@@ -71,6 +71,7 @@ type Options struct {
 	InclConfigMetrics              bool
 	InclModulesMetrics             bool
 	InclSearchIndexesMetrics       bool
+	InclSentinelPeerInfo           bool
 	CheckSearchIndexes             string
 	DisableExportingKeyValues      bool
 	ExcludeLatencyHistogramMetrics bool
@@ -613,6 +614,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			desc.lbls = append(desc.lbls, "instance_role") // append instance_role label to all metrics
 		}
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
+	}
+
+	if !opts.InclSentinelPeerInfo {
+		delete(e.metricDescriptions, "sentinel_peer_info")
 	}
 
 	if e.options.MetricsPath == "" {

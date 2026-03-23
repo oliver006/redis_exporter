@@ -178,7 +178,9 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 		if v, ok := sentinelDetailMap["flags"]; ok {
 			flags = v
 		}
-		e.registerConstMetricGauge(ch, "sentinel_peer_info", 1, masterName, masterAddr, name, ip, port, runid, flags)
+		if e.options.InclSentinelPeerInfo {
+			e.registerConstMetricGauge(ch, "sentinel_peer_info", 1, masterName, masterAddr, name, ip, port, runid, flags)
+		}
 
 		sentinelFlags, ok := sentinelDetailMap["flags"]
 		if !ok {

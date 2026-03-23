@@ -213,7 +213,7 @@ func TestSentinelProcessSentinels(t *testing.T) {
 	addr := os.Getenv("TEST_VALKEY_SENTINEL_URI")
 	e, _ := NewRedisExporter(
 		addr,
-		Options{Namespace: "test"},
+		Options{Namespace: "test", InclSentinelPeerInfo: true},
 	)
 
 	oneOkSentinelExpectedMetricValue := map[string]int{
@@ -290,7 +290,7 @@ type sentinelSlavesData struct {
 
 // TestSentinelPeerInfoMetric verifies sentinel_peer_info is emitted with correct labels (no live Sentinel required).
 func TestSentinelPeerInfoMetric(t *testing.T) {
-	e, err := NewRedisExporter("redis://localhost:26379", Options{Namespace: "test"})
+	e, err := NewRedisExporter("redis://localhost:26379", Options{Namespace: "test", InclSentinelPeerInfo: true})
 	if err != nil {
 		t.Fatalf("NewRedisExporter: %v", err)
 	}
@@ -356,6 +356,43 @@ func TestSentinelPeerInfoMetric(t *testing.T) {
 	}
 	if l1["flags"] != "" {
 		t.Errorf("second peer: expected empty flags when key missing, got %q", l1["flags"])
+	}
+}
+
+func TestInclSentinelPeerInfoDisabled(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:26379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter: %v", err)
+	}
+	sentinelDetails := []any{
+		[]any{
+			[]byte("name"), []byte("peer-a"),
+			[]byte("ip"), []byte("10.0.0.1"),
+			[]byte("port"), []byte("26379"),
+			[]byte("runid"), []byte("rid-a"),
+			[]byte("flags"), []byte("sentinel"),
+		},
+	}
+	chM := make(chan prometheus.Metric, 8)
+	go func() {
+		e.processSentinelSentinels(chM, sentinelDetails, "mymaster", "127.0.0.1:6379")
+		close(chM)
+	}()
+	var peerInfo, okSentinels int
+	for m := range chM {
+		ds := m.Desc().String()
+		if strings.Contains(ds, "sentinel_peer_info") {
+			peerInfo++
+		}
+		if strings.Contains(ds, "sentinel_master_ok_sentinels") {
+			okSentinels++
+		}
+	}
+	if peerInfo != 0 {
+		t.Errorf("expected no sentinel_peer_info when InclSentinelPeerInfo is false, got %d", peerInfo)
+	}
+	if okSentinels != 1 {
+		t.Errorf("expected sentinel_master_ok_sentinels, got count %d", okSentinels)
 	}
 }
 
