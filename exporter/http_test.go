@@ -795,12 +795,6 @@ func TestScrapeEndpointDisabled(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound {
 		t.Errorf("Expected status code %d for disabled /scrape endpoint, got %d", http.StatusNotFound, resp.StatusCode)
 	}
-
-	body, _ := io.ReadAll(resp.Body)
-	expected := "The /scrape endpoint is disabled"
-	if !strings.Contains(string(body), expected) {
-		t.Errorf("Expected body to contain %q, got %q", expected, string(body))
-	}
 }
 
 func TestUnknownPathReturns404(t *testing.T) {

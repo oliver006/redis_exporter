@@ -638,11 +638,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	}
 
 	e.mux.HandleFunc("/", e.indexHandler)
-	if e.options.DisableScrapeEndpoint {
-		e.mux.HandleFunc("/scrape", func(w http.ResponseWriter, r *http.Request) {
-			http.Error(w, "The /scrape endpoint is disabled", http.StatusNotFound)
-		})
-	} else {
+	if !e.options.DisableScrapeEndpoint {
 		e.mux.HandleFunc("/scrape", e.scrapeHandler)
 	}
 	e.mux.HandleFunc("/discover-cluster-nodes", e.discoverClusterNodesHandler)
