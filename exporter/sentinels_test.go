@@ -396,6 +396,70 @@ func TestInclSentinelPeerInfoDisabled(t *testing.T) {
 	}
 }
 
+func TestSentinelProcessSentinelsWithoutLabels(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:26379", Options{Namespace: "test", InclSentinelPeerInfo: true})
+	if err != nil {
+		t.Fatalf("NewRedisExporter: %v", err)
+	}
+
+	sentinelDetails := []any{
+		[]any{
+			[]byte("name"), []byte("peer-a"),
+			[]byte("ip"), []byte("10.0.0.1"),
+			[]byte("port"), []byte("26379"),
+			[]byte("runid"), []byte("rid-a"),
+			[]byte("flags"), []byte("sentinel"),
+		},
+	}
+
+	chM := make(chan prometheus.Metric, 8)
+	go func() {
+		e.processSentinelSentinels(chM, sentinelDetails)
+		close(chM)
+	}()
+
+	gotAny := false
+	for range chM {
+		gotAny = true
+	}
+
+	if gotAny {
+		t.Errorf("expected no sentinel metrics when labels are missing")
+	}
+}
+
+func TestSentinelProcessSlavesWithoutLabels(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:26379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter: %v", err)
+	}
+
+	slaveDetails := []any{
+		[]any{
+			[]byte("name"), []byte("172.17.0.3:6379"),
+			[]byte("ip"), []byte("172.17.0.3"),
+			[]byte("port"), []byte("6379"),
+			[]byte("runid"), []byte("rid-a"),
+			[]byte("flags"), []byte("slave"),
+		},
+	}
+
+	chM := make(chan prometheus.Metric, 8)
+	go func() {
+		e.processSentinelSlaves(chM, slaveDetails)
+		close(chM)
+	}()
+
+	gotAny := false
+	for range chM {
+		gotAny = true
+	}
+
+	if gotAny {
+		t.Errorf("expected no slave metrics when labels are missing")
+	}
+}
+
 func TestSentinelProcessSlaves(t *testing.T) {
 	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
 		t.Skipf("TEST_VALKEY_SENTINEL_URI not set - skipping")

@@ -144,9 +144,10 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 
 	// If we are here then this master is in ok state
 	masterOkSentinels := 1
+	hasMasterLabels := len(labels) >= 2
 	masterName := ""
 	masterAddr := ""
-	if len(labels) >= 2 {
+	if hasMasterLabels {
 		masterName = labels[0]
 		masterAddr = labels[1]
 	}
@@ -178,7 +179,7 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 		if v, ok := sentinelDetailMap["flags"]; ok {
 			flags = v
 		}
-		if e.options.InclSentinelPeerInfo {
+		if e.options.InclSentinelPeerInfo && hasMasterLabels {
 			e.registerConstMetricGauge(ch, "sentinel_peer_info", 1, masterName, masterAddr, name, ip, port, runid, flags)
 		}
 
@@ -218,7 +219,9 @@ func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetai
 		}
 		masterOkSlaves = masterOkSlaves + 1
 	}
-	e.registerConstMetricGauge(ch, "sentinel_master_ok_slaves", float64(masterOkSlaves), labels...)
+	if len(labels) >= 2 {
+		e.registerConstMetricGauge(ch, "sentinel_master_ok_slaves", float64(masterOkSlaves), labels...)
+	}
 }
 
 /*
