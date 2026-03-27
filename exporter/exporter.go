@@ -616,10 +616,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
 	}
 
-	if !opts.InclSentinelPeerInfo {
-		delete(e.metricDescriptions, "sentinel_peer_info")
-	}
-
 	if e.options.MetricsPath == "" {
 		e.options.MetricsPath = "/metrics"
 	}
