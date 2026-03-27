@@ -176,21 +176,22 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 			runid = v
 		}
 		flags := ""
+		flagsFound := false
 		if v, ok := sentinelDetailMap["flags"]; ok {
 			flags = v
+			flagsFound = true
 		}
 		if e.options.InclSentinelPeerInfo && hasMasterLabels {
 			e.registerConstMetricGauge(ch, "sentinel_peer_info", 1, masterName, masterAddr, name, ip, port, runid, flags)
 		}
 
-		sentinelFlags, ok := sentinelDetailMap["flags"]
-		if !ok {
+		if !flagsFound {
 			continue
 		}
-		if strings.Contains(sentinelFlags, "o_down") {
+		if strings.Contains(flags, "o_down") {
 			continue
 		}
-		if strings.Contains(sentinelFlags, "s_down") {
+		if strings.Contains(flags, "s_down") {
 			continue
 		}
 		masterOkSentinels = masterOkSentinels + 1
