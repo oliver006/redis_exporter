@@ -9,21 +9,34 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, c redis.Conn) {
-	result, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "dir", "dbfilename"))
-	if err != nil || len(result) < 4 {
-		log.Debugf("Failed to get RDB config from CONFIG GET dir dbfilename: %s", err)
+func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, config []interface{}) {
+	if len(config) == 0 {
+		log.Debugf("Config is empty, cannot extract RDB file size")
 		return
 	}
 
-	dir, err := redis.String(result[1], nil)
-	if err != nil {
-		log.Debugf("Failed to parse RDB directory: %s", err)
-		return
+	// Parse config to find dir and dbfilename
+	configMap := make(map[string]string)
+	for i := 0; i < len(config); i += 2 {
+		if i+1 >= len(config) {
+			break
+		}
+		key, err := redis.String(config[i], nil)
+		if err != nil {
+			continue
+		}
+		value, err := redis.String(config[i+1], nil)
+		if err != nil {
+			continue
+		}
+		configMap[key] = value
 	}
-	dbfilename, err := redis.String(result[3], nil)
-	if err != nil {
-		log.Debugf("Failed to parse RDB filename: %s", err)
+
+	dir, dirOk := configMap["dir"]
+	dbfilename, dbfilenameOk := configMap["dbfilename"]
+
+	if !dirOk || !dbfilenameOk {
+		log.Debugf("Failed to find 'dir' or 'dbfilename' in config")
 		return
 	}
 

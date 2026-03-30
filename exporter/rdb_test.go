@@ -24,15 +24,11 @@ func TestExtractRdbFileSizeMetric(t *testing.T) {
 		t.Fatalf("NewRedisExporter() failed: %s", err)
 	}
 
-	c, err := e.connectToRedis()
-	if err != nil {
-		t.Fatalf("connectToRedis() failed: %s", err)
-	}
-	defer c.Close()
-
 	ch := make(chan prometheus.Metric, 100)
-	e.extractRdbFileSizeMetric(ch, c)
-	close(ch)
+	go func() {
+		e.Collect(ch)
+		close(ch)
+	}()
 
 	found := false
 	for m := range ch {
@@ -99,15 +95,11 @@ func TestExtractRdbFileSizeMetricConfigDisabled(t *testing.T) {
 		t.Fatalf("NewRedisExporter() failed: %s", err)
 	}
 
-	c, err := e.connectToRedis()
-	if err != nil {
-		t.Fatalf("connectToRedis() failed: %s", err)
-	}
-	defer c.Close()
-
 	ch := make(chan prometheus.Metric, 100)
-	e.extractRdbFileSizeMetric(ch, c)
-	close(ch)
+	go func() {
+		e.Collect(ch)
+		close(ch)
+	}()
 
 	for m := range ch {
 		if strings.Contains(m.Desc().String(), "rdb_current_size_bytes") {
