@@ -92,15 +92,13 @@ func newTestExporterForRdb(t *testing.T) *Exporter {
 func TestExtractRdbFileSizeMetricFileNotExist(t *testing.T) {
 	e := newTestExporterForRdb(t)
 
-	conn := &mockRedisConn{
-		configValues: map[string]string{
-			"dir":        "/tmp",
-			"dbfilename": fmt.Sprintf("nonexistent_rdb_%d.rdb", os.Getpid()),
-		},
+	configValues := map[string]string{
+		"dir":        "/tmp",
+		"dbfilename": fmt.Sprintf("nonexistent_rdb_%d.rdb", os.Getpid()),
 	}
 
 	ch := make(chan prometheus.Metric, 10)
-	e.extractRdbFileSizeMetric(ch, conn)
+	e.extractRdbFileSizeMetric(ch, configValues)
 	close(ch)
 
 	found := false
@@ -146,15 +144,13 @@ func TestExtractRdbFileSizeMetricFileExists(t *testing.T) {
 	tmpBase := strings.TrimPrefix(tmpFile.Name(), tmpDir)
 	tmpBase = strings.TrimPrefix(tmpBase, string(os.PathSeparator))
 
-	conn := &mockRedisConn{
-		configValues: map[string]string{
-			"dir":        tmpDir,
-			"dbfilename": tmpBase,
-		},
+	configValues := map[string]string{
+		"dir":        tmpDir,
+		"dbfilename": tmpBase,
 	}
 
 	ch := make(chan prometheus.Metric, 10)
-	e.extractRdbFileSizeMetric(ch, conn)
+	e.extractRdbFileSizeMetric(ch, configValues)
 	close(ch)
 
 	found := false
@@ -184,12 +180,8 @@ func TestExtractRdbFileSizeMetricFileExists(t *testing.T) {
 func TestExtractRdbFileSizeMetricConfigError(t *testing.T) {
 	e := newTestExporterForRdb(t)
 
-	conn := &mockRedisConn{
-		err: fmt.Errorf("ERR CONFIG command disabled"),
-	}
-
 	ch := make(chan prometheus.Metric, 10)
-	e.extractRdbFileSizeMetric(ch, conn)
+	e.extractRdbFileSizeMetric(ch, nil)
 	close(ch)
 
 	for m := range ch {
@@ -205,12 +197,12 @@ func TestExtractRdbFileSizeMetricInvalidDirValue(t *testing.T) {
 	e := newTestExporterForRdb(t)
 
 	// Return an integer (not a string/bytes) for "dir" so redis.String fails.
-	conn := &mockRedisConnRaw{
-		result: []interface{}{[]byte("dir"), int64(12345), []byte("dbfilename"), []byte("dump.rdb")},
-	}
+	//conn := &mockRedisConnRaw{
+	//	result: []interface{}{[]byte("dir"), int64(12345), []byte("dbfilename"), []byte("dump.rdb")},
+	//}
 
 	ch := make(chan prometheus.Metric, 10)
-	e.extractRdbFileSizeMetric(ch, conn)
+	e.extractRdbFileSizeMetric(ch, nil)
 	close(ch)
 
 	for m := range ch {
@@ -226,12 +218,12 @@ func TestExtractRdbFileSizeMetricInvalidFilenameValue(t *testing.T) {
 	e := newTestExporterForRdb(t)
 
 	// Return an integer (not a string/bytes) for "dbfilename" so redis.String fails.
-	conn := &mockRedisConnRaw{
-		result: []interface{}{[]byte("dir"), []byte("/tmp"), []byte("dbfilename"), int64(99999)},
-	}
+	//conn := &mockRedisConnRaw{
+	//	result: []interface{}{[]byte("dir"), []byte("/tmp"), []byte("dbfilename"), int64(99999)},
+	//}
 
 	ch := make(chan prometheus.Metric, 10)
-	e.extractRdbFileSizeMetric(ch, conn)
+	e.extractRdbFileSizeMetric(ch, nil)
 	close(ch)
 
 	for m := range ch {
@@ -248,15 +240,13 @@ func TestExtractRdbFileSizeMetricStatError(t *testing.T) {
 
 	// A path containing a null byte is invalid on Linux/macOS and causes
 	// os.Stat to return an error that is not os.IsNotExist.
-	conn := &mockRedisConn{
-		configValues: map[string]string{
-			"dir":        "/tmp",
-			"dbfilename": "invalid\x00filename.rdb",
-		},
+	configValues := map[string]string{
+		"dir":        "/tmp",
+		"dbfilename": "invalid\x00filename.rdb",
 	}
 
 	ch := make(chan prometheus.Metric, 10)
-	e.extractRdbFileSizeMetric(ch, conn)
+	e.extractRdbFileSizeMetric(ch, configValues)
 	close(ch)
 
 	for m := range ch {
@@ -279,15 +269,11 @@ func TestExtractRdbFileSizeMetric(t *testing.T) {
 		ConfigCommandName:     "CONFIG",
 	})
 
-	c, err := e.connectToRedis()
-	if err != nil {
-		t.Fatalf("connectToRedis() failed: %s", err)
-	}
-	defer c.Close()
-
 	ch := make(chan prometheus.Metric, 100)
-	e.extractRdbFileSizeMetric(ch, c)
-	close(ch)
+	go func() {
+		e.Collect(ch)
+		close(ch)
+	}()
 
 	found := false
 	for m := range ch {
@@ -328,4 +314,31 @@ func TestExtractRdbFileSizeMetricDisabled(t *testing.T) {
 	}
 }
 
-// Made with Bob
+func TestExtractRdbFileSizeMetricConfigDisabled(t *testing.T) {
+	if os.Getenv("TEST_REDIS_URI") == "" {
+		t.Skipf("TEST_REDIS_URI not set - skipping")
+	}
+
+	addr := os.Getenv("TEST_REDIS_URI")
+
+	e, err := NewRedisExporter(addr, Options{
+		Namespace:             "test",
+		InclRdbFileSizeMetric: true,
+		ConfigCommandName:     "-",
+	})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() failed: %s", err)
+	}
+
+	ch := make(chan prometheus.Metric, 100)
+	go func() {
+		e.Collect(ch)
+		close(ch)
+	}()
+
+	for m := range ch {
+		if strings.Contains(m.Desc().String(), "rdb_current_size_bytes") {
+			t.Error("rdb_current_size_bytes metric should NOT be present when CONFIG command is disabled")
+		}
+	}
+}

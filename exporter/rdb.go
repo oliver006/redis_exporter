@@ -4,40 +4,32 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
 
-func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, c redis.Conn) {
-	// Get RDB dir and filename in a single CONFIG GET call.
-	// CONFIG GET returns a flat array: [key1, value1, key2, value2, ...]
-	result, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "dir", "dbfilename"))
-	if err != nil || len(result) < 4 {
-		log.Debugf("Failed to get RDB config from CONFIG GET dir dbfilename: %s", err)
+func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, configMap map[string]string) {
+	if len(configMap) == 0 {
+		log.Debugf("Config is empty, cannot extract RDB file size")
 		return
 	}
 
-	dir, err := redis.String(result[1], nil)
-	if err != nil {
-		log.Debugf("Failed to parse RDB directory: %s", err)
-		return
-	}
-	dbfilename, err := redis.String(result[3], nil)
-	if err != nil {
-		log.Debugf("Failed to parse RDB filename: %s", err)
+	dir := configMap["dir"]
+	dbfilename := configMap["dbfilename"]
+
+	if dir == "" || dbfilename == "" {
+		log.Debugf("Failed to find 'dir' or 'dbfilename' in config")
 		return
 	}
 
-	// Construct full path
 	rdbPath := filepath.Join(dir, dbfilename)
 	log.Debugf("RDB file path: %s", rdbPath)
 
-	// Get file size
 	fileInfo, err := os.Stat(rdbPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			log.Debugf("RDB file does not exist: %s", rdbPath)
+
 			// File doesn't exist, report 0
 			e.registerConstMetricGauge(ch, "rdb_current_size_bytes", 0)
 			return
@@ -46,7 +38,7 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, c redis
 		return
 	}
 
-	fileSize := float64(fileInfo.Size())
+	e.registerConstMetricGauge(ch, "rdb_current_size_bytes", float64(fileInfo.Size()))
+
 	log.Debugf("RDB file size: %d bytes", fileInfo.Size())
-	e.registerConstMetricGauge(ch, "rdb_current_size_bytes", fileSize)
 }
