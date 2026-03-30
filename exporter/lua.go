@@ -9,8 +9,13 @@ import (
 )
 
 func (e *Exporter) extractLuaScriptMetrics(ch chan<- prometheus.Metric, c redis.Conn, filename string, script []byte) error {
-	log.Debugf("Evaluating e.options.LuaScript: %s", filename)
-	kv, err := redis.StringMap(doRedisCmd(c, "EVAL", script, 0, 0))
+	luaCMD := "EVAL"
+	if e.options.LuaScriptReadOnly {
+		luaCMD = "EVAL_RO"
+	}
+
+	log.Debugf("Evaluating e.options.LuaScript: %s, cmd: %s", filename, luaCMD)
+	kv, err := redis.StringMap(doRedisCmd(c, luaCMD, script, 0, 0))
 	if err != nil {
 		log.Errorf("LuaScript error: %v", err)
 		e.registerConstMetricGauge(ch, "script_result", 0, filename)
