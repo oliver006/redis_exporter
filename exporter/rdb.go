@@ -3,6 +3,7 @@ package exporter
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
@@ -15,18 +16,23 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, config 
 		return
 	}
 
+	// Validate config has even number of elements (key-value pairs)
+	if len(config)%2 != 0 {
+		log.Warnf("Invalid config format: odd number of elements (%d)", len(config))
+		return
+	}
+
 	// Parse config to find dir and dbfilename
 	configMap := make(map[string]string)
 	for i := 0; i < len(config); i += 2 {
-		if i+1 >= len(config) {
-			break
-		}
 		key, err := redis.String(config[i], nil)
 		if err != nil {
+			log.Warnf("Failed to parse config key at index %d: %s", i, err)
 			continue
 		}
 		value, err := redis.String(config[i+1], nil)
 		if err != nil {
+			log.Warnf("Failed to parse config value for key '%s': %s", key, err)
 			continue
 		}
 		configMap[key] = value
@@ -36,7 +42,13 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, config 
 	dbfilename, dbfilenameOk := configMap["dbfilename"]
 
 	if !dirOk || !dbfilenameOk {
-		log.Debugf("Failed to find 'dir' or 'dbfilename' in config")
+		log.Warnf("Failed to find 'dir' or 'dbfilename' in config")
+		return
+	}
+
+	// Basic path validation to prevent directory traversal
+	if strings.Contains(dbfilename, "..") {
+		log.Warnf("Invalid dbfilename contains '..': %s", dbfilename)
 		return
 	}
 
@@ -51,7 +63,17 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, config 
 			e.registerConstMetricGauge(ch, "rdb_current_size_bytes", 0)
 			return
 		}
-		log.Debugf("Failed to stat RDB file %s: %s", rdbPath, err)
+		if os.IsPermission(err) {
+			log.Warnf("Permission denied accessing RDB file: %s", rdbPath)
+			return
+		}
+		log.Warnf("Failed to stat RDB file %s: %s", rdbPath, err)
+		return
+	}
+
+	// Verify it's a regular file
+	if !fileInfo.Mode().IsRegular() {
+		log.Warnf("RDB path is not a regular file: %s (mode: %s)", rdbPath, fileInfo.Mode())
 		return
 	}
 
