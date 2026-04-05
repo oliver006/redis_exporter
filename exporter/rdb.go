@@ -16,7 +16,6 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, configM
 
 	dir := configMap["dir"]
 	dbfilename := configMap["dbfilename"]
-
 	if dir == "" || dbfilename == "" {
 		log.Debugf("Failed to find 'dir' or 'dbfilename' in config")
 		return
@@ -34,7 +33,17 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, configM
 			e.registerConstMetricGauge(ch, "rdb_current_size_bytes", 0)
 			return
 		}
-		log.Debugf("Failed to stat RDB file %s: %s", rdbPath, err)
+		if os.IsPermission(err) {
+			log.Warnf("Permission denied accessing RDB file: %s", rdbPath)
+			return
+		}
+		log.Warnf("Failed to stat RDB file %s: %s", rdbPath, err)
+		return
+	}
+
+	// Verify it's a regular file
+	if !fileInfo.Mode().IsRegular() {
+		log.Warnf("RDB path is not a regular file: %s (mode: %s)", rdbPath, fileInfo.Mode())
 		return
 	}
 
