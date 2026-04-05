@@ -76,6 +76,7 @@ type Options struct {
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
 	InclSystemMetrics              bool
+	InclRdbFileSizeMetric          bool
 	SkipTLSVerification            bool
 	SetClientName                  bool
 	IsTile38                       bool
@@ -542,6 +543,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"master_sync_in_progress":                            {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
 		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
 		"number_of_distinct_key_groups":                      {txt: `Number of distinct key groups`, lbls: []string{"db"}},
+		"rdb_current_size_bytes":                             {txt: "Current RDB file size in bytes"},
 		"script_result":                                      {txt: "Result of the collect script evaluation", lbls: []string{"filename"}},
 		"script_values":                                      {txt: "Values returned by the collect script", lbls: []string{"key", "filename"}},
 		"search_index_num_docs":                              {txt: "Number of documents in search index", lbls: []string{"index_name"}},
@@ -824,10 +826,12 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
+	var config []interface{}
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
-		if config, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+		if cfg, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+			config = cfg
 			dbCount, err = e.extractConfigMetrics(ch, config)
 			if err != nil {
 				log.Errorf("Redis extractConfigMetrics() err: %s", err)
@@ -934,6 +938,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 				return err
 			}
 		}
+	}
+
+	if e.options.ConfigCommandName != "-" && e.options.InclRdbFileSizeMetric && len(config) > 0 {
+		e.extractRdbFileSizeMetric(ch, config)
 	}
 
 	return nil
