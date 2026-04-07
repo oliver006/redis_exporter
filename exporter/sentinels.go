@@ -127,6 +127,13 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 
 	// If we are here then this master is in ok state
 	masterOkSentinels := 1
+	hasMasterLabels := len(labels) >= 2
+	masterName := ""
+	masterAddr := ""
+	if hasMasterLabels {
+		masterName = labels[0]
+		masterAddr = labels[1]
+	}
 
 	for _, sentinelDetail := range sentinelDetails {
 		sentinelDetailMap, err := redis.StringMap(sentinelDetail, nil)
@@ -135,14 +142,39 @@ func (e *Exporter) processSentinelSentinels(ch chan<- prometheus.Metric, sentine
 			continue
 		}
 
-		sentinelFlags, ok := sentinelDetailMap["flags"]
-		if !ok {
+		name := ""
+		if v, ok := sentinelDetailMap["name"]; ok {
+			name = v
+		}
+		ip := ""
+		if v, ok := sentinelDetailMap["ip"]; ok {
+			ip = v
+		}
+		port := ""
+		if v, ok := sentinelDetailMap["port"]; ok {
+			port = v
+		}
+		runid := ""
+		if v, ok := sentinelDetailMap["runid"]; ok {
+			runid = v
+		}
+		flags := ""
+		flagsFound := false
+		if v, ok := sentinelDetailMap["flags"]; ok {
+			flags = v
+			flagsFound = true
+		}
+		if e.options.InclSentinelPeerInfo && hasMasterLabels {
+			e.registerConstMetricGauge(ch, "sentinel_peer_info", 1, masterName, masterAddr, name, ip, port, runid, flags)
+		}
+
+		if !flagsFound {
 			continue
 		}
-		if strings.Contains(sentinelFlags, "o_down") {
+		if strings.Contains(flags, "o_down") {
 			continue
 		}
-		if strings.Contains(sentinelFlags, "s_down") {
+		if strings.Contains(flags, "s_down") {
 			continue
 		}
 		masterOkSentinels = masterOkSentinels + 1
@@ -171,7 +203,9 @@ func (e *Exporter) processSentinelSlaves(ch chan<- prometheus.Metric, slaveDetai
 		}
 		masterOkSlaves = masterOkSlaves + 1
 	}
-	e.registerConstMetricGauge(ch, "sentinel_master_ok_slaves", float64(masterOkSlaves), labels...)
+	if len(labels) >= 2 {
+		e.registerConstMetricGauge(ch, "sentinel_master_ok_slaves", float64(masterOkSlaves), labels...)
+	}
 }
 
 /*

@@ -43,7 +43,6 @@ func TestKeyspaceStringParser(t *testing.T) {
 		},
 	}
 
-	log.SetLevel(log.DebugLevel)
 	for _, tst := range tsts {
 		if kt, kx, ttl, kc, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
 
