@@ -97,6 +97,7 @@ type Options struct {
 	SkipCheckKeysForRoleMaster     bool
 	InclMetricsForEmptyDatabases   bool
 	AppendInstanceRoleLabel        bool
+	DisableScrapeEndpoint          bool
 }
 
 func getInstanceRoleFromInfo(info string) string {
@@ -640,7 +641,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	}
 
 	e.mux.HandleFunc("/", e.indexHandler)
-	e.mux.HandleFunc("/scrape", e.scrapeHandler)
+	if !e.options.DisableScrapeEndpoint {
+		e.mux.HandleFunc("/scrape", e.scrapeHandler)
+	}
 	e.mux.HandleFunc("/discover-cluster-nodes", e.discoverClusterNodesHandler)
 	e.mux.HandleFunc("/health", e.healthHandler)
 	e.mux.HandleFunc("/-/reload", e.reloadPwdFile)
