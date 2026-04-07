@@ -696,24 +696,8 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	ch <- e.targetScrapeRequestErrors
 }
 
-func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config []any) (dbCount int, err error) {
-	if len(config)%2 != 0 {
-		return 0, fmt.Errorf("invalid config: %#v", config)
-	}
-
-	for pos := 0; pos < len(config)/2; pos++ {
-		strKey, err := redis.String(config[pos*2], nil)
-		if err != nil {
-			log.Errorf("invalid config key name, err: %s, skipped", err)
-			continue
-		}
-
-		strVal, err := redis.String(config[pos*2+1], nil)
-		if err != nil {
-			log.Debugf("invalid config value for key name %s, err: %s, skipped", strKey, err)
-			continue
-		}
-
+func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config map[string]string) (dbCount int, err error) {
+	for strKey, strVal := range config {
 		if strKey == "databases" {
 			if dbCount, err = strconv.Atoi(strVal); err != nil {
 				return 0, fmt.Errorf("invalid config value for key databases: %#v", strVal)
@@ -827,7 +811,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
-		if config, err := redis.Values(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+		if config, err := redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
 			dbCount, err = e.extractConfigMetrics(ch, config)
 			if err != nil {
 				log.Errorf("Redis extractConfigMetrics() err: %s", err)
