@@ -593,6 +593,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"slave_repl_offset":                                  {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
 		"slowlog_length":                                     {txt: `Total slowlog`},
+		"rdb_current_file_size_bytes":                        {txt: "Current size of the RDB file in bytes"},
 		"start_time_seconds":                                 {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"stream_first_entry_id":                              {txt: `The epoch timestamp (ms) of the first message in the stream`, lbls: []string{"db", "stream"}},
 		"stream_group_consumer_idle_seconds":                 {txt: `Consumer idle time in seconds`, lbls: []string{"db", "stream", "group", "consumer"}},
@@ -810,15 +811,18 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
+	config := map[string]string{}
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
-		if config, err := redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+		if config, err = redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
 			dbCount, err = e.extractConfigMetrics(ch, config)
 			if err != nil {
 				log.Errorf("Redis extractConfigMetrics() err: %s", err)
 				return err
 			}
+			// Extract RDB file size metric using the config
+			e.extractRDBFileSizeMetrics(ch, config)
 		} else {
 			log.Debugf("Redis CONFIG err: %s", err)
 		}
