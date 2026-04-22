@@ -21,6 +21,11 @@ func (e *Exporter) extractRdbFileSizeMetric(ch chan<- prometheus.Metric, configM
 		return
 	}
 
+	if dbfilename != filepath.Base(dbfilename) || dbfilename == "." || dbfilename == ".." {
+		log.Warnf("dbfilename %q is not a bare filename, skipping RDB size metric", dbfilename)
+		return
+	}
+
 	rdbPath := filepath.Join(dir, dbfilename)
 	log.Debugf("RDB file path: %s", rdbPath)
 
