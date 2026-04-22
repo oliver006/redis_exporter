@@ -77,6 +77,7 @@ type Options struct {
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
 	InclSystemMetrics              bool
+	InclRdbFileSizeMetric          bool
 	SkipTLSVerification            bool
 	SetClientName                  bool
 	IsTile38                       bool
@@ -543,6 +544,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"master_sync_in_progress":                            {txt: "Master sync in progress", lbls: []string{"master_host", "master_port"}},
 		"module_info":                                        {txt: "Information about loaded Redis module", lbls: []string{"name", "ver", "api", "filters", "usedby", "using"}},
 		"number_of_distinct_key_groups":                      {txt: `Number of distinct key groups`, lbls: []string{"db"}},
+		"rdb_current_size_bytes":                             {txt: "Current RDB file size in bytes"},
 		"script_result":                                      {txt: "Result of the collect script evaluation", lbls: []string{"filename"}},
 		"script_values":                                      {txt: "Values returned by the collect script", lbls: []string{"key", "filename"}},
 		"search_index_num_docs":                              {txt: "Number of documents in search index", lbls: []string{"index_name"}},
@@ -813,11 +815,15 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
-		if config, err := redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
-			dbCount, err = e.extractConfigMetrics(ch, config)
+		if cfg, err := redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+			dbCount, err = e.extractConfigMetrics(ch, cfg)
 			if err != nil {
 				log.Errorf("Redis extractConfigMetrics() err: %s", err)
 				return err
+			}
+
+			if e.options.InclRdbFileSizeMetric {
+				e.extractRdbFileSizeMetric(ch, cfg)
 			}
 		} else {
 			log.Debugf("Redis CONFIG err: %s", err)
