@@ -57,6 +57,10 @@ func extractPercentileVal(s string) (percentile float64, val float64, err error)
 	if len(split) != 2 {
 		return
 	}
+	if len(split[0]) == 0 {
+		err = fmt.Errorf("empty percentile key")
+		return
+	}
 	percentile, err = strconv.ParseFloat(split[0][1:], 64)
 	if err != nil {
 		return

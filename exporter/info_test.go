@@ -504,6 +504,13 @@ func Test_parseMetricsLatencyStats(t *testing.T) {
 			wantPercentileMap: map[float64]float64{},
 			wantErr:           true,
 		},
+		{
+			name:              "empty-percentile-key",
+			args:              args{fieldKey: "latency_percentiles_usec_ping", fieldValue: "=1.0,p99=2.0"},
+			wantCmd:           "ping",
+			wantPercentileMap: map[float64]float64{},
+			wantErr:           true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
