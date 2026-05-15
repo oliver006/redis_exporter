@@ -723,9 +723,10 @@ func (e *Exporter) extractConfigMetrics(ch chan<- prometheus.Metric, config map[
 		}
 
 		if map[string]bool{
-			"io-threads": true,
-			"maxclients": true,
-			"maxmemory":  true,
+			"io-threads":        true,
+			"maxclients":        true,
+			"maxmemory":         true,
+			"repl-backlog-size": true,
 		}[strKey] {
 			if val, err := strconv.ParseFloat(strVal, 64); err == nil {
 				strKey = strings.ReplaceAll(strKey, "-", "_")

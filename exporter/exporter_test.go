@@ -376,6 +376,19 @@ func TestClientOutputBufferLimitMetrics(t *testing.T) {
 	}
 }
 
+func TestConfigReplBacklogSizeMetric(t *testing.T) {
+	e := getTestExporter()
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	body := downloadURL(t, ts.URL+"/metrics")
+
+	want := "test_config_repl_backlog_size "
+	if !strings.Contains(body, want) {
+		t.Errorf("want metrics to include %s, have:\n%s", want, body)
+	}
+}
+
 func TestExcludeConfigMetricsViaCONFIGCommand(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"),
