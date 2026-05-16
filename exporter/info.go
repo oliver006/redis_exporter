@@ -53,9 +53,12 @@ func extractVal(s string) (val float64, err error) {
 }
 
 func extractPercentileVal(s string) (percentile float64, val float64, err error) {
-	split := strings.Split(s, "=")
+	split := strings.SplitN(s, "=", 2)
 	if len(split) != 2 {
 		return
+	}
+	if len(split[0]) < 2 {
+		return 0, 0, fmt.Errorf("percentile key too short: %q", split[0])
 	}
 	percentile, err = strconv.ParseFloat(split[0][1:], 64)
 	if err != nil {
