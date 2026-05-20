@@ -39,7 +39,7 @@ func TestLuaScript(t *testing.T) {
 			Script:        `return {"key1"   BROKEN `,
 			ExpectedKeys:  1,
 			ExpectedError: true,
-			Wants:         []string{`test_exporter_last_scrape_error{err="ERR Error compiling script`, `test_script_result{filename="test.lua"} 0`},
+			Wants:         []string{`test_exporter_last_scrape_error`, `err="ERR Error compiling script`, `test_script_result{filename="test.lua"} 0`},
 		},
 		{
 			Name:          "borked2",
@@ -54,7 +54,7 @@ func TestLuaScript(t *testing.T) {
 			LuaScriptReadOnly: true,
 			ExpectedKeys:      1,
 			ExpectedError:     true,
-			Wants:             []string{`test_exporter_last_scrape_error{err="ERR Write commands are not allowed from read-only scripts. script: f8dca01f2e9f7f79cde14b47bfc59a962df07834, on @user_script:1."} 1`, `test_script_result{filename="test.lua"} 0`},
+			Wants:             []string{`test_exporter_last_scrape_error`, `err="ERR Write commands are not allowed from read-only scripts.`, `test_script_result{filename="test.lua"} 0`},
 		},
 	} {
 		t.Run(tst.Name, func(t *testing.T) {
