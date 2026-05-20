@@ -344,6 +344,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_number_of_active_indexes_running_queries": "search_number_of_active_indexes_running_queries",
 			"search_number_of_active_indexes_indexing":        "search_number_of_active_indexes_indexing",
 			"search_total_active_write_threads":               "search_total_active_write_threads",
+			"search_total_num_docs_in_indexes":                "search_total_num_docs_in_indexes",
 			"search_smallest_memory_index":                    "search_smallest_memory_index_bytes",
 			"search_largest_memory_index":                     "search_largest_memory_index_bytes",
 			"search_used_memory_vector_index":                 "search_used_memory_vector_index_bytes",
