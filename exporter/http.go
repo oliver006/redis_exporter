@@ -58,7 +58,7 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 
 	u, err := url.Parse(target)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %ck ", err), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("Invalid 'target' parameter, parse err: %v ", err), http.StatusBadRequest)
 		e.targetScrapeRequestErrors.Inc()
 		return
 	}
