@@ -89,6 +89,7 @@ jobs:
           target: scratch-release
           platforms: linux/amd64,linux/arm,linux/arm64
           push: true
+          sbom: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
