@@ -984,7 +984,6 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 
 	for m := range chM {
 		descString := m.Desc().String()
-		t.Logf("d: %s", descString)
 		for k := range want {
 			if strings.Contains(descString, k) {
 				want[k] = true

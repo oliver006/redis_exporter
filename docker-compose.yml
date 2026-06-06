@@ -39,6 +39,13 @@ services:
     ports:
       - "16388:6379"
 
+  redis88:
+    image: redis:8.8
+    pull_policy: always
+    command: "redis-server  --enable-debug-command yes --protected-mode no"
+    ports:
+      - "16488:6379"
+
   pwd-redis8:
     image: redis:8.6.3
     pull_policy: always

@@ -284,6 +284,7 @@ func newKeyFixture(command string, key string, args ...any) keyFixture {
 func createKeyFixtures(t *testing.T, c redis.Conn, fixtures []keyFixture) {
 	for _, f := range fixtures {
 		args := append([]any{f.key}, f.args...)
+		t.Logf("Creating key: %s", f.key)
 		if _, err := c.Do(f.command, args...); err != nil {
 			t.Fatalf("Error creating fixture: %#v, %#v", f, err)
 		}
@@ -465,87 +466,6 @@ func TestGetKeysFromPatterns(t *testing.T) {
 		}
 	}
 }
-
-/*
-func TestGetKeyInfo(t *testing.T) {
-	addr := os.Getenv("TEST_REDIS_URI")
-	db := dbNumStr
-
-	c, err := redis.DialURL(addr)
-	if err != nil {
-		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
-	}
-	_, err = c.Do("SELECT", db)
-	if err != nil {
-		t.Errorf("Couldn't select database %#v", db)
-	}
-
-	fixtures := []keyFixture{
-		{"SET", "key_info_test_string", []interface{}{"Woohoo!"}},
-		{"HSET", "key_info_test_hash", []interface{}{"hashkey1", "hashval1"}},
-		{"PFADD", "key_info_test_hll", []interface{}{"hllval1", "hllval2"}},
-		{"PFADD", "key_info_test_hll2", []interface{}{"hll2val_1", "hll2val_2", "hll2val_3"}},
-		{"LPUSH", "key_info_test_list", []interface{}{"listval1", "listval2", "listval3"}},
-		{"SADD", "key_info_test_set", []interface{}{"setval1", "setval2", "setval3", "setval4"}},
-		{"ZADD", "key_info_test_zset", []interface{}{
-			"1", "zsetval1",
-			"2", "zsetval2",
-			"3", "zsetval3",
-			"4", "zsetval4",
-			"5", "zsetval5",
-		}},
-		{"XADD", "key_info_test_stream", []interface{}{"*", "field1", "str1"}},
-	}
-
-	createKeyFixtures(t, c, fixtures)
-
-	defer func() {
-		deleteKeyFixtures(t, c, fixtures)
-		c.Close()
-	}()
-
-	expectedSizes := map[string]float64{
-		"key_info_test_string": 7,
-		"key_info_test_hash":   1,
-		"key_info_test_hll":    2,
-		"key_info_test_hll2":   3,
-		"key_info_test_list":   3,
-		"key_info_test_set":    4,
-		"key_info_test_zset":   5,
-		"key_info_test_stream": 1,
-	}
-
-	// Test all known types
-	for _, f := range fixtures {
-		keyType, err := redis.String(c.Do("TYPE", f.key))
-		if err != nil {
-			t.Fatalf("TYPE err: %s", err)
-		}
-		info, err := getKeyInfo(c, keyType, f.key, false)
-		if err != nil {
-			t.Fatalf("Error getting key info for %#v.", f.key)
-		}
-
-		expected := expectedSizes[f.key]
-		if info.size != expected {
-			t.Errorf("Wrong size for key: %#v. Expected: %#v; Actual: %#v", f.key, expected, info.size)
-			t.Logf("info: %#v", info)
-		}
-	}
-
-	absentKeyName := "absent_key"
-
-	// Test absent key returns the correct error
-	keyType, err := redis.String(c.Do("TYPE", absentKeyName))
-	if err != nil {
-		t.Fatalf("TYPE err: %s", err)
-	}
-	_, err = getKeyInfo(c, keyType, absentKeyName, false)
-	if !errors.Is(err, errKeyTypeNotFound) {
-		t.Errorf("Expected `errKeyTypeNotFound` for absent key.  Got a different error, err: %#v", err)
-	}
-}
-*/
 
 func TestKeySizeList(t *testing.T) {
 	s := dbNumStrFull + "=" + testKeysList[0]
@@ -826,6 +746,53 @@ func TestGetKeysCount(t *testing.T) {
 	} else {
 		if got >= 0 {
 			t.Errorf("Error expected with invalidCount option \"%#v\", got valid response: %#v", invalidCount, got)
+		}
+	}
+}
+
+func TestRedis88ArrayGetKeyInfo(t *testing.T) {
+	addr := os.Getenv("TEST_REDIS88_URI")
+	if addr == "" {
+		t.Skipf("Skipping TestRedis88ArrayGetKeyInfo, don't have env var TEST_REDIS88_URI")
+	}
+	db := dbNumStr
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+	_, err = c.Do("SELECT", db)
+	if err != nil {
+		t.Errorf("Couldn't select database %#v", db)
+	}
+
+	fixtures := []keyFixture{
+		{"ARMSET", "array_test", []any{"0", "10", "5", "20", "100", "30"}},
+	}
+
+	createKeyFixtures(t, c, fixtures)
+
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	e, _ := NewRedisExporter(
+		addr,
+		Options{
+			Namespace:       "test",
+			CheckSingleKeys: dbNumStr + "=" + "array_test",
+		},
+	)
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	body := downloadURL(t, ts.URL+"/metrics")
+	for _, want := range []string{
+		`test_key_size{db="` + dbNumStrFull + `",key="array_test"} 3`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Expected metric: %s but got:\n%s", want, body)
 		}
 	}
 }
