@@ -646,6 +646,46 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	}
 }
 
+func TestRedis88ClusterGetKeyInfo(t *testing.T) {
+	clusterUri := os.Getenv("TEST_REDIS88_CLUSTER_MASTER_URI")
+	if clusterUri == "" {
+		t.Skipf("Skipping TestRedis88ClusterGetKeyInfo, don't have env var TEST_REDIS88_CLUSTER_MASTER_URI")
+	}
+
+	e, _ := NewRedisExporter(
+		clusterUri,
+		Options{
+			Namespace:       "test",
+			CheckSingleKeys: "array_test",
+			IsCluster:       true,
+		},
+	)
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	fixtures := []keyFixture{
+		{"ARMSET", "array_test", []any{"0", "10", "5", "20", "100", "30"}},
+	}
+
+	c := getClusterConn(t, clusterUri)
+
+	createKeyFixtures(t, c, fixtures)
+
+	defer func() {
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	body := downloadURL(t, ts.URL+"/metrics")
+	for _, want := range []string{
+		`test_key_size{db="db0",key="array_test"} 3`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Expected metric: %s but got:\n%s", want, body)
+		}
+	}
+}
+
 func TestGetKeyInfoWithMissingKey(t *testing.T) {
 	/*
 	   https://github.com/oliver006/redis_exporter/issues/1008

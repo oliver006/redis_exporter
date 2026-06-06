@@ -50,6 +50,7 @@ test:
 	TEST_PWD_REDIS_URI="redis://:redis-password@localhost:16380" \
 	TEST_USER_PWD_REDIS_URI="redis://exporter:exporter-password@localhost:16390" \
 	TEST_REDIS_CLUSTER_MASTER_URI="redis://localhost:17000" \
+	TEST_REDIS88_CLUSTER_MASTER_URI="redis://localhost:47000" \
 	TEST_REDIS_CLUSTER_SLAVE_URI="redis://localhost:17005" \
 	TEST_VALKEY_CLUSTER_PASSWORD_URI="redis://localhost:17006" \
 	TEST_TILE38_URI="redis://localhost:19851" \
