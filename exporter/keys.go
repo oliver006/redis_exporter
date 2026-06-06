@@ -65,7 +65,7 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 	case "array":
 		size, err = redis.Int64(doRedisCmd(c, "ARCOUNT", keyName))
 	default:
-		err = fmt.Errorf("unknown type: [%v] for key: %v", keyType, keyName)
+		err = fmt.Errorf("unknown type: %v for key: %v", keyType, keyName)
 	}
 
 	if err != nil {
@@ -288,7 +288,7 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 				return
 			}
 		default:
-			log.Errorf("unknown type: [%v] for key: %v", keyType, keyName)
+			log.Errorf("unknown type: %v for key: %v", keyType, keyName)
 			continue
 		}
 	}
