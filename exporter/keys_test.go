@@ -646,7 +646,7 @@ func TestClusterGetKeyInfo(t *testing.T) {
 	}
 }
 
-func TestRedis88ClusterGetKeyInfo(t *testing.T) {
+func TestRedis88ClusterArrayGetKeyInfo(t *testing.T) {
 	clusterUri := os.Getenv("TEST_REDIS88_CLUSTER_MASTER_URI")
 	if clusterUri == "" {
 		t.Skipf("Skipping TestRedis88ClusterGetKeyInfo, don't have env var TEST_REDIS88_CLUSTER_MASTER_URI")
@@ -656,7 +656,7 @@ func TestRedis88ClusterGetKeyInfo(t *testing.T) {
 		clusterUri,
 		Options{
 			Namespace:       "test",
-			CheckSingleKeys: "array_test",
+			CheckSingleKeys: "array_test,events:1",
 			IsCluster:       true,
 		},
 	)
@@ -665,6 +665,7 @@ func TestRedis88ClusterGetKeyInfo(t *testing.T) {
 
 	fixtures := []keyFixture{
 		{"ARMSET", "array_test", []any{"0", "10", "5", "20", "100", "30"}},
+		{"ARSET", "events:1", []any{"0", "login", "click", "purchase", "logout"}},
 	}
 
 	c := getClusterConn(t, clusterUri)
@@ -679,6 +680,7 @@ func TestRedis88ClusterGetKeyInfo(t *testing.T) {
 	body := downloadURL(t, ts.URL+"/metrics")
 	for _, want := range []string{
 		`test_key_size{db="db0",key="array_test"} 3`,
+		`test_key_size{db="db0",key="events:1"} 4`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("Expected metric: %s but got:\n%s", want, body)

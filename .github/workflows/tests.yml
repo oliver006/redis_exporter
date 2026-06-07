@@ -62,13 +62,12 @@ jobs:
 
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: true
           files: ./coverage.txt
           token: ${{ secrets.CODECOV_TOKEN }} # required
           verbose: true
-          use_pypi: true
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@v2
