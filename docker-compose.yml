@@ -39,6 +39,13 @@ services:
     ports:
       - "16388:6379"
 
+  redis88:
+    image: redis:8.8
+    pull_policy: always
+    command: "redis-server  --enable-debug-command yes --protected-mode no"
+    ports:
+      - "16488:6379"
+
   pwd-redis8:
     image: redis:8.6.3
     pull_policy: always
@@ -102,6 +109,16 @@ services:
     ports:
       - 7000-7005:7000-7005
       - 17000-17005:7000-7005
+
+  redis88-cluster:
+    image: oliver006/redis-cluster:8.8.0
+    environment:
+      - IP=127.0.0.1
+      - INITIAL_PORT=47000
+      - LANG=C.UTF-8
+      - LC_ALL=C.UTF-8
+    ports:
+      - 47000-47005:47000-47005
 
   valkey-cluster-password:
     image: oliver006/valkey-cluster:8.1.3

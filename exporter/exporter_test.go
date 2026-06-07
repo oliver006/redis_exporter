@@ -240,7 +240,7 @@ func setupTestKeys(t *testing.T, uri string) {
 	}
 }
 
-func setupTestKeysCluster(t *testing.T, uri string) {
+func getClusterConn(t *testing.T, uri string) redis.Conn {
 	log.Debugf("Creating cluster object")
 	cluster := redisc.Cluster{
 		StartupNodes: []string{
@@ -250,18 +250,24 @@ func setupTestKeysCluster(t *testing.T, uri string) {
 	}
 
 	if err := cluster.Refresh(); err != nil {
-		log.Fatalf("Refresh failed: %v", err)
+		t.Fatalf("Refresh failed: %v", err)
 	}
 
 	conn, err := cluster.Dial()
 	if err != nil {
-		log.Errorf("Dial() failed: %v", err)
+		t.Fatalf("Dial() failed: %v", err)
 	}
 
 	c, err := redisc.RetryConn(conn, 10, 100*time.Millisecond)
 	if err != nil {
-		log.Errorf("RetryConn() failed: %v", err)
+		t.Fatalf("RetryConn() failed: %v", err)
 	}
+
+	return c
+}
+
+func setupTestKeysCluster(t *testing.T, uri string) {
+	c := getClusterConn(t, uri)
 
 	// cluster only supports db==0
 	if err := setupKeys(t, c, "0"); err != nil {
@@ -984,7 +990,6 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 
 	for m := range chM {
 		descString := m.Desc().String()
-		t.Logf("d: %s", descString)
 		for k := range want {
 			if strings.Contains(descString, k) {
 				want[k] = true

@@ -59,6 +59,11 @@ func (e *Exporter) getKeyInfo(ch chan<- prometheus.Metric, c redis.Conn, dbLabel
 		size, err = redis.Int64(doRedisCmd(c, "HLEN", keyName))
 	case "stream":
 		size, err = redis.Int64(doRedisCmd(c, "XLEN", keyName))
+
+	// new as of Redis 8.8
+	// https://redis.io/docs/staging/DOC-6334/develop/data-types/arrays/
+	case "array":
+		size, err = redis.Int64(doRedisCmd(c, "ARCOUNT", keyName))
 	default:
 		err = fmt.Errorf("unknown type: %v for key: %v", keyType, keyName)
 	}
@@ -273,6 +278,15 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 				log.Errorf("XLEN err: %s", err)
 				return
 			}
+
+		// new as of Redis 8.8
+		// https://redis.io/docs/staging/DOC-6334/develop/data-types/arrays/
+		case "array":
+			log.Debugf("c.Send() ARCOUNT  args: [%v]", keyName)
+			if err := c.Send("ARCOUNT", keyName); err != nil {
+				log.Errorf("ARCOUNT err: %s", err)
+				return
+			}
 		default:
 			log.Errorf("unknown type: %v for key: %v", keyType, keyName)
 			continue
@@ -322,7 +336,7 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 				continue
 			}
 
-		case "hash", "list", "set", "stream", "zset":
+		case "hash", "list", "set", "stream", "zset", "array":
 			size, err = redis.Int64(c.Receive())
 		default:
 			err = fmt.Errorf("unknown type: %v for key: %v", keyType, keyName)

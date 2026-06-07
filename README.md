@@ -270,7 +270,7 @@ Alternatively, you can provide the username and/or password using the `--redis.u
 If you want to use a dedicated Redis user for the redis_exporter (instead of the default user) then you need enable a list of commands for that user.
 You can use the following Redis command to set up the user, just replace `<<<USERNAME>>>` and `<<<PASSWORD>>>` with your desired values.
 ```
-ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
+ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +arcount +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
 ```
 
 For monitoring a Sentinel-node you may use the following command with the right ACL:
@@ -331,7 +331,7 @@ Most items from the INFO command are exported,
 see [documentation](https://valkey.io/commands/info) for details.\
 In addition, for every database there are metrics for total keys, expiring keys and the average TTL for keys in the database.\
 You can also export values of keys by using the `-check-keys` (or related) flag. The exporter will also export the size (or, depending on the data type, the length) of the key.
-This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc.
+This can be used to export the number of elements in (sorted) sets, hashes, lists, streams, etc. For Redis arrays, `key_size` uses `ARCOUNT` and reports the number of non-empty elements, not the sparse logical length returned by `ARLEN`.
 If a key is in string format and matches with `--check-keys` (or related) then its string value will be exported as a label in the `key_value_as_string` metric.
 
 If you require custom metric collection, you can provide comma separated list of path(s) to [Redis Lua script(s)](https://valkey.io/commands/eval) using the `-script` flag. If you pass only one script, you can omit comma. An example can be found [in the contrib folder](./contrib/sample_collect_script.lua).
