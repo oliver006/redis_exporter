@@ -594,6 +594,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"sentinel_config_value":                              {txt: `Sentinel global config key and value as metric`, lbls: []string{"key"}},
 		"slave_info":                                         {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
 		"slave_repl_offset":                                  {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
+		"commandlog_large_reply_length":                      {txt: `Total entries in the large-reply command log`},
+		"commandlog_large_request_length":                    {txt: `Total entries in the large-request command log`},
+		"commandlog_slow_length":                             {txt: `Total entries in the slow command log`},
 		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
 		"slowlog_length":                                     {txt: `Total slowlog`},
 		"start_time_seconds":                                 {txt: "Start time of the Redis instance since unix epoch in seconds."},
@@ -895,6 +898,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	e.extractSlowLogMetrics(ch, c)
+	e.extractCommandLogMetrics(ch, c)
 
 	if keyConn != nil {
 		e.extractKeyGroupMetrics(ch, keyConn, dbCount)
