@@ -20,6 +20,7 @@ func TestCommandLog(t *testing.T) {
 	}
 
 	e := getTestExporterWithAddr(addr)
+	defer cleanupCommandLogTest(t, addr)
 
 	t.Run("slow", func(t *testing.T) {
 		resetCommandLog(t, addr, "slow")
@@ -67,14 +68,13 @@ func assertCommandLogLength(t *testing.T, e *Exporter, metricName string, wantNo
 
 	found := false
 	for m := range chM {
-		gauge, ok := m.(prometheus.Gauge)
-		if !ok || !strings.Contains(gauge.Desc().String(), metricName) {
+		if !strings.Contains(m.Desc().String(), metricName) {
 			continue
 		}
 
 		found = true
 		got := &dto.Metric{}
-		gauge.Write(got)
+		m.Write(got)
 
 		val := got.GetGauge().GetValue()
 		if wantNonZero && val == 0 {
@@ -171,4 +171,25 @@ func resetCommandLog(t *testing.T, addr string, logType string) {
 	}
 
 	time.Sleep(50 * time.Millisecond)
+}
+
+func cleanupCommandLogTest(t *testing.T, addr string) {
+	t.Helper()
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Errorf("couldn't connect to valkey for cleanup, err: %s", err)
+		return
+	}
+	defer c.Close()
+
+	if _, err = c.Do("DEL", commandLogTestKey); err != nil {
+		t.Errorf("couldn't delete %s, err: %s", commandLogTestKey, err)
+	}
+
+	for _, logType := range []string{"slow", "large-request", "large-reply"} {
+		if _, err = c.Do("COMMANDLOG", "RESET", logType); err != nil {
+			t.Errorf("couldn't reset commandlog %s, err: %s", logType, err)
+		}
+	}
 }
