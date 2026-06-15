@@ -20,6 +20,19 @@ var commandLogConfigMetrics = []struct {
 }
 
 func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+	if e.commandLogSupported != nil && !*e.commandLogSupported {
+		return
+	}
+
+	if e.commandLogSupported == nil {
+		_, err := redis.Int64(doRedisCmd(c, "COMMANDLOG", "LEN", "slow"))
+		supported := err == nil
+		e.commandLogSupported = &supported
+		if !supported {
+			return
+		}
+	}
+
 	commandLogTypes := []struct {
 		logType string
 		metric  string
@@ -29,24 +42,23 @@ func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis
 		{"large-reply", "commandlog_large_reply_length"},
 	}
 
-	supported := false
 	for _, t := range commandLogTypes {
 		if reply, err := redis.Int64(doRedisCmd(c, "COMMANDLOG", "LEN", t.logType)); err == nil {
-			supported = true
 			e.registerConstMetricGauge(ch, t.metric, float64(reply))
 		}
 	}
 
-	if !supported {
+	config, err := redis.StringMap(doRedisCmd(c, "CONFIG", "GET", "commandlog-*"))
+	if err != nil {
 		return
 	}
 
 	for _, cfg := range commandLogConfigMetrics {
-		reply, err := redis.Strings(doRedisCmd(c, "CONFIG", "GET", cfg.configKey))
-		if err != nil || len(reply) != 2 {
+		strVal, ok := config[cfg.configKey]
+		if !ok {
 			continue
 		}
-		if val, err := strconv.ParseInt(reply[1], 10, 64); err == nil {
+		if val, err := strconv.ParseInt(strVal, 10, 64); err == nil {
 			e.registerConstMetricGauge(ch, cfg.metricName, float64(val))
 		}
 	}

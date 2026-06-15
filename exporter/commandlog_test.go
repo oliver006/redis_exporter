@@ -12,9 +12,9 @@ import (
 )
 
 const (
-	commandLogTestKey       = "commandlog_test_key"
-	commandLogPollInterval  = 50 * time.Millisecond
-	commandLogPollTimeout   = 2 * time.Second
+	commandLogTestKey      = "commandlog_test_key"
+	commandLogPollInterval = 50 * time.Millisecond
+	commandLogPollTimeout  = 2 * time.Second
 )
 
 func TestCommandLog(t *testing.T) {
@@ -119,6 +119,8 @@ func assertCommandLogGauge(t *testing.T, e *Exporter, metricName string, want fl
 }
 
 func collectCommandLogMetricValue(e *Exporter, metricName string) (float64, bool) {
+	fqName := prometheus.BuildFQName(e.options.Namespace, "", metricName)
+
 	chM := make(chan prometheus.Metric)
 	go func() {
 		e.Collect(chM)
@@ -128,12 +130,12 @@ func collectCommandLogMetricValue(e *Exporter, metricName string) (float64, bool
 	var val float64
 	found := false
 	for m := range chM {
-		if !strings.Contains(m.Desc().String(), metricName) {
+		if !strings.Contains(m.Desc().String(), `fqName: "`+fqName+`"`) {
 			continue
 		}
 
 		got := &dto.Metric{}
-		m.Write(got)
+		_ = m.Write(got)
 		val = got.GetGauge().GetValue()
 		found = true
 	}
