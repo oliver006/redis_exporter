@@ -943,7 +943,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	if e.options.IsFalkorDB {
-		e.extractFalkorDBMetrics(ch, c)
+		e.extractFalkorDBMetrics(ch, c, role)
 	}
 
 	if e.options.InclSearchIndexesMetrics {
