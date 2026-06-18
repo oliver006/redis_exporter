@@ -23,7 +23,7 @@ type graphMemoryResult struct {
 
 const defaultMaxFalkorDBGraphMemoryGraphs int64 = 10000
 
-func (e *Exporter) extractFalkorDBMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
+func (e *Exporter) extractFalkorDBMetrics(ch chan<- prometheus.Metric, c redis.Conn, role string) {
 	graphList, err := redis.Values(doRedisCmd(c, "GRAPH.LIST"))
 	if err != nil {
 		log.Errorf("extractFalkorDBMetrics() err: %s", err)
@@ -34,6 +34,11 @@ func (e *Exporter) extractFalkorDBMetrics(ch chan<- prometheus.Metric, c redis.C
 	e.registerConstMetricGauge(ch, "falkordb_total_graph_count", float64(graphCount))
 
 	if !e.options.InclFalkorDBGraphMemory {
+		return
+	}
+
+	if role == InstanceRoleSlave {
+		log.Infof("skipping GRAPH.MEMORY metrics for replica, role: %s", role)
 		return
 	}
 

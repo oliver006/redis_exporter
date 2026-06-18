@@ -657,3 +657,86 @@ func (c *fakeFalkorDBMemoryConn) Send(commandName string, args ...interface{}) e
 func (c *fakeFalkorDBMemoryConn) Flush() error { return nil }
 
 func (c *fakeFalkorDBMemoryConn) Receive() (interface{}, error) { return nil, nil }
+
+// fakeFalkorDBFullConn handles both GRAPH.LIST and GRAPH.MEMORY commands.
+type fakeFalkorDBFullConn struct {
+	graphs    []interface{}
+	memoryErr error
+}
+
+func (c *fakeFalkorDBFullConn) Close() error { return nil }
+
+func (c *fakeFalkorDBFullConn) Err() error { return nil }
+
+func (c *fakeFalkorDBFullConn) Do(commandName string, args ...interface{}) (interface{}, error) {
+	if commandName == "GRAPH.LIST" {
+		return c.graphs, nil
+	}
+	if commandName == "GRAPH.MEMORY" {
+		if c.memoryErr != nil {
+			return nil, c.memoryErr
+		}
+		return []interface{}{
+			[]byte("total_graph_sz_mb"), int64(100),
+		}, nil
+	}
+	return nil, fmt.Errorf("unexpected command %s %v", commandName, args)
+}
+
+func (c *fakeFalkorDBFullConn) Send(commandName string, args ...interface{}) error { return nil }
+
+func (c *fakeFalkorDBFullConn) Flush() error { return nil }
+
+func (c *fakeFalkorDBFullConn) Receive() (interface{}, error) { return nil, nil }
+
+func TestExtractFalkorDBMetricsSkipsMemoryForReplica(t *testing.T) {
+	for _, tst := range []struct {
+		name                   string
+		role                   string
+		wantGraphMemoryMetrics bool
+	}{
+		{name: "master_emits_graph_memory", role: "master", wantGraphMemoryMetrics: true},
+		{name: "slave_skips_graph_memory", role: InstanceRoleSlave, wantGraphMemoryMetrics: false},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			e, err := NewRedisExporter("redis://localhost:6379", Options{
+				Namespace:               "test",
+				IsFalkorDB:              true,
+				InclFalkorDBGraphMemory: true,
+			})
+			if err != nil {
+				t.Fatalf("NewRedisExporter() err: %s", err)
+			}
+
+			c := &fakeFalkorDBFullConn{
+				graphs: []interface{}{[]byte("test_graph")},
+			}
+
+			chM := make(chan prometheus.Metric, 50)
+			e.extractFalkorDBMetrics(chM, c, tst.role)
+			close(chM)
+
+			foundGraphCount := false
+			foundGraphMemory := false
+			for m := range chM {
+				desc := m.Desc().String()
+				if strings.Contains(desc, "falkordb_total_graph_count") {
+					foundGraphCount = true
+				}
+				if strings.Contains(desc, "falkordb_graph_memory_total_mb") {
+					foundGraphMemory = true
+				}
+			}
+
+			if !foundGraphCount {
+				t.Error("expected falkordb_total_graph_count metric to be emitted")
+			}
+			if tst.wantGraphMemoryMetrics && !foundGraphMemory {
+				t.Error("expected falkordb_graph_memory_total_mb metric to be emitted for master, but it was not")
+			}
+			if !tst.wantGraphMemoryMetrics && foundGraphMemory {
+				t.Error("expected falkordb_graph_memory_total_mb metric to be skipped for replica, but it was emitted")
+			}
+		})
+	}
+}
