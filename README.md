@@ -334,6 +334,8 @@ This calls `GRAPH.MEMORY USAGE <graph>` for each graph and exposes the following
 | `falkordb_graph_edge_attributes_mb` | `graph`, `type` | Memory used by edge attributes per relationship type in MB |
 | `falkordb_graph_indices_mb` | `graph` | Memory used by indices in MB |
 
+> **Note:** `GRAPH.MEMORY USAGE` metrics are only collected from master nodes. On replica instances the exporter skips `GRAPH.MEMORY` calls entirely; `falkordb_total_graph_count` is still collected from all instances.
+
 `GRAPH.MEMORY USAGE` can be expensive on large graphs. Results are cached for the duration specified by `--falkordb-graph-memory-cache-ttl` (default `60s`) to avoid calling it on every Prometheus scrape. In deployments with thousands of graphs, set `--falkordb-graph-memory-cache-ttl=0` to disable the cache and avoid retaining all per-graph memory results between scrapes. To reduce scrape-time allocations and metric cardinality, set `--exclude-falkordb-graph-memory-attrs` to skip `falkordb_graph_node_attributes_mb` and `falkordb_graph_edge_attributes_mb`. The exporter collects graph memory metrics for at most `--falkordb-graph-memory-max-graphs` graphs per scrape (default `10000`); set it to `-1` for no limit.
 
 When `--exclude-falkordb-graph-memory-attrs` is enabled, the exporter still emits the per-graph totals and block/matrix/index gauges, but skips the per-label and per-relationship-type memory gauges.
