@@ -691,9 +691,9 @@ func (c *fakeFalkorDBFullConn) Receive() (interface{}, error) { return nil, nil 
 
 func TestExtractFalkorDBMetricsSkipsMemoryForReplica(t *testing.T) {
 	for _, tst := range []struct {
-		name                    string
-		role                    string
-		wantGraphMemoryMetrics  bool
+		name                   string
+		role                   string
+		wantGraphMemoryMetrics bool
 	}{
 		{name: "master_emits_graph_memory", role: "master", wantGraphMemoryMetrics: true},
 		{name: "slave_skips_graph_memory", role: InstanceRoleSlave, wantGraphMemoryMetrics: false},
