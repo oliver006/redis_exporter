@@ -48,7 +48,11 @@ func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis
 		}
 	}
 
-	config, err := redis.StringMap(doRedisCmd(c, "CONFIG", "GET", "commandlog-*"))
+	if e.options.ConfigCommandName == "-" {
+		return
+	}
+
+	config, err := redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "commandlog-*"))
 	if err != nil {
 		return
 	}
