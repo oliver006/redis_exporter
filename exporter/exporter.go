@@ -46,8 +46,6 @@ type Exporter struct {
 	mux *http.ServeMux
 
 	buildInfo BuildInfo
-
-	commandLogSupported *bool
 }
 
 type Options struct {

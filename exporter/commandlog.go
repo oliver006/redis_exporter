@@ -20,19 +20,6 @@ var commandLogConfigMetrics = []struct {
 }
 
 func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if e.commandLogSupported != nil && !*e.commandLogSupported {
-		return
-	}
-
-	if e.commandLogSupported == nil {
-		_, err := redis.Int64(doRedisCmd(c, "COMMANDLOG", "LEN", "slow"))
-		supported := err == nil
-		e.commandLogSupported = &supported
-		if !supported {
-			return
-		}
-	}
-
 	commandLogTypes := []struct {
 		logType string
 		metric  string
@@ -42,10 +29,18 @@ func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis
 		{"large-reply", "commandlog_large_reply_length"},
 	}
 
+	supported := false
 	for _, t := range commandLogTypes {
-		if reply, err := redis.Int64(doRedisCmd(c, "COMMANDLOG", "LEN", t.logType)); err == nil {
-			e.registerConstMetricGauge(ch, t.metric, float64(reply))
+		reply, err := redis.Int64(doRedisCmd(c, "COMMANDLOG", "LEN", t.logType))
+		if err != nil {
+			continue
 		}
+		supported = true
+		e.registerConstMetricGauge(ch, t.metric, float64(reply))
+	}
+
+	if !supported {
+		return
 	}
 
 	if e.options.ConfigCommandName == "-" {

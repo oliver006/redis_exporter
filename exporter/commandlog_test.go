@@ -287,4 +287,17 @@ func cleanupCommandLogTest(t *testing.T, addr string) {
 			t.Errorf("couldn't reset commandlog %s, err: %s", logType, err)
 		}
 	}
+
+	for _, cfg := range []struct {
+		key   string
+		value int
+	}{
+		{"commandlog-execution-slower-than", 10000},
+		{"commandlog-request-larger-than", 1048576},
+		{"commandlog-reply-larger-than", 1048576},
+	} {
+		if _, err = c.Do("CONFIG", "SET", cfg.key, cfg.value); err != nil {
+			t.Errorf("couldn't reset %s, err: %s", cfg.key, err)
+		}
+	}
 }
