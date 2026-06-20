@@ -1,16 +1,27 @@
 package exporter
 
 import (
+	"bufio"
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"io"
+	"math/big"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -63,13 +74,13 @@ func TestCreateClientTLSConfig(t *testing.T) {
 	}
 }
 
-func TestTLSServerNameUsedForMetricsScrape(t *testing.T) {
-	addr, sniCh := startSNICaptureRedisTLSServer(t)
-	want := "redis.example.test"
+func TestTLSServerNameAllowsVerifiedMetricsScrapeByIP(t *testing.T) {
+	addr, caCertFile, sniCh := startTinyRedisTLSServer(t)
+	want := "localhost"
 
 	e, err := NewRedisExporter("rediss://"+addr, Options{
 		Namespace:                      "test",
-		SkipTLSVerification:            true,
+		CaCertFile:                     caCertFile,
 		TLSServerName:                  want,
 		SetClientName:                  false,
 		ConfigCommandName:              "-",
@@ -82,9 +93,15 @@ func TestTLSServerNameUsedForMetricsScrape(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	statusCode, _ := downloadURLWithStatusCode(t, ts.URL+"/metrics")
+	statusCode, body := downloadURLWithStatusCode(t, ts.URL+"/metrics")
 	if statusCode != http.StatusOK {
 		t.Fatalf("got status code %d, want %d", statusCode, http.StatusOK)
+	}
+	if !strings.Contains(body, `test_up 1`) {
+		t.Fatalf("expected successful scrape, body:\n%s", body)
+	}
+	if !strings.Contains(body, `test_exporter_last_scrape_error{err=""} 0`) {
+		t.Fatalf("expected empty last scrape error, body:\n%s", body)
 	}
 
 	if got := waitForCapturedSNI(t, sniCh); got != want {
@@ -101,13 +118,13 @@ func TestTLSServerNameScrapeEndpointOverride(t *testing.T) {
 		{name: "flag-style-query-param", param: "tls-server-name"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			addr, sniCh := startSNICaptureRedisTLSServer(t)
-			want := "dynamic.redis.example.test"
+			addr, caCertFile, sniCh := startTinyRedisTLSServer(t)
+			want := "localhost"
 
 			e, err := NewRedisExporter("", Options{
 				Namespace:                      "test",
-				SkipTLSVerification:            true,
-				TLSServerName:                  "default.redis.example.test",
+				CaCertFile:                     caCertFile,
+				TLSServerName:                  "wrong.redis.example.test",
 				SetClientName:                  false,
 				ConfigCommandName:              "-",
 				ExcludeLatencyHistogramMetrics: true,
@@ -128,9 +145,15 @@ func TestTLSServerNameScrapeEndpointOverride(t *testing.T) {
 			}
 			u.RawQuery = v.Encode()
 
-			statusCode, _ := downloadURLWithStatusCode(t, u.String())
+			statusCode, body := downloadURLWithStatusCode(t, u.String())
 			if statusCode != http.StatusOK {
 				t.Fatalf("got status code %d, want %d", statusCode, http.StatusOK)
+			}
+			if !strings.Contains(body, `test_up 1`) {
+				t.Fatalf("expected successful scrape, body:\n%s", body)
+			}
+			if !strings.Contains(body, `test_exporter_last_scrape_error{err=""} 0`) {
+				t.Fatalf("expected empty last scrape error, body:\n%s", body)
 			}
 
 			if got := waitForCapturedSNI(t, sniCh); got != want {
@@ -140,15 +163,39 @@ func TestTLSServerNameScrapeEndpointOverride(t *testing.T) {
 	}
 }
 
-func startSNICaptureRedisTLSServer(t *testing.T) (string, <-chan string) {
-	t.Helper()
+func TestVerifiedIPTargetFailsWithoutTLSServerName(t *testing.T) {
+	addr, caCertFile, _ := startTinyRedisTLSServer(t)
+	redisAddr := "rediss://" + addr
 
-	cert, err := tls.LoadX509KeyPair("../contrib/tls/redis.crt", "../contrib/tls/redis.key")
+	e, err := NewRedisExporter(redisAddr, Options{
+		CaCertFile:         caCertFile,
+		ConnectionTimeouts: time.Second,
+	})
 	if err != nil {
-		t.Fatalf("tls.LoadX509KeyPair() err: %s", err)
+		t.Fatalf("NewRedisExporter() err: %s", err)
 	}
 
-	sniCh := make(chan string, 1)
+	options, err := e.configureOptions(redisAddr)
+	if err != nil {
+		t.Fatalf("configureOptions() err: %s", err)
+	}
+
+	c, err := redis.DialURL(redisAddr, options...)
+	if err == nil {
+		c.Close()
+		t.Fatal("redis.DialURL() succeeded without tls server name for an IP target")
+	}
+	if !strings.Contains(err.Error(), "certificate") {
+		t.Fatalf("redis.DialURL() error = %q, want certificate verification error", err)
+	}
+}
+
+func startTinyRedisTLSServer(t *testing.T) (string, string, <-chan string) {
+	t.Helper()
+
+	cert, caCertFile := newLocalhostTestCertificate(t)
+
+	sniCh := make(chan string, 10)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("net.Listen() err: %s", err)
@@ -176,8 +223,11 @@ func startSNICaptureRedisTLSServer(t *testing.T) (string, <-chan string) {
 			go func(conn net.Conn) {
 				defer conn.Close()
 				if tlsConn, ok := conn.(*tls.Conn); ok {
-					_ = tlsConn.Handshake()
+					if err := tlsConn.Handshake(); err != nil {
+						return
+					}
 				}
+				serveTinyRedisConnection(conn)
 			}(conn)
 		}
 	}()
@@ -191,7 +241,160 @@ func startSNICaptureRedisTLSServer(t *testing.T) (string, <-chan string) {
 		}
 	})
 
-	return tlsListener.Addr().String(), sniCh
+	return tlsListener.Addr().String(), caCertFile, sniCh
+}
+
+func newLocalhostTestCertificate(t *testing.T) (tls.Certificate, string) {
+	t.Helper()
+
+	caKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("rsa.GenerateKey(ca) err: %s", err)
+	}
+	caSerial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		t.Fatalf("rand.Int(ca serial) err: %s", err)
+	}
+	caTemplate := x509.Certificate{
+		SerialNumber:          caSerial,
+		Subject:               pkix.Name{Organization: []string{"redis_exporter"}, CommonName: "Test CA"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(24 * time.Hour),
+		KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageCRLSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	caDER, err := x509.CreateCertificate(rand.Reader, &caTemplate, &caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("x509.CreateCertificate(ca) err: %s", err)
+	}
+
+	serverKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatalf("rsa.GenerateKey(server) err: %s", err)
+	}
+	serverSerial, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		t.Fatalf("rand.Int(server serial) err: %s", err)
+	}
+	serverTemplate := x509.Certificate{
+		SerialNumber: serverSerial,
+		Subject:      pkix.Name{Organization: []string{"redis_exporter"}, CommonName: "localhost"},
+		DNSNames:     []string{"localhost"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(24 * time.Hour),
+		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	serverDER, err := x509.CreateCertificate(rand.Reader, &serverTemplate, &caTemplate, &serverKey.PublicKey, caKey)
+	if err != nil {
+		t.Fatalf("x509.CreateCertificate(server) err: %s", err)
+	}
+
+	serverCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: serverDER})
+	serverKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(serverKey)})
+	cert, err := tls.X509KeyPair(serverCertPEM, serverKeyPEM)
+	if err != nil {
+		t.Fatalf("tls.X509KeyPair() err: %s", err)
+	}
+
+	caCertFile := filepath.Join(t.TempDir(), "ca.crt")
+	caCertPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: caDER})
+	if err := os.WriteFile(caCertFile, caCertPEM, 0600); err != nil {
+		t.Fatalf("os.WriteFile(ca cert) err: %s", err)
+	}
+
+	return cert, caCertFile
+}
+
+const tinyRedisInfo = "# Server\r\n" +
+	"redis_version:7.2.0\r\n" +
+	"redis_build_id:test-build\r\n" +
+	"redis_mode:standalone\r\n" +
+	"os:Linux\r\n" +
+	"tcp_port:6379\r\n" +
+	"process_id:1\r\n" +
+	"uptime_in_seconds:123\r\n" +
+	"# Clients\r\n" +
+	"connected_clients:1\r\n" +
+	"# Memory\r\n" +
+	"used_memory:100\r\n" +
+	"maxmemory_policy:noeviction\r\n" +
+	"# Stats\r\n" +
+	"total_connections_received:1\r\n" +
+	"total_commands_processed:1\r\n" +
+	"# Replication\r\n" +
+	"role:master\r\n" +
+	"master_replid:test-replid\r\n" +
+	"# Keyspace\r\n" +
+	"db0:keys=1,expires=0,avg_ttl=0\r\n"
+
+func serveTinyRedisConnection(conn net.Conn) {
+	reader := bufio.NewReader(conn)
+	for {
+		args, err := readRESPArray(reader)
+		if err != nil {
+			return
+		}
+		if len(args) == 0 {
+			_, _ = conn.Write([]byte("-ERR empty command\r\n"))
+			continue
+		}
+
+		switch strings.ToUpper(args[0]) {
+		case "INFO":
+			_, _ = conn.Write([]byte("$" + strconv.Itoa(len(tinyRedisInfo)) + "\r\n" + tinyRedisInfo + "\r\n"))
+		case "SLOWLOG":
+			if len(args) > 1 && strings.EqualFold(args[1], "LEN") {
+				_, _ = conn.Write([]byte(":0\r\n"))
+			} else {
+				_, _ = conn.Write([]byte("*0\r\n"))
+			}
+		default:
+			_, _ = conn.Write([]byte("-ERR unknown command\r\n"))
+		}
+	}
+}
+
+func readRESPArray(reader *bufio.Reader) ([]string, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return nil, err
+	}
+	line = strings.TrimSpace(line)
+	if !strings.HasPrefix(line, "*") {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	count, err := strconv.Atoi(strings.TrimPrefix(line, "*"))
+	if err != nil {
+		return nil, err
+	}
+
+	args := make([]string, 0, count)
+	for range count {
+		line, err = reader.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "$") {
+			return nil, io.ErrUnexpectedEOF
+		}
+
+		argLen, err := strconv.Atoi(strings.TrimPrefix(line, "$"))
+		if err != nil {
+			return nil, err
+		}
+
+		buf := make([]byte, argLen+2)
+		if _, err := io.ReadFull(reader, buf); err != nil {
+			return nil, err
+		}
+		args = append(args, string(buf[:argLen]))
+	}
+
+	return args, nil
 }
 
 func waitForCapturedSNI(t *testing.T, sniCh <-chan string) string {
@@ -212,6 +415,9 @@ func TestValkeyTLSScheme(t *testing.T) {
 		os.Getenv("TEST_VALKEY8_TLS_URI"),
 	} {
 		t.Run(host, func(t *testing.T) {
+			if host == "" {
+				t.Skip("missing TLS Redis test URI")
+			}
 
 			e, _ := NewRedisExporter(host,
 				Options{
@@ -260,10 +466,13 @@ func TestValkeyTLSScheme(t *testing.T) {
 }
 
 func TestCreateServerTLSConfig(t *testing.T) {
-	e := getTestExporter()
+	e, err := NewRedisExporter("", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
 
 	// positive tests
-	_, err := e.CreateServerTLSConfig("../contrib/tls/redis.crt", "../contrib/tls/redis.key", "", "TLS1.1")
+	_, err = e.CreateServerTLSConfig("../contrib/tls/redis.crt", "../contrib/tls/redis.key", "", "TLS1.1")
 	if err != nil {
 		t.Errorf("CreateServerTLSConfig() err: %s", err)
 	}
