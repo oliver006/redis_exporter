@@ -1,9 +1,15 @@
 package exporter
 
 import (
+	"crypto/tls"
+	"net"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -13,34 +19,190 @@ func TestCreateClientTLSConfig(t *testing.T) {
 		name          string
 		options       Options
 		expectSuccess bool
+		serverName    string
 	}{
 		// positive tests
-		{"no_options", Options{}, true},
+		{"no_options", Options{}, true, ""},
 		{"skip_verificaton", Options{
-			SkipTLSVerification: true}, true},
+			SkipTLSVerification: true}, true, ""},
+		{"server_name", Options{
+			TLSServerName: "redis.example.test"}, true, "redis.example.test"},
 		{"load_client_keypair", Options{
 			ClientCertFile: "../contrib/tls/redis.crt",
-			ClientKeyFile:  "../contrib/tls/redis.key"}, true},
+			ClientKeyFile:  "../contrib/tls/redis.key"}, true, ""},
 		{"load_ca_cert", Options{
-			CaCertFile: "../contrib/tls/ca.crt"}, true},
-		{"load_system_certs", Options{}, true},
+			CaCertFile: "../contrib/tls/ca.crt"}, true, ""},
+		{"load_system_certs", Options{}, true, ""},
 
 		// negative tests
 		{"nonexisting_client_files", Options{
 			ClientCertFile: "/nonexisting/file",
-			ClientKeyFile:  "/nonexisting/file"}, false},
+			ClientKeyFile:  "/nonexisting/file"}, false, ""},
 		{"nonexisting_ca_file", Options{
-			CaCertFile: "/nonexisting/file"}, false},
+			CaCertFile: "/nonexisting/file"}, false, ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			e := getTestExporterWithOptions(test.options)
+			e, err := NewRedisExporter("", test.options)
+			if err != nil {
+				t.Fatalf("NewRedisExporter() err: %s", err)
+			}
 
-			_, err := e.CreateClientTLSConfig()
+			tlsConfig, err := e.CreateClientTLSConfig()
 			if test.expectSuccess && err != nil {
 				t.Errorf("Expected success for test: %s, got err: %s", test.name, err)
 				return
 			}
+			if !test.expectSuccess && err == nil {
+				t.Errorf("Expected failure for test: %s", test.name)
+				return
+			}
+			if test.serverName != "" && tlsConfig.ServerName != test.serverName {
+				t.Errorf("CreateClientTLSConfig() ServerName = %q, want %q", tlsConfig.ServerName, test.serverName)
+			}
 		})
+	}
+}
+
+func TestTLSServerNameUsedForMetricsScrape(t *testing.T) {
+	addr, sniCh := startSNICaptureRedisTLSServer(t)
+	want := "redis.example.test"
+
+	e, err := NewRedisExporter("rediss://"+addr, Options{
+		Namespace:                      "test",
+		SkipTLSVerification:            true,
+		TLSServerName:                  want,
+		SetClientName:                  false,
+		ConfigCommandName:              "-",
+		ExcludeLatencyHistogramMetrics: true,
+	})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	statusCode, _ := downloadURLWithStatusCode(t, ts.URL+"/metrics")
+	if statusCode != http.StatusOK {
+		t.Fatalf("got status code %d, want %d", statusCode, http.StatusOK)
+	}
+
+	if got := waitForCapturedSNI(t, sniCh); got != want {
+		t.Fatalf("TLS ServerName = %q, want %q", got, want)
+	}
+}
+
+func TestTLSServerNameScrapeEndpointOverride(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		param string
+	}{
+		{name: "prometheus-friendly-query-param", param: "tls_server_name"},
+		{name: "flag-style-query-param", param: "tls-server-name"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			addr, sniCh := startSNICaptureRedisTLSServer(t)
+			want := "dynamic.redis.example.test"
+
+			e, err := NewRedisExporter("", Options{
+				Namespace:                      "test",
+				SkipTLSVerification:            true,
+				TLSServerName:                  "default.redis.example.test",
+				SetClientName:                  false,
+				ConfigCommandName:              "-",
+				ExcludeLatencyHistogramMetrics: true,
+			})
+			if err != nil {
+				t.Fatalf("NewRedisExporter() err: %s", err)
+			}
+
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			v := url.Values{}
+			v.Add("target", "rediss://"+addr)
+			v.Add(test.param, want)
+			u, err := url.Parse(ts.URL + "/scrape")
+			if err != nil {
+				t.Fatalf("url.Parse() err: %s", err)
+			}
+			u.RawQuery = v.Encode()
+
+			statusCode, _ := downloadURLWithStatusCode(t, u.String())
+			if statusCode != http.StatusOK {
+				t.Fatalf("got status code %d, want %d", statusCode, http.StatusOK)
+			}
+
+			if got := waitForCapturedSNI(t, sniCh); got != want {
+				t.Fatalf("TLS ServerName = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func startSNICaptureRedisTLSServer(t *testing.T) (string, <-chan string) {
+	t.Helper()
+
+	cert, err := tls.LoadX509KeyPair("../contrib/tls/redis.crt", "../contrib/tls/redis.key")
+	if err != nil {
+		t.Fatalf("tls.LoadX509KeyPair() err: %s", err)
+	}
+
+	sniCh := make(chan string, 1)
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen() err: %s", err)
+	}
+
+	tlsListener := tls.NewListener(listener, &tls.Config{
+		Certificates: []tls.Certificate{cert},
+		GetConfigForClient: func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			select {
+			case sniCh <- hello.ServerName:
+			default:
+			}
+			return nil, nil
+		},
+	})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		for {
+			conn, err := tlsListener.Accept()
+			if err != nil {
+				return
+			}
+			go func(conn net.Conn) {
+				defer conn.Close()
+				if tlsConn, ok := conn.(*tls.Conn); ok {
+					_ = tlsConn.Handshake()
+				}
+			}(conn)
+		}
+	}()
+
+	t.Cleanup(func() {
+		_ = tlsListener.Close()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("timed out waiting for TLS test server to stop")
+		}
+	})
+
+	return tlsListener.Addr().String(), sniCh
+}
+
+func waitForCapturedSNI(t *testing.T, sniCh <-chan string) string {
+	t.Helper()
+
+	select {
+	case sni := <-sniCh:
+		return sni
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for TLS SNI")
+		return ""
 	}
 }
 

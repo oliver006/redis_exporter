@@ -94,6 +94,12 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 		opts.CountKeys = cntk
 	}
 
+	if tlsServerName := r.URL.Query().Get("tls_server_name"); tlsServerName != "" {
+		opts.TLSServerName = tlsServerName
+	} else if tlsServerName := r.URL.Query().Get("tls-server-name"); tlsServerName != "" {
+		opts.TLSServerName = tlsServerName
+	}
+
 	opts.Registry = prometheus.NewRegistry()
 
 	_, err = NewRedisExporter(target, opts)
