@@ -783,6 +783,10 @@ used_cpu_sys_children:168716.402404
 used_cpu_user_children:734155.152644
 used_cpu_sys_main_thread:31336.128033
 used_cpu_user_main_thread:35141.918028
+used_active_time_main_thread:363411.188884
+used_active_time_io_thread_1:7636.398680
+used_active_time_io_thread_2:22.195661
+used_active_time_io_thread_3:11.124490
 
 # Modules
 
