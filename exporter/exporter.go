@@ -465,6 +465,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_vector_externing_generated_value_cnt": "search_vector_externing_generated_value_count",
 			"search_vector_externing_lru_promote_cnt":     "search_vector_externing_lru_promote_count",
 			"search_vector_externing_deferred_entry_cnt":  "search_vector_externing_deferred_entry_count",
+			"used_active_time_main_thread":                "active_time_main_thread_total",
 		},
 	}
 
