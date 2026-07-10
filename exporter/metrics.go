@@ -43,8 +43,8 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 			log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
 			return
 		}
-		e.createMetricDescription("active_time_io_thread_total", []string{"thread"})
-		e.registerConstMetric(ch, "active_time_io_thread_total", val, prometheus.CounterValue, matches[1])
+		e.createMetricDescription("active_time_io_thread_seconds_total", []string{"thread"})
+		e.registerConstMetric(ch, "active_time_io_thread_seconds_total", val, prometheus.CounterValue, matches[1])
 		return
 	}
 
