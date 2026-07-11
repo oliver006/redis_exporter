@@ -40,6 +40,67 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 	return options, nil
 }
 
+// RedactURI removes any embedded credentials from a redis address so it is safe
+// to write to logs. It clears the userinfo (user:pass@) and any credential-
+// bearing query parameters (e.g. ?password=). It accepts both full URIs
+// (redis://user:pass@host:port) and scheme-less authorities
+// (user:pass@host:port). If the address embeds credentials but cannot be
+// parsed, a fixed placeholder is returned rather than risk leaking the secret.
+func RedactURI(uri string) string {
+	hasScheme := strings.Contains(uri, "://")
+	toParse := uri
+	if !hasScheme {
+		toParse = "redis://" + uri
+	}
+
+	u, err := url.Parse(toParse)
+	if err != nil {
+		if strings.Contains(uri, "@") {
+			return "<redacted>"
+		}
+		return uri
+	}
+
+	changed := false
+	if u.User != nil {
+		u.User = nil
+		changed = true
+	}
+	if q := u.Query(); len(q) > 0 {
+		queryChanged := false
+		for key := range q {
+			if isAlwaysSecretConfigKey(strings.ToLower(strings.TrimSpace(key))) {
+				q.Set(key, "<redacted>")
+				queryChanged = true
+			}
+		}
+		if queryChanged {
+			u.RawQuery = q.Encode()
+			changed = true
+		}
+	}
+
+	if !changed {
+		return uri
+	}
+
+	redacted := u.String()
+	if !hasScheme {
+		redacted = strings.TrimPrefix(redacted, "redis://")
+	}
+	return redacted
+}
+
+// redactedURI lazily redacts a redis address for logging: the (parsing,
+// allocating) RedactURI call is deferred until the log entry is actually
+// emitted - i.e. only when debug logging is enabled - keeping it off the hot
+// path in production.
+type redactedURI string
+
+func (r redactedURI) String() string {
+	return RedactURI(string(r))
+}
+
 func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
 	u, err := url.Parse(uri)
 	if err != nil {
@@ -50,11 +111,11 @@ func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
 		u.User = url.User(e.options.User)
 	}
 	uri = u.String()
-
 	// strip solo ":" if present in uri that has a username (and no pwd)
 	uri = strings.Replace(uri, fmt.Sprintf(":@%s", u.Host), fmt.Sprintf("@%s", u.Host), 1)
 
-	log.Debugf("looking up in pwd map, uri: %s", uri)
+	// log the redacted form so credentials embedded in the address are not written to the logs
+	log.Debugf("looking up in pwd map, uri: %s", redactedURI(uri))
 	if pwd, ok := e.options.PasswordMap[uri]; ok && pwd != "" {
 		return pwd, true
 	}
@@ -72,16 +133,26 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 		return nil, err
 	}
 
-	log.Debugf("Trying DialURL(): %s", uri)
+	log.Debugf("Trying DialURL(): %s", redactedURI(uri))
 	c, err := redis.DialURL(uri, options...)
 	if err != nil {
 		log.Debugf("DialURL() failed, err: %s", err)
-		if frags := strings.Split(e.redisAddr, "://"); len(frags) == 2 {
-			log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
-			c, err = redis.Dial(frags[0], frags[1], options...)
-		} else {
-			log.Debugf("Trying: Dial(): tcp %s", e.redisAddr)
-			c, err = redis.Dial("tcp", e.redisAddr, options...)
+		// The Dial() fallback passes the address straight to net.Dial, which
+		// cannot parse credentials (a user:pass@host userinfo block or a
+		// ?password= query parameter). When the address embeds any credential
+		// the fallback is guaranteed to fail with an error that echoes the
+		// secret - an error later surfaced via the exporter_last_scrape_error
+		// metric. Only attempt the fallback when the address is credential-free,
+		// i.e. identical to its redacted form, in which case it is also safe to
+		// log verbatim.
+		if RedactURI(e.redisAddr) == e.redisAddr {
+			if frags := strings.Split(e.redisAddr, "://"); len(frags) == 2 {
+				log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
+				c, err = redis.Dial(frags[0], frags[1], options...)
+			} else {
+				log.Debugf("Trying: Dial(): tcp %s", e.redisAddr)
+				c, err = redis.Dial("tcp", e.redisAddr, options...)
+			}
 		}
 	}
 	return c, err
