@@ -177,6 +177,7 @@ func main() {
 		tlsClientKeyFile               = flag.String("tls-client-key-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_KEY_FILE", ""), "Name of the client key file (including full path) if the server requires TLS client authentication")
 		tlsClientCertFile              = flag.String("tls-client-cert-file", getEnv("REDIS_EXPORTER_TLS_CLIENT_CERT_FILE", ""), "Name of the client certificate file (including full path) if the server requires TLS client authentication")
 		tlsCaCertFile                  = flag.String("tls-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the server requires TLS client authentication")
+		tlsServerName                  = flag.String("tls-server-name", getEnv("REDIS_EXPORTER_TLS_SERVER_NAME", ""), "Server name used to verify the Redis server certificate when connecting over TLS")
 		tlsServerKeyFile               = flag.String("tls-server-key-file", getEnv("REDIS_EXPORTER_TLS_SERVER_KEY_FILE", ""), "Name of the server key file (including full path) if the web interface and telemetry should use TLS")
 		tlsServerCertFile              = flag.String("tls-server-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CERT_FILE", ""), "Name of the server certificate file (including full path) if the web interface and telemetry should use TLS")
 		tlsServerCaCertFile            = flag.String("tls-server-ca-cert-file", getEnv("REDIS_EXPORTER_TLS_SERVER_CA_CERT_FILE", ""), "Name of the CA certificate file (including full path) if the web interface and telemetry should require TLS client authentication")
@@ -297,6 +298,7 @@ func main() {
 			ClientCertFile:                 *tlsClientCertFile,
 			ClientKeyFile:                  *tlsClientKeyFile,
 			CaCertFile:                     *tlsCaCertFile,
+			TLSServerName:                  *tlsServerName,
 			ConnectionTimeouts:             to,
 			MetricsPath:                    *metricPath,
 			RedisMetricsOnly:               *redisMetricsOnly,

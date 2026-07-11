@@ -66,14 +66,14 @@ var (
 	TestKeyNameHll          = "test-hll"
 )
 
-func getTestExporter() *Exporter {
-	return getTestExporterWithOptions(Options{Namespace: "test"})
+func getTestExporter(t *testing.T) *Exporter {
+	return getTestExporterWithOptions(t, Options{Namespace: "test"})
 }
 
-func getTestExporterWithOptions(opt Options) *Exporter {
+func getTestExporterWithOptions(t *testing.T, opt Options) *Exporter {
 	addr := os.Getenv("TEST_REDIS_URI")
 	if addr == "" {
-		panic("missing env var TEST_REDIS_URI")
+		t.Skip("missing env var TEST_REDIS_URI")
 	}
 	e, _ := NewRedisExporter(addr, opt)
 	return e
@@ -383,7 +383,7 @@ func TestClientOutputBufferLimitMetrics(t *testing.T) {
 }
 
 func TestConfigReplBacklogSizeMetric(t *testing.T) {
-	e := getTestExporter()
+	e := getTestExporter(t)
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 

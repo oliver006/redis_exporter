@@ -18,7 +18,7 @@ const (
 )
 
 func TestLatencySpike(t *testing.T) {
-	e := getTestExporter()
+	e := getTestExporter(t)
 
 	setupLatency(t, os.Getenv("TEST_REDIS_URI"))
 	defer resetLatency(t, os.Getenv("TEST_REDIS_URI"))

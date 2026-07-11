@@ -12,7 +12,7 @@ import (
 )
 
 func TestSlowLog(t *testing.T) {
-	e := getTestExporter()
+	e := getTestExporter(t)
 
 	chM := make(chan prometheus.Metric)
 	go func() {

@@ -144,7 +144,7 @@ func TestParseClientListString(t *testing.T) {
 
 func TestExportClientList(t *testing.T) {
 	for _, isExportClientList := range []bool{true, false} {
-		e := getTestExporterWithOptions(Options{
+		e := getTestExporterWithOptions(t, Options{
 			Namespace:        "test",
 			ExportClientList: isExportClientList,
 		})
@@ -241,7 +241,7 @@ func TestExportClientListRedis7(t *testing.T) {
 
 func TestExportClientListInclPort(t *testing.T) {
 	for _, inclPort := range []bool{true, false} {
-		e := getTestExporterWithOptions(Options{
+		e := getTestExporterWithOptions(t, Options{
 			Namespace:             "test",
 			ExportClientList:      true,
 			ExportClientsInclPort: inclPort,

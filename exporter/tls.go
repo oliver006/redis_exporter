@@ -13,6 +13,7 @@ import (
 func (e *Exporter) CreateClientTLSConfig() (*tls.Config, error) {
 	tlsConfig := tls.Config{
 		InsecureSkipVerify: e.options.SkipTLSVerification,
+		ServerName:         e.options.TLSServerName,
 	}
 
 	if e.options.ClientCertFile != "" && e.options.ClientKeyFile != "" {

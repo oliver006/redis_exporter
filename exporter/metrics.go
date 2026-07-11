@@ -11,6 +11,7 @@ import (
 )
 
 var metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
+var activeTimeIOThreadRE = regexp.MustCompile(`^used_active_time_io_thread_([0-9]+)$`)
 
 func sanitizeMetricName(n string) string {
 	return metricNameRE.ReplaceAllString(n, "_")
@@ -24,6 +25,9 @@ func (e *Exporter) includeMetric(s string) bool {
 	if strings.HasPrefix(s, "db") || strings.HasPrefix(s, "cmdstat_") || strings.HasPrefix(s, "cluster_") {
 		return true
 	}
+	if activeTimeIOThreadRE.MatchString(s) {
+		return true
+	}
 	if _, ok := e.metricMapGauges[s]; ok {
 		return true
 	}
@@ -33,6 +37,17 @@ func (e *Exporter) includeMetric(s string) bool {
 }
 
 func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fieldKey, fieldValue string) {
+	if matches := activeTimeIOThreadRE.FindStringSubmatch(fieldKey); matches != nil {
+		val, err := strconv.ParseFloat(fieldValue, 64)
+		if err != nil {
+			log.Debugf("couldn't parse %s, err: %s", fieldValue, err)
+			return
+		}
+		e.createMetricDescription("active_time_io_thread_seconds_total", []string{"thread"})
+		e.registerConstMetric(ch, "active_time_io_thread_seconds_total", val, prometheus.CounterValue, matches[1])
+		return
+	}
+
 	orgMetricName := sanitizeMetricName(fieldKey)
 	metricName := orgMetricName
 	if newName, ok := e.metricMapGauges[metricName]; ok {

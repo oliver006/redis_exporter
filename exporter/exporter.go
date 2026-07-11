@@ -67,6 +67,7 @@ type Options struct {
 	ClientCertFile                 string
 	ClientKeyFile                  string
 	CaCertFile                     string
+	TLSServerName                  string
 	InclConfigMetrics              bool
 	InclModulesMetrics             bool
 	InclSearchIndexesMetrics       bool
@@ -496,6 +497,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_vector_externing_generated_value_cnt": "search_vector_externing_generated_value_count",
 			"search_vector_externing_lru_promote_cnt":     "search_vector_externing_lru_promote_count",
 			"search_vector_externing_deferred_entry_cnt":  "search_vector_externing_deferred_entry_count",
+			"used_active_time_main_thread":                "active_time_main_thread_seconds_total",
 		},
 	}
 
@@ -626,6 +628,15 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"sentinel_config_value":                              {txt: `Sentinel global config key and value as metric`, lbls: []string{"key"}},
 		"slave_info":                                         {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
 		"slave_repl_offset":                                  {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
+		"commandlog_execution_slower_than":                   {txt: `Execution time threshold in microseconds for the slow command log`},
+		"commandlog_large_reply_length":                      {txt: `Total entries in the large-reply command log`},
+		"commandlog_large_reply_max_len":                     {txt: `Maximum number of entries retained in the large-reply command log`},
+		"commandlog_large_request_length":                    {txt: `Total entries in the large-request command log`},
+		"commandlog_large_request_max_len":                   {txt: `Maximum number of entries retained in the large-request command log`},
+		"commandlog_reply_larger_than":                       {txt: `Reply size threshold in bytes for the large-reply command log`},
+		"commandlog_request_larger_than":                     {txt: `Request size threshold in bytes for the large-request command log`},
+		"commandlog_slow_execution_max_len":                  {txt: `Maximum number of entries retained in the slow command log`},
+		"commandlog_slow_length":                             {txt: `Total entries in the slow command log`},
 		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
 		"slowlog_length":                                     {txt: `Total slowlog`},
 		"start_time_seconds":                                 {txt: "Start time of the Redis instance since unix epoch in seconds."},
@@ -992,6 +1003,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	e.extractSlowLogMetrics(ch, c)
+	e.extractCommandLogMetrics(ch, c)
 
 	if keyConn != nil {
 		e.extractKeyGroupMetrics(ch, keyConn, dbCount)
