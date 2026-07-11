@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func TestSanitizeMetricName(t *testing.T) {
@@ -102,5 +103,65 @@ func TestFindOrCreateMetricsDescriptionCreateNew(t *testing.T) {
 
 	if ret == nil {
 		t.Errorf("Unexpected return value: %s", ret)
+	}
+}
+
+func TestValkeyActiveTimeMetrics(t *testing.T) {
+	exp, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	info := `# CPU
+used_active_time_main_thread:12.5
+used_active_time_io_thread_0:2.5
+used_active_time_io_thread_1:3.5
+used_active_time_io_thread_foo:4.5
+`
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		exp.extractInfoMetrics(ch, info, 0)
+		close(ch)
+	}()
+
+	foundMainThread := false
+	foundIOThreads := map[string]float64{}
+	for metric := range ch {
+		desc := metric.Desc().String()
+		got := &dto.Metric{}
+		if err := metric.Write(got); err != nil {
+			t.Fatalf("metric.Write() err: %s", err)
+		}
+
+		if strings.Contains(desc, `fqName: "test_active_time_main_thread_seconds_total"`) {
+			foundMainThread = true
+			if got.GetCounter().GetValue() != 12.5 {
+				t.Errorf("active_time_main_thread_seconds_total value = %f, want 12.5", got.GetCounter().GetValue())
+			}
+		}
+
+		if strings.Contains(desc, `fqName: "test_active_time_io_thread_seconds_total"`) {
+			thread := ""
+			for _, label := range got.GetLabel() {
+				if label.GetName() == "thread" {
+					thread = label.GetValue()
+				}
+			}
+			foundIOThreads[thread] = got.GetCounter().GetValue()
+		}
+	}
+
+	if !foundMainThread {
+		t.Errorf("didn't find test_active_time_main_thread_seconds_total")
+	}
+	if len(foundIOThreads) != 2 {
+		t.Fatalf("found %d active_time_io_thread_seconds_total metrics, want 2: %#v", len(foundIOThreads), foundIOThreads)
+	}
+	if foundIOThreads["0"] != 2.5 {
+		t.Errorf(`active_time_io_thread_seconds_total{thread="0"} = %f, want 2.5`, foundIOThreads["0"])
+	}
+	if foundIOThreads["1"] != 3.5 {
+		t.Errorf(`active_time_io_thread_seconds_total{thread="1"} = %f, want 3.5`, foundIOThreads["1"])
 	}
 }
