@@ -18,6 +18,7 @@ type streamInfo struct {
 	LastGeneratedId   string `redis:"last-generated-id"`
 	Groups            int64  `redis:"groups"`
 	MaxDeletedEntryId string `redis:"max-deleted-entry-id"`
+	EntriesAdded      int64  `redis:"entries-added"`
 	FirstEntryId      string
 	LastEntryId       string
 	StreamGroupsInfo  []streamGroupsInfo
@@ -214,6 +215,7 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 		e.registerConstMetricGauge(ch, "stream_max_deleted_entry_id", parseStreamItemId(info.MaxDeletedEntryId), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_first_entry_id", parseStreamItemId(info.FirstEntryId), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_last_entry_id", parseStreamItemId(info.LastEntryId), dbLabel, k.key)
+		e.registerConstMetric(ch, "stream_entries_added_total", float64(info.EntriesAdded), prometheus.CounterValue, dbLabel, k.key)
 
 		for _, g := range info.StreamGroupsInfo {
 			e.registerConstMetricGauge(ch, "stream_group_consumers", float64(g.Consumers), dbLabel, k.key, g.Name)
