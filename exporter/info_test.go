@@ -528,3 +528,35 @@ func Test_parseMetricsLatencyStats(t *testing.T) {
 		})
 	}
 }
+
+// instance_info must survive a Valkey 8.0 -> 8.1 upgrade that adds the new
+// valkey_release_stage INFO field between scrapes, without a restart.
+func TestInstanceInfoLabelsChangeBetweenScrapes(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	// Valkey 8.0 has no valkey_release_stage field
+	infoBefore := "# Server\r\nredis_version:7.2.5\r\nredis_mode:standalone\r\nrun_id:abc\r\nvalkey_version:8.0.0\r\n"
+	// Valkey 8.1 added valkey_release_stage
+	infoAfter := "# Server\r\nredis_version:7.2.5\r\nredis_mode:standalone\r\nrun_id:abc\r\nvalkey_version:8.1.0\r\nvalkey_release_stage:ga\r\n"
+
+	for i, info := range []string{infoBefore, infoAfter} {
+		ch := make(chan prometheus.Metric)
+		go func() {
+			e.extractInfoMetrics(ch, info, 0)
+			close(ch)
+		}()
+
+		found := false
+		for m := range ch {
+			if strings.Contains(m.Desc().String(), "test_instance_info") {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("scrape %d: test_instance_info metric missing after the instance_info label set changed", i)
+		}
+	}
+}

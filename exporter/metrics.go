@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -152,13 +153,24 @@ func (e *Exporter) mustFindMetricDescription(metricName string) *prometheus.Desc
 }
 
 func (e *Exporter) createMetricDescription(metricName string, labels []string) *prometheus.Desc {
-	if desc, found := e.metricDescriptions[metricName]; found {
-		return desc
-	}
+	explicitLabels := len(labels) > 0
+
 	if e.options.AppendInstanceRoleLabel && metricName != "exporter_last_scrape_connect_time_seconds" && metricName != "exporter_last_scrape_ping_time_seconds" {
 		labels = append(labels, "instance_role") // append instance_role label to all metrics (except 2 collected before instanceRole)
 	}
+
+	if desc, found := e.metricDescriptions[metricName]; found {
+		// rebuild when a dynamic-label metric (e.g. instance_info) changes its labels at runtime, e.g. a Valkey upgrade adding new INFO fields
+		if !explicitLabels || slices.Equal(e.metricDescriptionLabels[metricName], labels) {
+			return desc
+		}
+	}
+
+	if e.metricDescriptionLabels == nil {
+		e.metricDescriptionLabels = map[string][]string{}
+	}
 	d := newMetricDescr(e.options.Namespace, metricName, metricName+" metric", labels)
 	e.metricDescriptions[metricName] = d
+	e.metricDescriptionLabels[metricName] = labels
 	return d
 }

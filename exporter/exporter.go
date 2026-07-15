@@ -38,6 +38,8 @@ type Exporter struct {
 	targetScrapeRequestErrors prometheus.Counter
 
 	metricDescriptions map[string]*prometheus.Desc
+	// labels each cached description was built with, to detect runtime changes
+	metricDescriptionLabels map[string][]string
 
 	options Options
 
@@ -515,6 +517,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	}
 
 	e.metricDescriptions = map[string]*prometheus.Desc{}
+	e.metricDescriptionLabels = map[string][]string{}
 
 	for k, desc := range map[string]struct {
 		txt  string
@@ -636,6 +639,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			desc.lbls = append(desc.lbls, "instance_role") // append instance_role label to all metrics
 		}
 		e.metricDescriptions[k] = newMetricDescr(opts.Namespace, k, desc.txt, desc.lbls)
+		e.metricDescriptionLabels[k] = desc.lbls
 	}
 
 	if e.options.MetricsPath == "" {
