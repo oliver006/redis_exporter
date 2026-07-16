@@ -1,6 +1,6 @@
 module github.com/oliver006/redis_exporter
 
-go 1.22.0
+go 1.25.0
 
 require (
 	github.com/gomodule/redigo v1.9.2
@@ -16,6 +16,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/prometheus/common v0.62.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect
-	golang.org/x/sys v0.30.0 // indirect
+	golang.org/x/sys v0.44.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
