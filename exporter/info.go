@@ -160,18 +160,6 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 				}
 			}
 
-		case "CPU":
-			if strings.HasPrefix(fieldKey, "used_active_time_io_thread_") {
-				threadNum := strings.TrimPrefix(fieldKey, "used_active_time_io_thread_")
-				if threadNum != "" && threadNum != fieldKey {
-					val, err := strconv.ParseFloat(fieldValue, 64)
-					if err == nil {
-						e.registerConstMetricGauge(ch, "active_time_io_thread_seconds_total", val, threadNum)
-						continue
-					}
-				}
-			}
-
 		case "Sentinel":
 			e.handleMetricsSentinel(ch, fieldKey, fieldValue)
 		}
