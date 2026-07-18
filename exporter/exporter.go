@@ -410,9 +410,6 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 			// Valkey 9.1+ active time metrics (INFO CPU)
 			"used_active_time_main_thread": "active_time_main_thread_seconds_total",
-			"used_active_time_io_thread_1": "active_time_io_thread_1_seconds_total",
-			"used_active_time_io_thread_2": "active_time_io_thread_2_seconds_total",
-			"used_active_time_io_thread_3": "active_time_io_thread_3_seconds_total",
 
 			"unexpected_error_replies":                  "unexpected_error_replies",
 			"total_error_replies":                       "total_error_replies",
