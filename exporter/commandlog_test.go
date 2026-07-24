@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -116,6 +117,59 @@ func assertCommandLogGauge(t *testing.T, e *Exporter, metricName string, want fl
 	if val != want {
 		t.Errorf("%s = %f, want %f", metricName, val, want)
 	}
+}
+
+func TestCommandLogUnsupported(t *testing.T) {
+	for _, envVar := range []string{"TEST_REDIS7_URI", "TEST_REDIS8_URI"} {
+		t.Run(envVar, func(t *testing.T) {
+			addr := os.Getenv(envVar)
+			if addr == "" {
+				t.Skipf("%s not set - skipping", envVar)
+			}
+
+			errsBefore, err := totalErrorReplies(addr)
+			if err != nil {
+				t.Fatalf("couldn't read total_error_replies, err: %s", err)
+			}
+
+			e := getTestExporterWithAddr(addr)
+
+			for range 3 {
+				if _, found := collectCommandLogMetricValue(e, "commandlog_slow_length"); found {
+					t.Errorf("commandlog_slow_length should not be exported for a target without COMMANDLOG support")
+				}
+			}
+
+			errsAfter, err := totalErrorReplies(addr)
+			if err != nil {
+				t.Fatalf("couldn't read total_error_replies, err: %s", err)
+			}
+			if errsAfter > errsBefore {
+				t.Errorf("total_error_replies increased from %d to %d - COMMANDLOG probe should not generate error replies on repeated scrapes", errsBefore, errsAfter)
+			}
+		})
+	}
+}
+
+func totalErrorReplies(addr string) (int64, error) {
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		return 0, err
+	}
+	defer c.Close()
+
+	info, err := redis.String(c.Do("INFO", "stats"))
+	if err != nil {
+		return 0, err
+	}
+
+	for line := range strings.SplitSeq(info, "\n") {
+		line = strings.TrimSpace(line)
+		if val, ok := strings.CutPrefix(line, "total_error_replies:"); ok {
+			return strconv.ParseInt(strings.TrimSpace(val), 10, 64)
+		}
+	}
+	return 0, nil
 }
 
 func collectCommandLogMetricValue(e *Exporter, metricName string) (float64, bool) {
