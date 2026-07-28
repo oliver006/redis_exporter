@@ -19,19 +19,13 @@ var commandLogConfigMetrics = []struct {
 	{"commandlog-large-reply-max-len", "commandlog_large_reply_max_len"},
 }
 
-func (e *Exporter) isCommandLogSupported(c redis.Conn) bool {
-	if e.commandLogSupported != nil {
-		return *e.commandLogSupported
-	}
-
+func isCommandLogSupported(c redis.Conn) bool {
 	reply, err := redis.Values(doRedisCmd(c, "COMMAND", "INFO", "COMMANDLOG"))
-	supported := err == nil && len(reply) > 0 && reply[0] != nil
-	e.commandLogSupported = &supported
-	return supported
+	return err == nil && len(reply) > 0 && reply[0] != nil
 }
 
 func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if !e.isCommandLogSupported(c) {
+	if !isCommandLogSupported(c) {
 		return
 	}
 
