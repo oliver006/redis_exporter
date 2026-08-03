@@ -49,6 +49,15 @@ type Exporter struct {
 	mux *http.ServeMux
 
 	buildInfo BuildInfo
+
+	// discoveredNodesPasswordCache caches credentials for cluster nodes found via
+	// /discover-cluster-nodes so a later /scrape of those nodes can authenticate.
+	// passwordUpdateMutex guards both this map and options.PasswordMap
+	// (read in lookupPasswordInPasswordMap, written by reloadPwdFile); it is
+	// deliberately separate from the embedded sync.Mutex, which Collect holds for
+	// the duration of a scrape — taking that here would deadlock.
+	discoveredNodesPasswordCache map[string]string
+	passwordUpdateMutex          sync.Mutex
 }
 
 type Options struct {
@@ -87,6 +96,7 @@ type Options struct {
 	IsTile38                       bool
 	IsCluster                      bool
 	ClusterDiscoverHostnames       bool
+	ClusterDiscoverTargetAllowlist string
 	ExportClientList               bool
 	ExportClientsInclPort          bool
 	ConnectionTimeouts             time.Duration
@@ -162,6 +172,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			Name:      "target_scrape_request_errors_total",
 			Help:      "Errors in requests to the exporter",
 		}),
+
+		discoveredNodesPasswordCache: make(map[string]string),
 
 		metricMapGauges: map[string]string{
 			// # Server

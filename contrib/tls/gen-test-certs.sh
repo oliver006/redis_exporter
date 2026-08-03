@@ -29,4 +29,5 @@ openssl req \
         -CAserial ${dir}/ca.txt \
         -CAcreateserial \
         -days 3650 \
+        -extfile <(echo "subjectAltName=DNS:localhost") \
         -out ${dir}/redis.crt

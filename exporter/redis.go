@@ -11,6 +11,38 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// schemeIsTLS reports whether a redis URI uses a TLS scheme.
+func schemeIsTLS(uri string) bool {
+	return strings.HasPrefix(uri, "rediss://") || strings.HasPrefix(uri, "valkeys://")
+}
+
+// schemeFromURI returns the URI scheme (redis, rediss, valkey, valkeys),
+// defaulting to "redis" when no recognised scheme prefix is present.
+func schemeFromURI(uri string) string {
+	// "valkeys" before "valkey" and "rediss" before "redis" so the longer
+	// (TLS) prefixes win.
+	for _, s := range []string{"rediss", "valkeys", "valkey", "redis"} {
+		if strings.HasPrefix(uri, s+"://") {
+			return s
+		}
+	}
+	return "redis"
+}
+
+// startupNodeFromURI strips the scheme from a redis URI and returns a
+// host:port string suitable for redisc.Cluster.StartupNodes, defaulting the
+// port to 6379 when absent. Callers must pass a URI that includes a scheme.
+func startupNodeFromURI(uri string) (string, error) {
+	u, err := url.Parse(uri)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse cluster URI: %w", err)
+	}
+	if u.Port() == "" {
+		return u.Host + ":6379", nil
+	}
+	return u.Host, nil
+}
+
 func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 	tlsConfig, err := e.CreateClientTLSConfig()
 	if err != nil {
@@ -22,7 +54,7 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 		redis.DialReadTimeout(e.options.ConnectionTimeouts),
 		redis.DialWriteTimeout(e.options.ConnectionTimeouts),
 		redis.DialTLSConfig(tlsConfig),
-		redis.DialUseTLS(strings.HasPrefix(e.redisAddr, "rediss://")),
+		redis.DialUseTLS(schemeIsTLS(uri)),
 	}
 
 	if e.options.User != "" {
@@ -40,24 +72,49 @@ func (e *Exporter) configureOptions(uri string) ([]redis.DialOption, error) {
 	return options, nil
 }
 
-func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
+// canonicalPasswordKey normalises a redis URI to the form used as a key in the
+// password maps: the user from options is applied and a bare ":" left by a
+// username-without-password is stripped. The same normalisation must be used
+// when caching and looking up passwords so the keys match.
+func (e *Exporter) canonicalPasswordKey(uri string) (string, error) {
 	u, err := url.Parse(uri)
 	if err != nil {
-		return "", false
+		return "", err
 	}
 
 	if e.options.User != "" {
 		u.User = url.User(e.options.User)
 	}
-	uri = u.String()
+	key := u.String()
 
 	// strip solo ":" if present in uri that has a username (and no pwd)
-	uri = strings.Replace(uri, fmt.Sprintf(":@%s", u.Host), fmt.Sprintf("@%s", u.Host), 1)
+	key = strings.Replace(key, fmt.Sprintf(":@%s", u.Host), fmt.Sprintf("@%s", u.Host), 1)
+	return key, nil
+}
 
-	log.Debugf("looking up in pwd map, uri: %s", uri)
-	if pwd, ok := e.options.PasswordMap[uri]; ok && pwd != "" {
+func (e *Exporter) lookupPasswordInPasswordMap(uri string) (string, bool) {
+	key, err := e.canonicalPasswordKey(uri)
+	if err != nil {
+		return "", false
+	}
+
+	log.Debugf("looking up in pwd map, uri: %s", key)
+
+	// Guards both PasswordMap and discoveredNodesPasswordCache against a concurrent
+	// reloadPwdFile. Not the embedded e.Mutex: Collect holds that across a whole
+	// scrape, and the scrape path reaches this lookup.
+	e.passwordUpdateMutex.Lock()
+	defer e.passwordUpdateMutex.Unlock()
+
+	if pwd, ok := e.options.PasswordMap[key]; ok && pwd != "" {
 		return pwd, true
 	}
+
+	if pwd, ok := e.discoveredNodesPasswordCache[key]; ok && pwd != "" {
+		log.Debugf("found password for discovered node %s", key)
+		return pwd, true
+	}
+
 	return "", false
 }
 
@@ -88,7 +145,10 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
-	uri := e.redisAddr
+	return e.connectToRedisClusterWithURI(e.redisAddr)
+}
+
+func (e *Exporter) connectToRedisClusterWithURI(uri string) (redis.Conn, error) {
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
 	}
@@ -99,22 +159,14 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	}
 
 	// remove url scheme for redis.Cluster.StartupNodes
-	if strings.Contains(uri, "://") {
-		u, _ := url.Parse(uri)
-		if u.Port() == "" {
-			uri = u.Host + ":6379"
-		} else {
-			uri = u.Host
-		}
-	} else {
-		if frags := strings.Split(uri, ":"); len(frags) != 2 {
-			uri = uri + ":6379"
-		}
+	startupNode, err := startupNodeFromURI(uri)
+	if err != nil {
+		return nil, err
 	}
 
 	log.Debugf("Creating cluster object")
 	cluster := redisc.Cluster{
-		StartupNodes: []string{uri},
+		StartupNodes: []string{startupNode},
 		DialOptions:  options,
 	}
 	log.Debugf("Running refresh on cluster object")

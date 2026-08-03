@@ -1,5 +1,7 @@
 {
   "redis://localhost:16379": "",
   "redis://exporter@localhost:16390": "exporter-password",
-  "redis://localhost:16380": "redis-password"
+  "redis://localhost:16380": "redis-password",
+  "rediss://clustercfg.mycache.abcdef.apse2.cache.amazonaws.com:6379": "cluster-auth-token",
+  "valkeys://clustercfg.myvalkey.abcdef.apse2.cache.amazonaws.com:6379": "valkey-auth-token"
 }
