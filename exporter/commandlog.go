@@ -25,7 +25,7 @@ func isCommandLogSupported(c redis.Conn) bool {
 }
 
 func (e *Exporter) extractCommandLogMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
-	if !isCommandLogSupported(c) {
+	if e.options.IsTile38 || !isCommandLogSupported(c) {
 		return
 	}
 
