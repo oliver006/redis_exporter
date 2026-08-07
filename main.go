@@ -190,6 +190,7 @@ func main() {
 		isTile38                       = flag.Bool("is-tile38", getEnvBool("REDIS_EXPORTER_IS_TILE38", false), "Whether to scrape Tile38 specific metrics")
 		isCluster                      = flag.Bool("is-cluster", getEnvBool("REDIS_EXPORTER_IS_CLUSTER", false), "Whether this is a redis cluster (Enable this if you need to fetch key level data on a Redis Cluster).")
 		clusterDiscoverHostnames       = flag.Bool("cluster-discover-hostnames", getEnvBool("REDIS_EXPORTER_CLUSTER_DISCOVER_HOSTNAMES", false), "Whether to use hostname for cluster node discovery if available via `/discover-cluster-nodes` endpoint.")
+		clusterDiscoverTargetAllowlist = flag.String("cluster-discover-target-allowlist", getEnv("REDIS_EXPORTER_CLUSTER_DISCOVER_TARGET_ALLOWLIST", ""), "Comma-separated list of host globs allowed as the `target` parameter of `/discover-cluster-nodes`. Empty (default) disables target-based discovery so the exporter will not connect to caller-supplied addresses.")
 		exportClientList               = flag.Bool("export-client-list", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_LIST", false), "Whether to scrape Client List specific metrics")
 		exportClientPort               = flag.Bool("export-client-port", getEnvBool("REDIS_EXPORTER_EXPORT_CLIENT_PORT", false), "Whether to include the client's port when exporting the client list. Warning: including the port increases the number of metrics generated and will make your Prometheus server take up more memory")
 		showVersion                    = flag.Bool("version", false, "Show version information and exit")
@@ -287,6 +288,7 @@ func main() {
 			IsTile38:                       *isTile38,
 			IsCluster:                      *isCluster,
 			ClusterDiscoverHostnames:       *clusterDiscoverHostnames,
+			ClusterDiscoverTargetAllowlist: *clusterDiscoverTargetAllowlist,
 			InclModulesMetrics:             *inclModulesMetrics,
 			InclSearchIndexesMetrics:       *inclSearchIndexesMetrics,
 			InclSentinelPeerInfo:           *inclSentinelPeerInfo,

@@ -152,3 +152,68 @@ func TestConnectToClusterUsingPasswordFile(t *testing.T) {
 		})
 	}
 }
+
+func TestSchemeFromURI(t *testing.T) {
+	for _, tst := range []struct {
+		uri  string
+		want string
+	}{
+		{"redis://localhost:6379", "redis"},
+		{"rediss://localhost:6379", "rediss"},
+		{"valkey://localhost:6379", "valkey"},
+		{"valkeys://localhost:6379", "valkeys"},
+		{"localhost:6379", "redis"},        // no scheme -> default
+		{"http://localhost:6379", "redis"}, // unrecognised -> default
+	} {
+		if got := schemeFromURI(tst.uri); got != tst.want {
+			t.Errorf("schemeFromURI(%q) = %q, want %q", tst.uri, got, tst.want)
+		}
+	}
+}
+
+func TestSchemeIsTLS(t *testing.T) {
+	for _, tst := range []struct {
+		uri  string
+		want bool
+	}{
+		{"redis://localhost:6379", false},
+		{"rediss://localhost:6379", true},
+		{"valkey://localhost:6379", false},
+		{"valkeys://localhost:6379", true},
+		{"localhost:6379", false},
+	} {
+		if got := schemeIsTLS(tst.uri); got != tst.want {
+			t.Errorf("schemeIsTLS(%q) = %v, want %v", tst.uri, got, tst.want)
+		}
+	}
+}
+
+func TestStartupNodeFromURI(t *testing.T) {
+	for _, tst := range []struct {
+		name    string
+		uri     string
+		want    string
+		wantErr bool
+	}{
+		{name: "with port", uri: "redis://localhost:7000", want: "localhost:7000"},
+		{name: "default port", uri: "redis://localhost", want: "localhost:6379"},
+		{name: "tls scheme keeps host:port", uri: "rediss://10.0.0.5:6380", want: "10.0.0.5:6380"},
+		{name: "parse error", uri: "redis://%zz", wantErr: true},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			got, err := startupNodeFromURI(tst.uri)
+			if tst.wantErr {
+				if err == nil {
+					t.Errorf("startupNodeFromURI(%q) expected error, got %q", tst.uri, got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("startupNodeFromURI(%q) err: %s", tst.uri, err)
+			}
+			if got != tst.want {
+				t.Errorf("startupNodeFromURI(%q) = %q, want %q", tst.uri, got, tst.want)
+			}
+		})
+	}
+}

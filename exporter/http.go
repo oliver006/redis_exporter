@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -114,13 +116,70 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	).ServeHTTP(w, r)
 }
 
-func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
-	if !e.options.IsCluster {
-		http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
-		return
+// targetAllowedForDiscovery reports whether a caller-supplied discovery target
+// is permitted by --cluster-discover-target-allowlist. The allowlist is a
+// comma-separated list of globs (path.Match syntax) matched against the target
+// host (port and scheme stripped). An empty allowlist disables target-based
+// discovery entirely, so the exporter will not probe arbitrary addresses unless
+// explicitly configured to.
+func (e *Exporter) targetAllowedForDiscovery(target string) bool {
+	if strings.TrimSpace(e.options.ClusterDiscoverTargetAllowlist) == "" {
+		return false
 	}
 
-	c, err := e.connectToRedisCluster()
+	uri := target
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+	u, err := url.Parse(uri)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+
+	for _, pattern := range strings.Split(e.options.ClusterDiscoverTargetAllowlist, ",") {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+		if ok, err := path.Match(pattern, host); err == nil && ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
+	target := r.URL.Query().Get("target")
+	var c redis.Conn
+	var err error
+
+	// Preserve the original scheme for the discovery output. For the no-target
+	// path fall back to the exporter's own address so a rediss:// cluster keeps
+	// emitting rediss:// nodes.
+	schemeSource := target
+	if schemeSource == "" {
+		schemeSource = e.redisAddr
+	}
+	originalScheme := schemeFromURI(schemeSource)
+
+	if target == "" {
+		if !e.options.IsCluster {
+			http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
+			return
+		}
+		c, err = e.connectToRedisCluster()
+	} else {
+		if !e.targetAllowedForDiscovery(target) {
+			http.Error(w, "discovery of this target is not allowed; set --cluster-discover-target-allowlist to permit it", http.StatusForbidden)
+			return
+		}
+		c, err = e.connectToRedisClusterWithURI(target)
+	}
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Couldn't connect to redis cluster: %s", err), http.StatusInternalServerError)
 		return
@@ -143,13 +202,8 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 		},
 	}
 
-	isTls := strings.HasPrefix(e.redisAddr, "rediss://")
 	for i, node := range nodes {
-		if isTls {
-			discovery[0].Targets[i] = "rediss://" + node
-		} else {
-			discovery[0].Targets[i] = "redis://" + node
-		}
+		discovery[0].Targets[i] = fmt.Sprintf("%s://%s", originalScheme, node)
 	}
 
 	data, err := json.MarshalIndent(discovery, "", "  ")
