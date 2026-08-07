@@ -16,7 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/oliver006/redis_exporter/internal/bcrypt"
 
 	"github.com/oliver006/redis_exporter/exporter"
 )
