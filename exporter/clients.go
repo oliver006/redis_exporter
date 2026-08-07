@@ -24,6 +24,7 @@ type ClientInfo struct {
 	Resp string
 	CreatedAt,
 	IdleSince,
+	IdleSeconds,
 	Sub,
 	Psub,
 	Ssub,
@@ -71,6 +72,12 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			}
 			connectedClient.CreatedAt = createdAt
 		case "idle":
+			idleSec, err := strconv.ParseInt(vPart[1], 10, 64)
+			if err != nil {
+				log.Debugf("could not parse 'idle' field(%s): %s", vPart[1], err.Error())
+				return nil, false
+			}
+			connectedClient.IdleSeconds = idleSec
 			idleSinceTs, err := durationFieldToTimestamp(vPart[1])
 			if err != nil {
 				log.Debugf("could not parse 'idle' field(%s): %s", vPart[1], err.Error())
@@ -135,6 +142,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 }
 
 func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheus.Metric) {
+	idleCount := int64(0)
 
 	for s := range strings.SplitSeq(input, "\n") {
 		info, ok := parseClientListString(s)
@@ -142,6 +150,15 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 			log.Debugf("parseClientListString( %s ) - couldn';t parse input", s)
 			continue
 		}
+
+		if e.options.exportIdleClientCount() && info.IdleSeconds >= e.options.ClientIdleThresholdSeconds {
+			idleCount++
+		}
+
+		if !e.options.ExportClientList {
+			continue
+		}
+
 		clientInfoLabels := []string{"id", "name", "flags", "db", "host"}
 		clientInfoLabelValues := []string{info.Id, info.Name, info.Flags, info.Db, info.Host}
 
@@ -249,5 +266,11 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 				clientBaseLabelsValues...,
 			)
 		}
+	}
+
+	if e.options.exportIdleClientCount() {
+		threshold := strconv.FormatInt(e.options.ClientIdleThresholdSeconds, 10)
+		e.createMetricDescription("client_connections_idle", []string{"threshold_seconds"})
+		e.registerConstMetricGauge(ch, "client_connections_idle", float64(idleCount), threshold)
 	}
 }

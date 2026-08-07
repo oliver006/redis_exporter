@@ -89,6 +89,7 @@ type Options struct {
 	ClusterDiscoverHostnames       bool
 	ExportClientList               bool
 	ExportClientsInclPort          bool
+	ClientIdleThresholdSeconds     int64
 	ConnectionTimeouts             time.Duration
 	MetricsPath                    string
 	RedisMetricsOnly               bool
@@ -103,6 +104,10 @@ type Options struct {
 	InclMetricsForEmptyDatabases   bool
 	AppendInstanceRoleLabel        bool
 	DisableScrapeEndpoint          bool
+}
+
+func (o Options) exportIdleClientCount() bool {
+	return o.ClientIdleThresholdSeconds > 0
 }
 
 func getInstanceRoleFromInfo(info string) string {
@@ -133,6 +138,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		if _, err := regexp.Compile(opts.CheckSearchIndexes); err != nil {
 			return nil, fmt.Errorf("invalid check-search-indexes regex %q: %w", opts.CheckSearchIndexes, err)
 		}
+	}
+
+	if opts.ClientIdleThresholdSeconds < 0 {
+		return nil, fmt.Errorf("client-idle-threshold-seconds must be >= 0, got: %d", opts.ClientIdleThresholdSeconds)
 	}
 
 	if opts.Registry == nil {
@@ -930,7 +939,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractSentinelConfig(ch, c)
 	}
 
-	if e.options.ExportClientList {
+	if e.options.ExportClientList || e.options.exportIdleClientCount() {
 		e.extractConnectedClientMetrics(ch, c)
 	}
 
