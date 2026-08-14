@@ -132,6 +132,13 @@ func durationFieldToTimestamp(field string) (int64, error) {
 	return time.Now().Unix() - parsed, nil
 }
 
+// clientCountsTowardIdleMetric reports whether a CLIENT LIST entry should be
+// included in the client_connections_idle aggregate. Pub/Sub (P) and blocked (b)
+// clients are excluded; they are tracked via pubsub_clients and blocked_clients.
+func clientCountsTowardIdleMetric(flags string) bool {
+	return !strings.ContainsRune(flags, 'P') && !strings.ContainsRune(flags, 'b')
+}
+
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	reply, err := redis.String(doRedisCmd(c, "CLIENT", "LIST"))
 	if err != nil {
@@ -151,7 +158,9 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 			continue
 		}
 
-		if e.options.exportIdleClientCount() && info.IdleSeconds >= e.options.ClientIdleThresholdSeconds {
+		if e.options.exportIdleClientCount() &&
+			info.IdleSeconds >= e.options.ClientIdleThresholdSeconds &&
+			clientCountsTowardIdleMetric(info.Flags) {
 			idleCount++
 		}
 

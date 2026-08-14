@@ -247,6 +247,62 @@ func TestIdleClientCount(t *testing.T) {
 	}
 }
 
+func TestClientCountsTowardIdleMetric(t *testing.T) {
+	for _, tst := range []struct {
+		flags string
+		want  bool
+	}{
+		{flags: "N", want: true},
+		{flags: "", want: true},
+		{flags: "P", want: false},
+		{flags: "N=P", want: false},
+		{flags: "b", want: false},
+		{flags: "N=b", want: false},
+		{flags: "S", want: true},
+	} {
+		if got := clientCountsTowardIdleMetric(tst.flags); got != tst.want {
+			t.Errorf("clientCountsTowardIdleMetric(%q) = %v, want %v", tst.flags, got, tst.want)
+		}
+	}
+}
+
+const testClientListWithPubsubAndBlocked = `id=1 addr=127.0.0.1:1111 fd=8 name= age=100 idle=400 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=ping
+id=2 addr=127.0.0.1:2222 fd=9 name= age=100 idle=400 flags=P db=0 sub=1 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=subscribe
+id=3 addr=127.0.0.1:3333 fd=10 name= age=100 idle=400 flags=b db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=blpop
+`
+
+func TestIdleClientCountExcludesPubsubAndBlocked(t *testing.T) {
+	e, err := NewRedisExporter("", Options{
+		Namespace:                  "test",
+		ClientIdleThresholdSeconds: 300,
+	})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.parseConnectedClientMetrics(testClientListWithPubsubAndBlocked, chM)
+		close(chM)
+	}()
+
+	var idleCount float64
+	for m := range chM {
+		if !strings.Contains(m.Desc().String(), "client_connections_idle") {
+			continue
+		}
+		var dtoM dto.Metric
+		if err := m.Write(&dtoM); err != nil {
+			t.Fatalf("failed to write metric: %s", err)
+		}
+		idleCount = dtoM.GetGauge().GetValue()
+	}
+
+	if idleCount != 1 {
+		t.Fatalf("client_connections_idle = %v, want 1 (only normal client)", idleCount)
+	}
+}
+
 func TestNewRedisExporterRejectsNegativeIdleThreshold(t *testing.T) {
 	_, err := NewRedisExporter("redis://localhost:6379", Options{
 		ClientIdleThresholdSeconds: -1,
