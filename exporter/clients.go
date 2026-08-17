@@ -21,6 +21,7 @@ type ClientInfo struct {
 	Db,
 	Host,
 	Port,
+	Cmd,
 	Resp string
 	CreatedAt,
 	IdleSince,
@@ -116,6 +117,8 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			}
 			connectedClient.Host = strings.Join(hostPortString[:len(hostPortString)-1], ":")
 			connectedClient.Port = hostPortString[len(hostPortString)-1]
+		case "cmd":
+			connectedClient.Cmd = vPart[1]
 		case "resp":
 			connectedClient.Resp = vPart[1]
 		}
@@ -132,11 +135,23 @@ func durationFieldToTimestamp(field string) (int64, error) {
 	return time.Now().Unix() - parsed, nil
 }
 
+// idleClientExcludedFlags lists CLIENT LIST flag runes excluded from idle_clients:
+// P pub/sub, b blocked, M master, S replica, O MONITOR, x MULTI/EXEC, d WATCH modified,
+// g/o cluster slot migration, t/T/B/R client-side caching tracking.
+const idleClientExcludedFlags = "PbMSOxdgotTBR"
+
 // clientCountsTowardIdleMetric reports whether a CLIENT LIST entry should be
-// included in the client_connections_idle aggregate. Pub/Sub (P) and blocked (b)
-// clients are excluded; they are tracked via pubsub_clients and blocked_clients.
-func clientCountsTowardIdleMetric(flags string) bool {
-	return !strings.ContainsRune(flags, 'P') && !strings.ContainsRune(flags, 'b')
+// included in the idle_clients aggregate.
+func clientCountsTowardIdleMetric(flags, cmd string) bool {
+	if strings.HasPrefix(cmd, "sentinel|") {
+		return false
+	}
+	for _, r := range idleClientExcludedFlags {
+		if strings.ContainsRune(flags, r) {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
@@ -160,7 +175,7 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 
 		if e.options.exportIdleClientCount() &&
 			info.IdleSeconds >= e.options.ClientIdleThresholdSeconds &&
-			clientCountsTowardIdleMetric(info.Flags) {
+			clientCountsTowardIdleMetric(info.Flags, info.Cmd) {
 			idleCount++
 		}
 
@@ -279,7 +294,7 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 
 	if e.options.exportIdleClientCount() {
 		threshold := strconv.FormatInt(e.options.ClientIdleThresholdSeconds, 10)
-		e.createMetricDescription("client_connections_idle", []string{"threshold_seconds"})
-		e.registerConstMetricGauge(ch, "client_connections_idle", float64(idleCount), threshold)
+		e.createMetricDescription("idle_clients", []string{"threshold_seconds"})
+		e.registerConstMetricGauge(ch, "idle_clients", float64(idleCount), threshold)
 	}
 }
