@@ -135,17 +135,14 @@ func durationFieldToTimestamp(field string) (int64, error) {
 	return time.Now().Unix() - parsed, nil
 }
 
-// idleClientExcludedFlags lists CLIENT LIST flag runes excluded from idle_clients:
-// P pub/sub, b blocked, M master, S replica, O MONITOR, x MULTI/EXEC, d WATCH modified,
-// g/o cluster slot migration, t/T/B/R client-side caching tracking.
-const idleClientExcludedFlags = "PbMSOxdgotTBR"
+// idleClientExcludedFlags lists CLIENT LIST flag runes excluded from idle_clients,
+// aligned with Redis/Valkey clientsCronHandleTimeout (see timeout.c): pub/sub (P),
+// blocked (b), master (M), replica (S), MONITOR (O), cluster slot migration (g, o).
+const idleClientExcludedFlags = "PbMSOgo"
 
 // clientCountsTowardIdleMetric reports whether a CLIENT LIST entry should be
 // included in the idle_clients aggregate.
-func clientCountsTowardIdleMetric(flags, cmd string) bool {
-	if strings.HasPrefix(cmd, "sentinel|") {
-		return false
-	}
+func clientCountsTowardIdleMetric(flags string) bool {
 	for _, r := range idleClientExcludedFlags {
 		if strings.ContainsRune(flags, r) {
 			return false
@@ -175,7 +172,7 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 
 		if e.options.exportIdleClientCount() &&
 			info.IdleSeconds >= e.options.ClientIdleThresholdSeconds &&
-			clientCountsTowardIdleMetric(info.Flags, info.Cmd) {
+			clientCountsTowardIdleMetric(info.Flags) {
 			idleCount++
 		}
 

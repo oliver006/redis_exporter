@@ -250,12 +250,17 @@ func TestIdleClientCount(t *testing.T) {
 func TestClientCountsTowardIdleMetric(t *testing.T) {
 	for _, tst := range []struct {
 		flags string
-		cmd   string
 		want  bool
 	}{
 		{flags: "N", want: true},
 		{flags: "", want: true},
-		{flags: "r", cmd: "get", want: true},
+		{flags: "r", want: true},
+		{flags: "x", want: true},
+		{flags: "d", want: true},
+		{flags: "t", want: true},
+		{flags: "T", want: true},
+		{flags: "B", want: true},
+		{flags: "R", want: true},
 		{flags: "P", want: false},
 		{flags: "N=P", want: false},
 		{flags: "b", want: false},
@@ -263,24 +268,16 @@ func TestClientCountsTowardIdleMetric(t *testing.T) {
 		{flags: "M", want: false},
 		{flags: "S", want: false},
 		{flags: "O", want: false},
-		{flags: "x", want: false},
-		{flags: "d", want: false},
 		{flags: "g", want: false},
 		{flags: "o", want: false},
-		{flags: "t", want: false},
-		{flags: "T", want: false},
-		{flags: "B", want: false},
-		{flags: "R", want: false},
-		{flags: "N", cmd: "sentinel|ping", want: false},
-		{flags: "N", cmd: "ping", want: true},
 	} {
-		if got := clientCountsTowardIdleMetric(tst.flags, tst.cmd); got != tst.want {
-			t.Errorf("clientCountsTowardIdleMetric(%q, %q) = %v, want %v", tst.flags, tst.cmd, got, tst.want)
+		if got := clientCountsTowardIdleMetric(tst.flags); got != tst.want {
+			t.Errorf("clientCountsTowardIdleMetric(%q) = %v, want %v", tst.flags, got, tst.want)
 		}
 	}
 }
 
-func TestIdleClientCountExcludesNonApplicationClients(t *testing.T) {
+func TestIdleClientCountExcludesTimeoutExemptClients(t *testing.T) {
 	const clientList = `id=1 addr=127.0.0.1:1111 fd=8 name= age=100 idle=400 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=ping
 id=2 addr=127.0.0.1:2222 fd=9 name= age=100 idle=400 flags=P db=0 sub=1 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=subscribe
 id=3 addr=127.0.0.1:3333 fd=10 name= age=100 idle=400 flags=b db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=blpop
@@ -288,6 +285,7 @@ id=4 addr=127.0.0.1:4444 fd=11 name= age=100 idle=400 flags=S db=0 sub=0 psub=0 
 id=5 addr=127.0.0.1:5555 fd=12 name= age=100 idle=400 flags=O db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=monitor
 id=6 addr=127.0.0.1:6666 fd=13 name= age=100 idle=400 flags=t db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=get
 id=7 addr=127.0.0.1:7777 fd=14 name= age=100 idle=400 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=sentinel|ping
+id=8 addr=127.0.0.1:8888 fd=15 name= age=100 idle=400 flags=x db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=exec
 `
 
 	e, err := NewRedisExporter("", Options{
@@ -316,8 +314,8 @@ id=7 addr=127.0.0.1:7777 fd=14 name= age=100 idle=400 flags=N db=0 sub=0 psub=0 
 		idleCount = dtoM.GetGauge().GetValue()
 	}
 
-	if idleCount != 1 {
-		t.Fatalf("idle_clients = %v, want 1 (only normal application client)", idleCount)
+	if idleCount != 4 {
+		t.Fatalf("idle_clients = %v, want 4 (timeout-eligible idle clients)", idleCount)
 	}
 }
 
