@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"math/rand"
@@ -873,5 +874,297 @@ func TestValidateBasicAuthPassword(t *testing.T) {
 				t.Errorf("Expected error: %v, got: %v", tt.expectStatus, st)
 			}
 		})
+	}
+}
+
+func TestDiscoverClusterNodesHandlerWithTarget(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	valkeyClusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_URI")
+	valkeyClusterPassword := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD")
+	if clusterAddr == "" || valkeyClusterAddr == "" || valkeyClusterPassword == "" {
+		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or TEST_VALKEY_CLUSTER_PASSWORD_URI or TEST_VALKEY_CLUSTER_PASSWORD not set - skipping")
+	}
+
+	testCases := []struct {
+		name       string
+		addr       string
+		wantScheme string
+		auth       string
+		wants      []string
+	}{
+		{
+			name:       "redis_cluster",
+			addr:       clusterAddr,
+			auth:       "",
+			wantScheme: "redis",
+			wants: []string{
+				"127.0.0.1:7000",
+				"127.0.0.1:7001",
+				"127.0.0.1:7002",
+			},
+		},
+		{
+			name:       "valkey_cluster",
+			addr:       valkeyClusterAddr,
+			auth:       valkeyClusterPassword,
+			wantScheme: "redis", // TODO: change to "valkey" when valkey starts using valkey:// scheme internally
+			wants: []string{
+				"127.0.0.1:7006",
+				"127.0.0.1:7007",
+				"127.0.0.1:7008",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			passwordMap := map[string]string{
+				tc.addr: tc.auth,
+			}
+
+			e, _ := NewRedisExporter("", Options{
+				Namespace:                      "test",
+				PasswordMap:                    passwordMap,
+				ClusterDiscoverTargetAllowlist: "localhost",
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+			q := u.Query()
+			q.Set("target", tc.addr)
+			u.RawQuery = q.Encode()
+
+			statusCode, body := downloadURLWithStatusCode(t, u.String())
+			if statusCode != http.StatusOK {
+				t.Fatalf("expected status code 200, got %d, body:\n\n%s", statusCode, body)
+			}
+
+			var discovery []struct {
+				Targets []string          `json:"targets"`
+				Labels  map[string]string `json:"labels"`
+			}
+
+			err := json.Unmarshal([]byte(body), &discovery)
+			if err != nil {
+				t.Fatalf("failed to unmarshal json: %s, body:\n\n%s", err, body)
+			}
+			t.Logf("Discovered nodes: %v", discovery[0].Targets)
+
+			if len(discovery) != 1 {
+				t.Fatalf("expected 1 discovery target, got %d", len(discovery))
+			}
+
+			// The cluster has 3 masters and 3 slaves, so 6 nodes in total.
+			if len(discovery[0].Targets) < 3 {
+				t.Fatalf("expected at least 3 targets, got %d", len(discovery[0].Targets))
+			}
+
+			// check if we have the masters
+			for _, want := range tc.wants {
+				found := false
+				for _, target := range discovery[0].Targets {
+					if !strings.HasPrefix(target, tc.wantScheme+"://") {
+						t.Errorf("expected scheme %s, got %s", tc.wantScheme, target)
+					}
+					if strings.Contains(target, want) {
+						found = true
+						break
+					}
+				}
+				if !found {
+					t.Errorf("want target %q, but not found in %v", want, discovery[0].Targets)
+				}
+			}
+		})
+	}
+}
+
+func TestDiscoverClusterNodesHandlerTLS(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI")
+	clusterPassword := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD")
+	if clusterAddr == "" || clusterPassword == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD or TEST_VALKEY_CLUSTER_PASSWORD_TLS_URI not set - skipping")
+	}
+
+	testCases := []struct {
+		name           string
+		addr           string
+		auth           string
+		wantScheme     string
+		wantStatusCode int
+		wants          []string
+	}{
+		{
+			name:           "rediss",
+			addr:           clusterAddr,
+			auth:           clusterPassword,
+			wantScheme:     "rediss",
+			wantStatusCode: http.StatusOK,
+			wants: []string{
+				"127.0.0.1:7012",
+				"127.0.0.1:7013",
+				"127.0.0.1:7014",
+			},
+		},
+		{
+			name:           "valkeys",
+			addr:           strings.Replace(clusterAddr, "rediss://", "valkeys://", 1),
+			auth:           clusterPassword,
+			wantScheme:     "valkeys",
+			wantStatusCode: http.StatusOK,
+			wants: []string{
+				"127.0.0.1:7012",
+				"127.0.0.1:7013",
+				"127.0.0.1:7014",
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			targetURI := tc.addr
+
+			passwordMap := map[string]string{
+				tc.addr: tc.auth,
+			}
+
+			e, _ := NewRedisExporter("", Options{
+				Namespace:                      "test",
+				PasswordMap:                    passwordMap,
+				SkipTLSVerification:            true,
+				ClientCertFile:                 "../contrib/tls/redis.crt",
+				ClientKeyFile:                  "../contrib/tls/redis.key",
+				CaCertFile:                     "../contrib/tls/ca.crt",
+				ClusterDiscoverTargetAllowlist: "localhost",
+			})
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+
+			u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+			q := u.Query()
+			q.Set("target", targetURI)
+			u.RawQuery = q.Encode()
+
+			statusCode, body := downloadURLWithStatusCode(t, u.String())
+			if statusCode != tc.wantStatusCode {
+				t.Fatalf("expected status code %d, got %d, body:\n\n%s", tc.wantStatusCode, statusCode, body)
+			}
+
+			if tc.wantStatusCode == http.StatusOK {
+				var discovery []struct {
+					Targets []string          `json:"targets"`
+					Labels  map[string]string `json:"labels"`
+				}
+
+				err := json.Unmarshal([]byte(body), &discovery)
+				if err != nil {
+					t.Fatalf("failed to unmarshal json: %s, body:\n\n%s", err, body)
+				}
+				t.Logf("Discovered nodes: %v", discovery[0].Targets)
+
+				if len(discovery) != 1 {
+					t.Fatalf("expected 1 discovery target, got %d", len(discovery))
+				}
+
+				// The cluster has 3 masters and 3 slaves, so 6 nodes in total.
+				if len(discovery[0].Targets) < 3 {
+					t.Fatalf("expected at least 3 targets, got %d", len(discovery[0].Targets))
+				}
+
+				// check if we have the masters
+				for _, want := range tc.wants {
+					found := false
+					for _, target := range discovery[0].Targets {
+						if !strings.HasPrefix(target, tc.wantScheme+"://") {
+							t.Errorf("expected scheme %s, got %s", tc.wantScheme, target)
+						}
+						if strings.Contains(target, want) {
+							found = true
+							break
+						}
+					}
+					if !found {
+						t.Errorf("want target %q, but not found in %v", want, discovery[0].Targets)
+					}
+				}
+			} else {
+				if !strings.Contains(body, "This instance has cluster support disabled") && !strings.Contains(body, "EOF") {
+					t.Errorf("expected error message, got: %s", body)
+				}
+			}
+		})
+	}
+}
+
+func TestDiscoverClusterNodesHandlerAuthFail(t *testing.T) {
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_PASSWORD_URI")
+	if clusterAddr == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD_URI not set - skipping")
+	}
+
+	e, _ := NewRedisExporter("", Options{Namespace: "test", ClusterDiscoverTargetAllowlist: "localhost"})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+	q := u.Query()
+	q.Set("target", clusterAddr)
+	u.RawQuery = q.Encode()
+
+	statusCode, body := downloadURLWithStatusCode(t, u.String())
+	if statusCode != http.StatusInternalServerError {
+		t.Fatalf("expected status code 500, got %d", statusCode)
+	}
+
+	if !strings.Contains(body, "NOAUTH Authentication required") {
+		t.Errorf("expected error message, got: %s", body)
+	}
+}
+
+// TestTargetAllowedForDiscovery covers the allowlist glob matching directly,
+// including that URI userinfo cannot spoof the host. No live Redis needed.
+func TestTargetAllowedForDiscovery(t *testing.T) {
+	const clusterGlob = "clustercfg.*.example.com"
+	for _, tc := range []struct {
+		name      string
+		allowlist string
+		target    string
+		want      bool
+	}{
+		{"empty allowlist disables", "", "redis://clustercfg.mycache.example.com:6379", false},
+		{"glob matches", clusterGlob, "rediss://clustercfg.mycache.example.com:6379", true},
+		{"glob no match", clusterGlob, "redis://evil.example.org:6379", false},
+		{"userinfo cannot spoof host", clusterGlob, "redis://clustercfg.x.example.com@evil.example.org:6379", false},
+		{"no scheme is ok", "localhost", "localhost:6379", true},
+		{"one of several globs matches", "foo.example.com, " + clusterGlob, "redis://clustercfg.x.example.com:6379", true},
+		{"unparseable target denied", clusterGlob, "redis://%zz", false},
+		{"empty host denied", clusterGlob, "redis://:6379", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e, _ := NewRedisExporter("", Options{ClusterDiscoverTargetAllowlist: tc.allowlist})
+			if got := e.targetAllowedForDiscovery(tc.target); got != tc.want {
+				t.Errorf("targetAllowedForDiscovery(%q) with allowlist %q = %v, want %v", tc.target, tc.allowlist, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestDiscoverClusterNodesHandlerTargetForbidden verifies the endpoint refuses a
+// caller-supplied target when the allowlist is empty, before any connection is
+// attempted. No live Redis needed.
+func TestDiscoverClusterNodesHandlerTargetForbidden(t *testing.T) {
+	e, _ := NewRedisExporter("", Options{Namespace: "test"})
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+
+	u, _ := url.Parse(ts.URL + "/discover-cluster-nodes")
+	q := u.Query()
+	q.Set("target", "redis://clustercfg.mycache.example.com:6379")
+	u.RawQuery = q.Encode()
+
+	statusCode, _ := downloadURLWithStatusCode(t, u.String())
+	if statusCode != http.StatusForbidden {
+		t.Errorf("expected status code 403 with empty allowlist, got %d", statusCode)
 	}
 }
