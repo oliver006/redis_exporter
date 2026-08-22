@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
@@ -63,7 +65,15 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Copy options under the lock that guards PasswordMap writes (reloadPwdFile),
+	// so a concurrent reload can't race this struct copy.
+	e.passwordUpdateMutex.Lock()
 	opts := e.options
+	e.passwordUpdateMutex.Unlock()
+
+	if pwd, ok := e.lookupPasswordInPasswordMap(target); ok {
+		opts.Password = pwd
+	}
 
 	// get rid of username/password info in "target" so users don't send them in plain text via http
 	// and save "user" in options so we can use it later when connecting to the redis instance
@@ -114,13 +124,70 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	).ServeHTTP(w, r)
 }
 
-func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
-	if !e.options.IsCluster {
-		http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
-		return
+// targetAllowedForDiscovery reports whether a caller-supplied discovery target
+// is permitted by --cluster-discover-target-allowlist. The allowlist is a
+// comma-separated list of globs (path.Match syntax) matched against the target
+// host (port and scheme stripped). An empty allowlist disables target-based
+// discovery entirely, so the exporter will not probe arbitrary addresses unless
+// explicitly configured to.
+func (e *Exporter) targetAllowedForDiscovery(target string) bool {
+	if strings.TrimSpace(e.options.ClusterDiscoverTargetAllowlist) == "" {
+		return false
 	}
 
-	c, err := e.connectToRedisCluster()
+	uri := target
+	if !strings.Contains(uri, "://") {
+		uri = "redis://" + uri
+	}
+	u, err := url.Parse(uri)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+
+	for _, pattern := range strings.Split(e.options.ClusterDiscoverTargetAllowlist, ",") {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+		if ok, err := path.Match(pattern, host); err == nil && ok {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
+	target := r.URL.Query().Get("target")
+	var c redis.Conn
+	var err error
+
+	// Preserve the original scheme for the discovery output. For the no-target
+	// path fall back to the exporter's own address so a rediss:// cluster keeps
+	// emitting rediss:// nodes.
+	schemeSource := target
+	if schemeSource == "" {
+		schemeSource = e.redisAddr
+	}
+	originalScheme := schemeFromURI(schemeSource)
+
+	if target == "" {
+		if !e.options.IsCluster {
+			http.Error(w, "The discovery endpoint is only available on a redis cluster", http.StatusBadRequest)
+			return
+		}
+		c, err = e.connectToRedisCluster()
+	} else {
+		if !e.targetAllowedForDiscovery(target) {
+			http.Error(w, "discovery of this target is not allowed; set --cluster-discover-target-allowlist to permit it", http.StatusForbidden)
+			return
+		}
+		c, err = e.connectToRedisClusterWithURI(target)
+	}
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Couldn't connect to redis cluster: %s", err), http.StatusInternalServerError)
 		return
@@ -133,6 +200,25 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	if target != "" {
+		if password, ok := e.lookupPasswordInPasswordMap(target); ok {
+			e.passwordUpdateMutex.Lock()
+			for _, node := range nodes {
+				nodeAddr := fmt.Sprintf("%s://%s", originalScheme, node)
+				// Use the same key normalisation as the lookup so a scrape of
+				// the discovered node finds this entry (e.g. when --redis-user
+				// injects a username into the lookup URI).
+				key, err := e.canonicalPasswordKey(nodeAddr)
+				if err != nil {
+					continue
+				}
+				e.discoveredNodesPasswordCache[key] = password
+				log.Debugf("Cached password for discovered node: %s", key)
+			}
+			e.passwordUpdateMutex.Unlock()
+		}
+	}
+
 	discovery := []struct {
 		Targets []string          `json:"targets"`
 		Labels  map[string]string `json:"labels"`
@@ -143,13 +229,8 @@ func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Re
 		},
 	}
 
-	isTls := strings.HasPrefix(e.redisAddr, "rediss://")
 	for i, node := range nodes {
-		if isTls {
-			discovery[0].Targets[i] = "rediss://" + node
-		} else {
-			discovery[0].Targets[i] = "redis://" + node
-		}
+		discovery[0].Targets[i] = fmt.Sprintf("%s://%s", originalScheme, node)
 	}
 
 	data, err := json.MarshalIndent(discovery, "", "  ")
@@ -174,9 +255,15 @@ func (e *Exporter) reloadPwdFile(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to reload passwords file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	e.Lock()
+	// Swap in the new map and invalidate cached discovered-node passwords under
+	// the same lock that guards reads in lookupPasswordInPasswordMap, so a
+	// concurrent scrape never races the reload and rotated credentials are not
+	// served from stale entries.
+	e.passwordUpdateMutex.Lock()
 	e.options.PasswordMap = passwordMap
-	e.Unlock()
+	e.discoveredNodesPasswordCache = make(map[string]string)
+	e.passwordUpdateMutex.Unlock()
+
 	_, _ = w.Write([]byte(`ok`))
 }
 
