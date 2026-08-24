@@ -3,6 +3,7 @@ package exporter
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,6 +89,13 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
+	return e.connectToRedisClusterDatabase(0)
+}
+
+func (e *Exporter) connectToRedisClusterDatabase(db int) (redis.Conn, error) {
+	if db < 0 {
+		return nil, fmt.Errorf("invalid database index %d", db)
+	}
 	uri := e.redisAddr
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
@@ -96,6 +104,9 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	options, err := e.configureOptions(uri)
 	if err != nil {
 		return nil, err
+	}
+	if db > 0 {
+		options = append(options, redis.DialDatabase(db))
 	}
 
 	// remove url scheme for redis.Cluster.StartupNodes
@@ -137,6 +148,95 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	}
 
 	return c, err
+}
+
+type clusterKeyConn struct {
+	connect     func(int) (redis.Conn, error)
+	connections map[int]redis.Conn
+	db          int
+	clusterScan bool
+	err         error
+}
+
+func newClusterKeyConn(connect func(int) (redis.Conn, error), clusterScan bool) (*clusterKeyConn, error) {
+	c := &clusterKeyConn{
+		connect:     connect,
+		connections: make(map[int]redis.Conn),
+		clusterScan: clusterScan,
+	}
+	if _, err := c.connection(0); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func (c *clusterKeyConn) connection(db int) (redis.Conn, error) {
+	if conn, ok := c.connections[db]; ok {
+		return conn, nil
+	}
+	conn, err := c.connect(db)
+	if err != nil {
+		c.err = err
+		return nil, err
+	}
+	c.connections[db] = conn
+	return conn, nil
+}
+
+func (c *clusterKeyConn) Do(cmd string, args ...any) (any, error) {
+	if strings.EqualFold(cmd, "SELECT") {
+		if len(args) != 1 {
+			return nil, fmt.Errorf("SELECT expects one database argument")
+		}
+		db, err := strconv.Atoi(fmt.Sprint(args[0]))
+		if err != nil || db < 0 {
+			return nil, fmt.Errorf("invalid database index %q", args[0])
+		}
+		if _, err := c.connection(db); err != nil {
+			return nil, err
+		}
+		c.db = db
+		return "OK", nil
+	}
+
+	conn, err := c.connection(c.db)
+	if err != nil {
+		return nil, err
+	}
+	return conn.Do(cmd, args...)
+}
+
+func (c *clusterKeyConn) Send(string, ...any) error {
+	return fmt.Errorf("cluster key connection does not support pipelining")
+}
+
+func (c *clusterKeyConn) Flush() error {
+	return fmt.Errorf("cluster key connection does not support pipelining")
+}
+
+func (c *clusterKeyConn) Receive() (any, error) {
+	return nil, fmt.Errorf("cluster key connection does not support pipelining")
+}
+
+func (c *clusterKeyConn) Err() error {
+	return c.err
+}
+
+func (c *clusterKeyConn) Close() error {
+	var firstErr error
+	for _, conn := range c.connections {
+		if err := conn.Close(); err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
+}
+
+func (c *clusterKeyConn) scanCommand() string {
+	if c.clusterScan {
+		return "CLUSTERSCAN"
+	}
+	return "SCAN"
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...any) (any, error) {

@@ -362,14 +362,15 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 }
 
 func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
-	// Cluster mode only has one db
-	// no need to run `SELECT" but got to set it to "0" in the loop because it's used as the label
 	for _, k := range allKeys {
-		k.db = "0"
+		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+			log.Errorf("Couldn't select database '%s' when getting key info", k.db)
+			continue
+		}
 
 		keyType, err := redis.String(doRedisCmd(c, "TYPE", k.key))
 		if err != nil {
-			log.Errorf("TYPE err: %s", keyType)
+			log.Errorf("TYPE %s err: %s", k.key, err)
 			continue
 		}
 
@@ -393,7 +394,7 @@ func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.
 
 	for _, k := range cntKeys {
 		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Errorf("Couldn't select database '%s' when getting stream info", k.db)
+			log.Errorf("Couldn't select database '%s' when counting keys", k.db)
 			continue
 		}
 		cnt, err := getKeysCount(c, k.key, e.options.CheckKeysBatchSize)
@@ -493,30 +494,57 @@ func parseKeyArg(keysArgString string) (keys []dbKeyPair, err error) {
 	return keys, err
 }
 
-// scanForKeys returns a list of keys matching `pattern` by using `SCAN`, which is safer for production systems than using `KEYS`.
+// scanForKeys returns a list of keys matching `pattern` by using SCAN, or
+// CLUSTERSCAN when the connection supports cluster-wide scans.
 // This function was adapted from: https://github.com/reisinger/examples-redigo
 func scanKeys(c redis.Conn, pattern string, count int64) (keys []any, err error) {
+	err = scanKeyBatches(c, pattern, count, func(batch []any) error {
+		keys = append(keys, batch...)
+		return nil
+	})
+	return keys, err
+}
+
+type keyScanner interface {
+	scanCommand() string
+}
+
+func scanKeyBatches(c redis.Conn, pattern string, count int64, collect func([]any) error) error {
 	if pattern == "" {
-		return keys, fmt.Errorf("pattern shouldn't be empty")
+		return fmt.Errorf("pattern shouldn't be empty")
 	}
 
-	iter := 0
+	command := "SCAN"
+	if scanner, ok := c.(keyScanner); ok {
+		command = scanner.scanCommand()
+	}
+
+	cursor := "0"
 	for {
-		arr, err := redis.Values(doRedisCmd(c, "SCAN", iter, "MATCH", pattern, "COUNT", count))
+		arr, err := redis.Values(doRedisCmd(c, command, cursor, "MATCH", pattern, "COUNT", count))
 		if err != nil {
-			return keys, fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
+			return fmt.Errorf("error retrieving '%s' keys err: %s", pattern, err)
 		}
 		if len(arr) != 2 {
-			return keys, fmt.Errorf("invalid response from SCAN for pattern: %s", pattern)
+			return fmt.Errorf("invalid response from %s for pattern: %s", command, pattern)
 		}
 
-		k, _ := redis.Values(arr[1], nil)
-		keys = append(keys, k...)
+		keys, err := redis.Values(arr[1], nil)
+		if err != nil {
+			return fmt.Errorf("invalid keys response from %s for pattern: %s", command, pattern)
+		}
+		if err := collect(keys); err != nil {
+			return err
+		}
 
-		if iter, _ = redis.Int(arr[0], nil); iter == 0 {
+		cursor, err = redis.String(arr[0], nil)
+		if err != nil {
+			return fmt.Errorf("invalid cursor response from %s for pattern: %s", command, pattern)
+		}
+		if cursor == "0" {
 			break
 		}
 	}
 
-	return keys, nil
+	return nil
 }

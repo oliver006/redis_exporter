@@ -864,6 +864,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
+	clusterDBCount := 0
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
@@ -871,6 +872,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			dbCount, err = e.extractConfigMetrics(ch, cfg)
 			if err != nil {
 				log.Errorf("Redis extractConfigMetrics() err: %s", err)
+				return err
+			}
+			clusterDBCount, err = clusterDatabaseCount(cfg)
+			if err != nil {
 				return err
 			}
 
@@ -886,8 +891,12 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
 
-			// in cluster mode Redis only supports one database, so no extra DB number padding needed
-			dbCount = 1
+			if clusterDBCount > 0 {
+				dbCount = clusterDBCount
+			} else {
+				// Redis and Valkey before 9.0 only support database 0 in cluster mode.
+				dbCount = 1
+			}
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
 		}
@@ -912,7 +921,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		// in cluster mode we need to create a new, cluster-aware connection
 		// to properly handle cluster-redirects
 		//
-		k, keyConnErr := e.connectToRedisCluster()
+		k, keyConnErr := newClusterKeyConn(e.connectToRedisClusterDatabase, supportsValkeyClusterScan(infoAll))
 		if keyConnErr != nil {
 			log.Errorf("failed to get key operation connection: %s", keyConnErr)
 		} else {

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -107,7 +108,13 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 			log.Errorf("Couldn't select database %d when getting key info.", db)
 			continue
 		}
-		allGroups, err := gatherKeyGroupMetrics(c, e.options.CheckKeysBatchSize, keyGroupsNoEmptyStrings)
+		var allGroups map[string]*keyGroupMetrics
+		var err error
+		if scanner, ok := c.(keyScanner); ok && scanner.scanCommand() == "CLUSTERSCAN" {
+			allGroups, err = gatherClusterKeyGroupMetrics(c, e.options.CheckKeysBatchSize, keyGroupsNoEmptyStrings)
+		} else {
+			allGroups, err = gatherKeyGroupMetrics(c, e.options.CheckKeysBatchSize, keyGroupsNoEmptyStrings)
+		}
 		if err != nil {
 			log.Error(err)
 			continue
@@ -146,6 +153,53 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 	return allMetrics
 }
 
+const keyGroupScript = `
+local result = {}
+local groups = {}
+local cursor = 0
+local keys = KEYS
+local pattern_start = 1
+if #KEYS == 0 then
+  local batch = redis.call("SCAN", ARGV[1], "COUNT", ARGV[2])
+  cursor = batch[1]
+  keys = batch[2]
+  pattern_start = 3
+end
+for i=pattern_start,#ARGV do
+  local status, err = pcall(string.find, " ", ARGV[i])
+  if not status then
+    error(err .. ARGV[i])
+  end
+end
+for _,key in ipairs(keys) do
+  local usage = 0
+  local reply = redis.pcall("MEMORY", "USAGE", key)
+  if type(reply) == "number" then
+    usage = reply
+  end
+  local group = nil
+  for i=pattern_start,#ARGV do
+    local key_match_result = {string.find(key, ARGV[i])}
+    if key_match_result[1] ~= nil then
+      group = table.concat({unpack(key_match_result, 3, #key_match_result)}, "")
+      break
+    end
+  end
+  if group == nil then
+    group = "unclassified"
+  end
+  local value = groups[group]
+  if value == nil then
+    groups[group] = {1, usage}
+  else
+    groups[group] = {value[1] + 1, value[2] + usage}
+  end
+end
+for group,value in pairs(groups) do
+  result[#result+1] = {group, value[1], value[2]}
+end
+return {cursor, result}`
+
 func gatherKeyGroupMetrics(c redis.Conn, batchSize int64, keyGroups []string) (map[string]*keyGroupMetrics, error) {
 	allGroups := make(map[string]*keyGroupMetrics)
 	keysAndArgs := []any{0, batchSize}
@@ -153,53 +207,7 @@ func gatherKeyGroupMetrics(c redis.Conn, batchSize int64, keyGroups []string) (m
 		keysAndArgs = append(keysAndArgs, keyGroup)
 	}
 
-	script := redis.NewScript(
-		0,
-		`
-local result = {}
-local batch = redis.call("SCAN", ARGV[1], "COUNT", ARGV[2])
-local groups = {}
-local usage = 0
-local group_index = 0
-local group = nil
-local value = {}
-local key_match_result = {}
-local status = false
-local err = nil
-for i=3,#ARGV do
-  status, err = pcall(string.find, " ", ARGV[i])
-  if not status then
-    error(err .. ARGV[i])
-  end
-end
-for i,key in ipairs(batch[2]) do
-  local reply = redis.pcall("MEMORY", "USAGE", key)  
-  if type(reply) == "number" then
-    usage = reply;
-  end
-  group = nil
-  for i=3,#ARGV do
-    key_match_result = {string.find(key, ARGV[i])}
-    if key_match_result[1] ~= nil then
-      group = table.concat({unpack(key_match_result, 3,  #key_match_result)},  "")
-      break
-    end
-  end
-  if group == nil then
-     group = "unclassified"
-  end
-  value = groups[group]
-  if value == nil then
-     groups[group] = {1, usage}
-  else
-     groups[group] = {value[1] + 1, value[2] + usage}
-  end
-end
-for group,value in pairs(groups) do
-  result[#result+1] = {group, value[1], value[2]}
-end
-return {batch[1], result}`,
-	)
+	script := redis.NewScript(0, keyGroupScript)
 
 	for {
 		arr, err := redis.Values(script.Do(c, keysAndArgs...))
@@ -211,29 +219,84 @@ return {batch[1], result}`,
 			return nil, fmt.Errorf("invalid response from key group metrics lua script for groups: %s", strings.Join(keyGroups, ", "))
 		}
 
-		groups, _ := redis.Values(arr[1], nil)
-
-		for _, group := range groups {
-			metricsArr, _ := redis.Values(group, nil)
-			name, _ := redis.String(metricsArr[0], nil)
-			count, _ := redis.Int64(metricsArr[1], nil)
-			memoryUsage, _ := redis.Int64(metricsArr[2], nil)
-
-			if currentMetrics, ok := allGroups[name]; ok {
-				currentMetrics.count += count
-				currentMetrics.memoryUsage += memoryUsage
-			} else {
-				allGroups[name] = &keyGroupMetrics{
-					keyGroup:    name,
-					count:       count,
-					memoryUsage: memoryUsage,
-				}
-			}
-
+		groups, err := redis.Values(arr[1], nil)
+		if err != nil {
+			return nil, err
 		}
-		if keysAndArgs[0], _ = redis.Int(arr[0], nil); keysAndArgs[0].(int) == 0 {
+		if err := mergeKeyGroupMetrics(allGroups, groups); err != nil {
+			return nil, err
+		}
+		cursor, err := redis.Int(arr[0], nil)
+		if err != nil {
+			return nil, fmt.Errorf("invalid cursor from key group metrics lua script: %w", err)
+		}
+		keysAndArgs[0] = cursor
+		if cursor == 0 {
 			break
 		}
 	}
 	return allGroups, nil
+}
+
+func gatherClusterKeyGroupMetrics(c redis.Conn, batchSize int64, keyGroups []string) (map[string]*keyGroupMetrics, error) {
+	allGroups := make(map[string]*keyGroupMetrics)
+	err := scanKeyBatches(c, "*", batchSize, func(batch []any) error {
+		keys, err := redis.Strings(batch, nil)
+		if err != nil {
+			return err
+		}
+		for _, keysInSlot := range redisc.SplitBySlot(keys...) {
+			script := redis.NewScript(len(keysInSlot), keyGroupScript)
+			args := redis.Args{}.AddFlat(keysInSlot).AddFlat(keyGroups)
+			result, err := redis.Values(script.Do(c, args...))
+			if err != nil {
+				return err
+			}
+			if len(result) != 2 {
+				return fmt.Errorf("invalid response from cluster key group metrics lua script")
+			}
+			groups, err := redis.Values(result[1], nil)
+			if err != nil {
+				return err
+			}
+			if err := mergeKeyGroupMetrics(allGroups, groups); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return allGroups, err
+}
+
+func mergeKeyGroupMetrics(allGroups map[string]*keyGroupMetrics, groups []any) error {
+	for _, group := range groups {
+		metrics, err := redis.Values(group, nil)
+		if err != nil || len(metrics) != 3 {
+			return fmt.Errorf("invalid key group metrics response")
+		}
+		name, err := redis.String(metrics[0], nil)
+		if err != nil {
+			return fmt.Errorf("invalid key group name: %w", err)
+		}
+		count, err := redis.Int64(metrics[1], nil)
+		if err != nil {
+			return fmt.Errorf("invalid key group count: %w", err)
+		}
+		memoryUsage, err := redis.Int64(metrics[2], nil)
+		if err != nil {
+			return fmt.Errorf("invalid key group memory usage: %w", err)
+		}
+
+		if current, ok := allGroups[name]; ok {
+			current.count += count
+			current.memoryUsage += memoryUsage
+		} else {
+			allGroups[name] = &keyGroupMetrics{
+				keyGroup:    name,
+				count:       count,
+				memoryUsage: memoryUsage,
+			}
+		}
+	}
+	return nil
 }
