@@ -224,15 +224,17 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"maxfragmentationmemory_reservation":         "memory_max_fragmentation_reservation_bytes",
 			"maxfragmentationmemory_desired_reservation": "memory_max_fragmentation_reservation_desired_bytes",
 
-			"mem_fragmentation_ratio": "mem_fragmentation_ratio",
-			"mem_fragmentation_bytes": "mem_fragmentation_bytes",
-			"mem_clients_slaves":      "mem_clients_slaves",
-			"mem_clients_normal":      "mem_clients_normal",
-			"mem_cluster_links":       "mem_cluster_links_bytes",
-			"mem_aof_buffer":          "mem_aof_buffer_bytes",
-			"mem_replication_backlog": "mem_replication_backlog_bytes",
+			"mem_fragmentation_ratio":  "mem_fragmentation_ratio",
+			"mem_fragmentation_bytes":  "mem_fragmentation_bytes",
+			"mem_clients_slaves":       "mem_clients_slaves",
+			"mem_clients_normal":       "mem_clients_normal",
+			"mem_cluster_links":        "mem_cluster_links_bytes",
+			"mem_aof_buffer":           "mem_aof_buffer_bytes",
+			"mem_replication_backlog":  "mem_replication_backlog_bytes",
+			"mem_replicas_repl_buffer": "mem_replicas_repl_buffer_bytes",
 
-			"expired_stale_perc": "expired_stale_percentage",
+			"expired_stale_perc":                          "expired_stale_percentage",
+			"expired_keys_with_volatile_items_stale_perc": "expired_keys_with_volatile_items_stale_percentage",
 
 			// https://github.com/antirez/redis/blob/17bf0b25c1171486e3a1b089f3181fff2bc0d4f0/src/evict.c#L349-L352
 			// ... the sum of AOF and slaves buffer ...
@@ -310,6 +312,19 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"sync_full":                      "replica_resyncs_full",
 			"sync_partial_ok":                "replica_partial_resync_accepted",
 			"sync_partial_err":               "replica_partial_resync_denied",
+			"replicas_repl_buffer_size":      "replicas_repl_buffer_size_bytes",
+			"replicas_repl_buffer_peak":      "replicas_repl_buffer_peak_bytes",
+			"replicas_waiting_psync":         "replicas_waiting_psync",
+
+			// # TLS (Valkey)
+			"tls_server_cert_expires_in_seconds": "tls_server_cert_expires_in_seconds",
+			"tls_client_cert_expires_in_seconds": "tls_client_cert_expires_in_seconds",
+			"tls_ca_cert_expires_in_seconds":     "tls_ca_cert_expires_in_seconds",
+
+			// # Scripting Engines (Valkey)
+			"engines_count":                 "scripting_engines_count",
+			"engines_total_used_memory":     "scripting_engines_memory_used_bytes",
+			"engines_total_memory_overhead": "scripting_engines_memory_overhead_bytes",
 
 			// # Cluster
 			"cluster_stats_messages_sent":     "cluster_messages_sent_total",
@@ -400,6 +415,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"total_net_repl_output_bytes": "net_repl_output_bytes_total",
 
 			"expired_subkeys":                "expired_subkeys_total",
+			"expired_fields":                 "expired_fields_total",
 			"expired_keys":                   "expired_keys_total",
 			"expired_time_cap_reached_count": "expired_time_cap_reached_total",
 			"expire_cycle_cpu_milliseconds":  "expire_cycle_cpu_time_ms_total",
@@ -436,6 +452,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"acl_access_denied_cmd":                     "acl_access_denied_cmd_total",
 			"acl_access_denied_key":                     "acl_access_denied_key_total",
 			"acl_access_denied_channel":                 "acl_access_denied_channel_total",
+			"acl_access_denied_tls_cert":                "acl_access_denied_tls_cert_total",
+			"acl_access_denied_db":                      "acl_access_denied_db_total",
 
 			// addtl. KeyDB metrics
 			"cached_keys":                  "cached_keys_total",
@@ -609,6 +627,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"sentinel_tilt":                                      {txt: "Sentinel is in TILT mode"},
 		"sentinel_config_key_value":                          {txt: `Sentinel global config key and value`, lbls: []string{"key", "value"}},
 		"sentinel_config_value":                              {txt: `Sentinel global config key and value as metric`, lbls: []string{"key"}},
+		"scripting_engine_info":                              {txt: "Information about a Valkey scripting engine", lbls: []string{"engine", "module", "abi_version"}},
+		"scripting_engine_memory_used_bytes":                 {txt: "Memory used by a Valkey scripting engine", lbls: []string{"engine", "module", "abi_version"}},
+		"scripting_engine_memory_overhead_bytes":             {txt: "Memory overhead of a Valkey scripting engine", lbls: []string{"engine", "module", "abi_version"}},
 		"slave_info":                                         {txt: "Information about the Redis slave", lbls: []string{"master_host", "master_port", "read_only"}},
 		"slave_repl_offset":                                  {txt: "Slave replication offset", lbls: []string{"master_host", "master_port"}},
 		"commandlog_execution_slower_than":                   {txt: `Execution time threshold in microseconds for the slow command log`},
@@ -639,6 +660,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"stream_max_deleted_entry_id":                        {txt: `The epoch timestamp (ms) of last message was deleted from the stream`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_keys":                             {txt: `Radix tree keys count"`, lbls: []string{"db", "stream"}},
 		"stream_radix_tree_nodes":                            {txt: `Radix tree nodes count`, lbls: []string{"db", "stream"}},
+		"tls_certificate_info":                               {txt: "Information about a Valkey TLS certificate", lbls: []string{"certificate", "serial"}},
 		"up":                                                 {txt: "Information about the Redis instance"},
 	} {
 		if e.options.AppendInstanceRoleLabel {
