@@ -207,10 +207,11 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 		os.Getenv("TEST_KEYDB02_URI") == "" ||
 		os.Getenv("TEST_REDIS5_URI") == "" ||
 		os.Getenv("TEST_REDIS6_URI") == "" ||
-		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" ||
-		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI") == "" ||
+		os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI") == "" ||
+		os.Getenv("TEST_VALKEY_CLUSTER_SLAVE_URI") == "" ||
 		os.Getenv("TEST_TILE38_URI") == "" ||
-		os.Getenv("TEST_VALKEY8_BUNDLE_URI") == "" {
+		os.Getenv("TEST_VALKEY9_URI") == "" ||
+		os.Getenv("TEST_VALKEY9_BUNDLE_URI") == "" {
 		t.Skipf("Skipping TestSimultaneousMetricsHttpRequests, missing env vars")
 	}
 
@@ -226,19 +227,18 @@ func TestSimultaneousMetricsHttpRequests(t *testing.T) {
 
 		os.Getenv("TEST_REDIS7_URI"),
 
-		os.Getenv("TEST_VALKEY7_URI"),
-		os.Getenv("TEST_VALKEY8_URI"),
+		os.Getenv("TEST_VALKEY9_URI"),
 
 		os.Getenv("TEST_KEYDB01_URI"),
 		os.Getenv("TEST_KEYDB02_URI"),
 
 		os.Getenv("TEST_REDIS5_URI"),
 		os.Getenv("TEST_REDIS6_URI"),
-		os.Getenv("TEST_VALKEY8_BUNDLE_URI"),
+		os.Getenv("TEST_VALKEY9_BUNDLE_URI"),
 
-		// tile38 & Cluster need to be last in this list, so we can identify them when selected, down in line 229
-		os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI"),
-		os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI"),
+		// Tile38 and cluster targets need to be last so they can be identified below.
+		os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI"),
+		os.Getenv("TEST_VALKEY_CLUSTER_SLAVE_URI"),
 		os.Getenv("TEST_TILE38_URI"),
 	}
 
@@ -318,10 +318,10 @@ func TestHttpHandlers(t *testing.T) {
 }
 
 func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
-	clusterAddr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	nonClusterAddr := os.Getenv("TEST_REDIS_URI")
 	if clusterAddr == "" || nonClusterAddr == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or TEST_REDIS_URI not set - skipping")
+		t.Skipf("TEST_VALKEY_CLUSTER_MASTER_URI or TEST_REDIS_URI not set - skipping")
 	}
 
 	tests := []struct {

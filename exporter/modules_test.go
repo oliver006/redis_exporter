@@ -62,11 +62,11 @@ func TestModulesv80(t *testing.T) {
 }
 
 func TestModulesValkey(t *testing.T) {
-	if os.Getenv("TEST_VALKEY8_BUNDLE_URI") == "" {
-		t.Skipf("TEST_VALKEY8_BUNDLE_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY9_BUNDLE_URI") == "" {
+		t.Skipf("TEST_VALKEY9_BUNDLE_URI not set - skipping")
 	}
 
-	testModuleMetrics(t, os.Getenv("TEST_VALKEY8_BUNDLE_URI"), []string{
+	testModuleMetrics(t, os.Getenv("TEST_VALKEY9_BUNDLE_URI"), []string{
 		"module_info",
 		"search_number_of_indexes",
 		"bf_bloom_total_memory_bytes",

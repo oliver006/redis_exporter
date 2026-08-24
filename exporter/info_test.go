@@ -334,11 +334,11 @@ func TestInclMetricsForEmptyDatabases(t *testing.T) {
 }
 
 func TestClusterMaster(t *testing.T) {
-	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI") == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_MASTER_URI not set - skipping")
 	}
 
-	addr := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	addr := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	e, _ := NewRedisExporter(addr, Options{Namespace: "test"})
 	ts := httptest.NewServer(e)
 	defer ts.Close()
@@ -356,10 +356,10 @@ func TestClusterMaster(t *testing.T) {
 }
 
 func TestClusterSkipCheckKeysIfMaster(t *testing.T) {
-	uriMaster := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
-	uriSlave := os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
+	uriMaster := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
+	uriSlave := os.Getenv("TEST_VALKEY_CLUSTER_SLAVE_URI")
 	if uriMaster == "" || uriSlave == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI or slave not set - skipping")
+		t.Skipf("TEST_VALKEY_CLUSTER_MASTER_URI or slave not set - skipping")
 	}
 
 	setupTestKeysCluster(t, uriMaster)
@@ -403,11 +403,11 @@ func TestClusterSkipCheckKeysIfMaster(t *testing.T) {
 }
 
 func TestClusterSlave(t *testing.T) {
-	if os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI") == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_SLAVE_URI not set - skipping")
+	if os.Getenv("TEST_VALKEY_CLUSTER_SLAVE_URI") == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_SLAVE_URI not set - skipping")
 	}
 
-	addr := os.Getenv("TEST_REDIS_CLUSTER_SLAVE_URI")
+	addr := os.Getenv("TEST_VALKEY_CLUSTER_SLAVE_URI")
 	e, _ := NewRedisExporter(addr, Options{Namespace: "test"})
 	ts := httptest.NewServer(e)
 	defer ts.Close()

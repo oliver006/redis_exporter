@@ -7,9 +7,9 @@ import (
 )
 
 func TestNodesGetClusterNodes(t *testing.T) {
-	host := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	host := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	if host == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping")
+		t.Skipf("TEST_VALKEY_CLUSTER_MASTER_URI not set - skipping")
 	}
 
 	e, _ := NewRedisExporter(host, Options{})

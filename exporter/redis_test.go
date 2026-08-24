@@ -28,7 +28,7 @@ func TestHostVariations(t *testing.T) {
 }
 
 func TestValkeyScheme(t *testing.T) {
-	host := os.Getenv("TEST_VALKEY8_URI")
+	host := os.Getenv("TEST_VALKEY9_URI")
 
 	e, _ := NewRedisExporter(host, Options{SkipTLSVerification: true})
 	c, err := e.connectToRedis()
@@ -122,7 +122,7 @@ func TestConnectToClusterUsingPasswordFile(t *testing.T) {
 		t.Skipf("TEST_VALKEY_CLUSTER_PASSWORD_URI is not set")
 	}
 	passMap := map[string]string{clusterUri: "redis-password"}
-	wrongPassMap := map[string]string{"redis://redis-cluster-password-wrong:7006": "redis-password"}
+	wrongPassMap := map[string]string{"redis://valkey-cluster-password-wrong:7006": "redis-password"}
 
 	tsts := []struct {
 		name         string
