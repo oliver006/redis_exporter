@@ -121,6 +121,42 @@ func TestCommandStats(t *testing.T) {
 	}
 }
 
+func TestValkeyClusterInfoMetricsNotDuplicated(t *testing.T) {
+	e, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	clusterInfo := "cluster_state:ok\r\ncluster_slots_assigned:16384\r\n"
+	infoAll := "# Cluster\r\ncluster_enabled:1\r\n# Cluster Info\r\n" + clusterInfo
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.extractClusterInfoMetrics(ch, clusterInfo)
+		e.extractInfoMetrics(ch, infoAll, 1)
+		close(ch)
+	}()
+
+	counts := map[string]int{
+		"test_cluster_state":          0,
+		"test_cluster_slots_assigned": 0,
+	}
+	for metric := range ch {
+		desc := metric.Desc().String()
+		for name := range counts {
+			if strings.Contains(desc, `fqName: "`+name+`"`) {
+				counts[name]++
+			}
+		}
+	}
+
+	for name, count := range counts {
+		if count != 1 {
+			t.Errorf("%s emitted %d times, want 1", name, count)
+		}
+	}
+}
+
 func commandStatsCheck(t *testing.T, e *Exporter, want map[string]bool) {
 	chM := make(chan prometheus.Metric)
 	go func() {
