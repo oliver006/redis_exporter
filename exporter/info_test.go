@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
@@ -114,6 +115,74 @@ func TestExtractInfoKeyspaceMetrics(t *testing.T) {
 				if strings.Contains(descriptions, `fqName: "`+metric+`"`) {
 					t.Errorf("unexpected metric %s", metric)
 				}
+			}
+		})
+	}
+}
+
+func TestLiveKeyspaceExpiringItemsMetric(t *testing.T) {
+	tests := []struct {
+		name        string
+		env         string
+		sourceField string
+	}{
+		{name: "redis", env: "TEST_REDIS88_URI", sourceField: "subexpiry"},
+		{name: "valkey", env: "TEST_VALKEY9_URI", sourceField: "keys_with_volatile_items"},
+	}
+
+	for _, tst := range tests {
+		t.Run(tst.name, func(t *testing.T) {
+			addr := os.Getenv(tst.env)
+			if addr == "" {
+				t.Skipf("%s not set - skipping", tst.env)
+			}
+
+			e, err := NewRedisExporter(addr, Options{Namespace: "test"})
+			if err != nil {
+				t.Fatalf("NewRedisExporter() error = %v", err)
+			}
+			c, err := e.connectToRedis()
+			if err != nil {
+				t.Fatalf("connectToRedis() error = %v", err)
+			}
+			defer c.Close()
+
+			const db = "15"
+			if _, err := c.Do("SELECT", db); err != nil {
+				t.Fatalf("SELECT %s error = %v", db, err)
+			}
+			if _, err := c.Do("FLUSHDB"); err != nil {
+				t.Fatalf("FLUSHDB error = %v", err)
+			}
+			defer c.Do("FLUSHDB")
+
+			if _, err := c.Do("HSET", "expiring-items-test", "field", "value"); err != nil {
+				t.Fatalf("HSET error = %v", err)
+			}
+			result, err := redis.Ints(c.Do("HEXPIRE", "expiring-items-test", 600, "FIELDS", 1, "field"))
+			if err != nil {
+				t.Fatalf("HEXPIRE error = %v", err)
+			}
+			if !reflect.DeepEqual(result, []int{1}) {
+				t.Fatalf("HEXPIRE result = %v, want [1]", result)
+			}
+
+			info, err := redis.String(c.Do("INFO", "KEYSPACE"))
+			if err != nil {
+				t.Fatalf("INFO KEYSPACE error = %v", err)
+			}
+			if !strings.Contains(info, tst.sourceField+"=1") {
+				t.Fatalf("INFO KEYSPACE missing %s=1:\n%s", tst.sourceField, info)
+			}
+
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+			body := downloadURL(t, ts.URL+"/metrics")
+			if want := `test_db_keys_with_expiring_items{db="db15"} 1`; !strings.Contains(body, want) {
+				t.Errorf("missing metric %q:\n%s", want, body)
+			}
+			if strings.Contains(body, `test_db_keys_cached{db="db15"}`) {
+				t.Errorf("unexpected cached-keys metric for db15:\n%s", body)
 			}
 		})
 	}
