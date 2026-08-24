@@ -132,6 +132,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			e.handleMetricsErrorStats(ch, fieldKey, fieldValue)
 			continue
 
+		case "Cluster Info":
+			// Valkey 9.1 includes CLUSTER INFO in INFO ALL. It is collected separately.
+			continue
+
 		case "Keyspace":
 			if keysTotal, keysEx, avgTTL, keysCached, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
 				dbName := fieldKey
