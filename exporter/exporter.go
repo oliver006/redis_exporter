@@ -219,6 +219,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 			"maxmemory_reservation":         "memory_max_reservation_bytes",
 			"maxmemory_desired_reservation": "memory_max_reservation_desired_bytes",
+			"used_memory_hash_templates":    "memory_used_hash_templates_bytes", // Added in Redis 8.10
 
 			"maxfragmentationmemory_reservation":         "memory_max_fragmentation_reservation_bytes",
 			"maxfragmentationmemory_desired_reservation": "memory_max_fragmentation_reservation_desired_bytes",
@@ -255,6 +256,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"async_loading":                "async_loading", // Added in Redis 7.0
 			"rdb_changes_since_last_save":  "rdb_changes_since_last_save",
 			"rdb_bgsave_in_progress":       "rdb_bgsave_in_progress",
+			"backup_in_progress":           "backup_in_progress", // Added in Redis 8.10
 			"rdb_last_save_time":           "rdb_last_save_timestamp_seconds",
 			"rdb_last_bgsave_status":       "rdb_last_bgsave_status",
 			"rdb_last_bgsave_time_sec":     "rdb_last_bgsave_duration_sec",
@@ -290,6 +292,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"tracking_total_keys":                    "tracking_total_keys",
 			"tracking_total_items":                   "tracking_total_items",
 			"tracking_total_prefixes":                "tracking_total_prefixes",
+			"hash_templates":                         "hash_templates",                         // Added in Redis 8.10
+			"hash_template_keys":                     "hash_template_keys",                     // Added in Redis 8.10
 			"instantaneous_eventloop_cycles_per_sec": "instantaneous_eventloop_cycles_per_sec", // Added in Redis 7.0
 			"instantaneous_eventloop_duration_usec":  "instantaneous_eventloop_duration_usec",  // Added in Redis 7.0
 
