@@ -1,12 +1,81 @@
 package exporter
 
 import (
+	"errors"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/gomodule/redigo/redis"
 )
+
+func TestConnectToRedisClusterDatabaseRejectsNegativeDatabase(t *testing.T) {
+	e := &Exporter{}
+	if _, err := e.connectToRedisClusterDatabase(-1); err == nil {
+		t.Fatal("connectToRedisClusterDatabase(-1) unexpectedly succeeded")
+	}
+}
+
+func TestClusterKeyConnErrors(t *testing.T) {
+	connectErr := errors.New("connect failed")
+	if _, err := newClusterKeyConn(func(int) (redis.Conn, error) {
+		return nil, connectErr
+	}, true, true); !errors.Is(err, connectErr) {
+		t.Fatalf("newClusterKeyConn() error = %v, want %v", err, connectErr)
+	}
+
+	closeErr := errors.New("close failed")
+	connect := func(db int) (redis.Conn, error) {
+		if db == 2 {
+			return nil, connectErr
+		}
+		return &stubRedisConn{
+			do:       func(string, ...any) (any, error) { return "OK", nil },
+			closeErr: closeErr,
+		}, nil
+	}
+	conn, err := newClusterKeyConn(connect, false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, args := range [][]any{nil, {"1", "2"}, {"invalid"}, {-1}} {
+		if _, err := conn.Do("SELECT", args...); err == nil {
+			t.Errorf("SELECT%v unexpectedly succeeded", args)
+		}
+	}
+	if _, err := conn.Do("SELECT", 2); !errors.Is(err, connectErr) {
+		t.Fatalf("SELECT 2 error = %v, want %v", err, connectErr)
+	}
+	if !errors.Is(conn.Err(), connectErr) {
+		t.Fatalf("Err() = %v, want %v", conn.Err(), connectErr)
+	}
+
+	conn.db = 2
+	if _, err := conn.Do("GET", "key"); !errors.Is(err, connectErr) {
+		t.Fatalf("GET error = %v, want %v", err, connectErr)
+	}
+	if err := conn.Send("GET", "key"); err == nil {
+		t.Error("Send() unexpectedly succeeded")
+	}
+	if err := conn.Flush(); err == nil {
+		t.Error("Flush() unexpectedly succeeded")
+	}
+	if _, err := conn.Receive(); err == nil {
+		t.Error("Receive() unexpectedly succeeded")
+	}
+	if got := conn.keyDatabase("3"); got != "0" {
+		t.Errorf("keyDatabase() = %q, want 0", got)
+	}
+	if got := conn.scanCommand(); got != "SCAN" {
+		t.Errorf("scanCommand() = %q, want SCAN", got)
+	}
+	if err := conn.Close(); !errors.Is(err, closeErr) {
+		t.Fatalf("Close() error = %v, want %v", err, closeErr)
+	}
+}
 
 func TestHostVariations(t *testing.T) {
 	host := strings.ReplaceAll(os.Getenv("TEST_REDIS_URI"), "redis://", "")

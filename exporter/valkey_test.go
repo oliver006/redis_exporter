@@ -1,7 +1,6 @@
 package exporter
 
 import (
-	"errors"
 	"fmt"
 	"net/http/httptest"
 	"os"
@@ -14,27 +13,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
-
-type stubRedisConn struct {
-	do     func(string, ...any) (any, error)
-	closed bool
-}
-
-func (c *stubRedisConn) Do(commandName string, args ...any) (any, error) {
-	return c.do(commandName, args...)
-}
-
-func (*stubRedisConn) Send(string, ...any) error { return errors.New("not implemented") }
-func (*stubRedisConn) Flush() error              { return errors.New("not implemented") }
-func (*stubRedisConn) Receive() (any, error)     { return nil, errors.New("not implemented") }
-func (*stubRedisConn) Err() error                { return nil }
-func (c *stubRedisConn) Close() error            { c.closed = true; return nil }
-
-type clusterScanStub struct {
-	*stubRedisConn
-}
-
-func (*clusterScanStub) scanCommand() string { return "CLUSTERSCAN" }
 
 func TestSupportsValkeyClusterScan(t *testing.T) {
 	tests := []struct {
@@ -240,7 +218,10 @@ func TestGatherClusterKeyGroupMetrics(t *testing.T) {
 			if got := fmt.Sprint(args[1]); got != "2" {
 				return nil, fmt.Errorf("script key count = %s, want 2", got)
 			}
-			return []any{int64(0), []any{[]any{[]byte("same"), int64(2), int64(96)}}}, nil
+			return []any{int64(0), []any{
+				[]any{[]byte("same"), int64(1), int64(32)},
+				[]any{[]byte("same"), int64(1), int64(64)},
+			}}, nil
 		default:
 			return nil, fmt.Errorf("unexpected command %s", command)
 		}

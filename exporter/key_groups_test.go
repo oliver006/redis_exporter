@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"os"
 	"reflect"
 	"strconv"
@@ -12,6 +13,139 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
+
+func TestGatherKeyGroupMetricsWithoutRedis(t *testing.T) {
+	call := 0
+	conn := &stubRedisConn{do: func(command string, _ ...any) (any, error) {
+		if command != "EVALSHA" {
+			return nil, errors.New("unexpected command")
+		}
+		call++
+		if call == 1 {
+			return []any{int64(7), []any{[]any{"group", int64(1), int64(32)}}}, nil
+		}
+		return []any{int64(0), []any{[]any{"group", int64(2), int64(64)}}}, nil
+	}}
+
+	groups, err := gatherKeyGroupMetrics(conn, 10, []string{"(group)"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if call != 2 {
+		t.Fatalf("script calls = %d, want 2", call)
+	}
+	if got := groups["group"]; got == nil || got.count != 3 || got.memoryUsage != 96 {
+		t.Fatalf("group metrics = %#v", got)
+	}
+}
+
+func TestGatherKeyGroupMetricsErrors(t *testing.T) {
+	testErr := errors.New("script failed")
+	tests := []struct {
+		name  string
+		reply any
+		err   error
+	}{
+		{name: "script", err: testErr},
+		{name: "response length", reply: []any{int64(0)}},
+		{name: "groups", reply: []any{int64(0), "invalid"}},
+		{name: "group metrics", reply: []any{int64(0), []any{[]any{"group", "invalid", int64(1)}}}},
+		{name: "cursor", reply: []any{struct{}{}, []any{}}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := &stubRedisConn{do: func(string, ...any) (any, error) {
+				return test.reply, test.err
+			}}
+			if _, err := gatherKeyGroupMetrics(conn, 10, []string{"(group)"}); err == nil {
+				t.Fatal("gatherKeyGroupMetrics() unexpectedly succeeded")
+			}
+		})
+	}
+}
+
+func TestGatherClusterKeyGroupMetricsErrors(t *testing.T) {
+	testErr := errors.New("script failed")
+	keys := []any{"0", []any{"{slot}:key"}}
+	tests := []struct {
+		name        string
+		scanReply   any
+		scriptReply any
+		scriptErr   error
+	}{
+		{name: "keys", scanReply: []any{"0", "invalid"}},
+		{name: "script", scanReply: keys, scriptErr: testErr},
+		{name: "response length", scanReply: keys, scriptReply: []any{int64(0)}},
+		{name: "groups", scanReply: keys, scriptReply: []any{int64(0), "invalid"}},
+		{name: "group metrics", scanReply: keys, scriptReply: []any{int64(0), []any{[]any{"group", "invalid", int64(1)}}}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := &clusterScanStub{&stubRedisConn{do: func(command string, _ ...any) (any, error) {
+				switch command {
+				case "CLUSTERSCAN":
+					return test.scanReply, nil
+				case "EVALSHA":
+					return test.scriptReply, test.scriptErr
+				default:
+					return nil, errors.New("unexpected command")
+				}
+			}}}
+			if _, err := gatherClusterKeyGroupMetrics(conn, 10, []string{"(group)"}); err == nil {
+				t.Fatal("gatherClusterKeyGroupMetrics() unexpectedly succeeded")
+			}
+		})
+	}
+}
+
+func TestMergeKeyGroupMetricsErrors(t *testing.T) {
+	tests := []struct {
+		name   string
+		groups []any
+		want   string
+	}{
+		{name: "shape", groups: []any{"invalid"}, want: "response"},
+		{name: "name", groups: []any{[]any{struct{}{}, int64(1), int64(1)}}, want: "name"},
+		{name: "count", groups: []any{[]any{"group", "invalid", int64(1)}}, want: "count"},
+		{name: "memory", groups: []any{[]any{"group", int64(1), "invalid"}}, want: "memory usage"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := mergeKeyGroupMetrics(make(map[string]*keyGroupMetrics), test.groups)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("mergeKeyGroupMetrics() error = %v, want %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestGatherKeyGroupsMetricsUsesClusterScan(t *testing.T) {
+	conn := &clusterScanStub{&stubRedisConn{do: func(command string, _ ...any) (any, error) {
+		switch command {
+		case "SELECT":
+			return "OK", nil
+		case "CLUSTERSCAN":
+			return []any{"0", []any{"{slot}:key"}}, nil
+		case "EVALSHA":
+			return []any{int64(0), []any{[]any{"slot", int64(1), int64(64)}}}, nil
+		default:
+			return nil, errors.New("unexpected command")
+		}
+	}}}
+	e := &Exporter{options: Options{
+		CheckKeyGroups:       "{(.*)}",
+		CheckKeysBatchSize:   10,
+		MaxDistinctKeyGroups: 100,
+	}}
+
+	result := e.gatherKeyGroupsMetricsForAllDatabases(conn, 1)
+	if got := result.metrics[0]["slot"]; got == nil || got.count != 1 || got.memoryUsage != 64 {
+		t.Fatalf("group metrics = %#v", got)
+	}
+}
 
 func getDBCount(c redis.Conn) (dbCount int, err error) {
 	dbCount = 16

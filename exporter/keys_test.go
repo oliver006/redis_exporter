@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
 	"net/http/httptest"
 	"net/url"
@@ -14,6 +15,41 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	log "github.com/sirupsen/logrus"
 )
+
+func TestScanKeyBatchesErrors(t *testing.T) {
+	testErr := errors.New("test error")
+	tests := []struct {
+		name       string
+		pattern    string
+		reply      any
+		commandErr error
+		collectErr error
+	}{
+		{name: "empty pattern"},
+		{name: "command", pattern: "*", commandErr: testErr},
+		{name: "response length", pattern: "*", reply: []any{"0"}},
+		{name: "keys", pattern: "*", reply: []any{"0", "invalid"}},
+		{name: "collector", pattern: "*", reply: []any{"0", []any{}}, collectErr: testErr},
+		{name: "cursor", pattern: "*", reply: []any{struct{}{}, []any{}}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			conn := &stubRedisConn{do: func(string, ...any) (any, error) {
+				return test.reply, test.commandErr
+			}}
+			err := scanKeyBatches(conn, test.pattern, 10, func([]any) error {
+				return test.collectErr
+			})
+			if err == nil {
+				t.Fatal("scanKeyBatches() unexpectedly succeeded")
+			}
+			if test.collectErr != nil && !errors.Is(err, test.collectErr) {
+				t.Fatalf("scanKeyBatches() error = %v, want %v", err, test.collectErr)
+			}
+		})
+	}
+}
 
 // defaultCount is used for `SCAN whatever COUNT defaultCount` command
 const (
