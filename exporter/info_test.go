@@ -15,57 +15,107 @@ import (
 
 func TestKeyspaceStringParser(t *testing.T) {
 	tsts := []struct {
-		db                                                     string
-		stats                                                  string
-		keysTotal, keysEx, keysCached, subkeysExpiring, avgTTL float64
-		ok                                                     bool
+		name    string
+		db      string
+		stats   string
+		metrics []dbKeyspaceMetric
+		ok      bool
 	}{
-		{db: "xxx", stats: "", ok: false},
-		{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
-		{db: "db0", stats: "xxx", ok: false},
-		{db: "db1", stats: "keys=abcd,expires=0,avg_ttl=0", ok: false},
-		{db: "db2", stats: "keys=1234=1234,expires=0,avg_ttl=0", ok: false},
-
-		{db: "db3", stats: "keys=abcde,expires=0", ok: false},
-		{db: "db3", stats: "keys=213,expires=xxx", ok: false},
-		{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
-		{db: "db3", stats: "keys=1,expires=0,avg_ttl=zzz,cached_keys=0", ok: false},
-		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=zzz", ok: false},
-		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0,extra=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, subkeysExpiring: -1, ok: true},
-
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, subkeysExpiring: -1, ok: true},
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, subkeysExpiring: -1, ok: true},
-
 		{
-			db: "db0", stats: "keys=25714011,expires=25091314,avg_ttl=685620459,subexpiry=0",
-			keysTotal: 25714011, keysEx: 25091314, keysCached: -1, subkeysExpiring: 0, avgTTL: 685620.459000,
-			ok: true,
+			name: "wrong key prefix", db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false,
+		},
+		{name: "malformed", db: "db0", stats: "xxx", ok: false},
+		{name: "invalid keys", db: "db1", stats: "keys=abcd,expires=0,avg_ttl=0", ok: false},
+		{name: "invalid field", db: "db2", stats: "keys=1234=1234,expires=0,avg_ttl=0", ok: false},
+		{name: "missing keys", db: "db3", stats: "expires=0,avg_ttl=0", ok: false},
+		{name: "missing expires", db: "db3", stats: "keys=213,avg_ttl=0", ok: false},
+		{name: "invalid expires", db: "db3", stats: "keys=213,expires=xxx", ok: false},
+		{name: "invalid average ttl", db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
+		{name: "invalid cached keys", db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=zzz", ok: false},
+		{
+			name: "redis without subexpiry", db: "db0", stats: "keys=1,expires=0,avg_ttl=2000",
+			metrics: []dbKeyspaceMetric{{name: "db_keys", value: 1}, {name: "db_keys_expiring", value: 0}, {name: "db_avg_ttl_seconds", value: 2}}, ok: true,
 		},
 		{
-			db: "db0", stats: "subexpiry=3,cached_keys=4,expires=2,keys=10,avg_ttl=1000",
-			keysTotal: 10, keysEx: 2, keysCached: 4, subkeysExpiring: 3, avgTTL: 1,
-			ok: true,
+			name: "redis subexpiry", db: "db0", stats: "subexpiry=7,avg_ttl=685620459,expires=25091314,keys=25714011",
+			metrics: []dbKeyspaceMetric{{name: "db_keys", value: 25714011}, {name: "db_keys_expiring", value: 25091314}, {name: "db_avg_ttl_seconds", value: 685620.459}, {name: "db_keys_with_expiring_items", value: 7}}, ok: true,
+		},
+		{
+			name: "valkey volatile items", db: "db0", stats: "keys=17,expires=5,avg_ttl=2500,keys_with_volatile_items=3",
+			metrics: []dbKeyspaceMetric{{name: "db_keys", value: 17}, {name: "db_keys_expiring", value: 5}, {name: "db_avg_ttl_seconds", value: 2.5}, {name: "db_keys_with_expiring_items", value: 3}}, ok: true,
+		},
+		{
+			name: "cached keys compatibility", db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=4,extra=ignored",
+			metrics: []dbKeyspaceMetric{{name: "db_keys", value: 1}, {name: "db_keys_expiring", value: 0}, {name: "db_avg_ttl_seconds", value: 0}, {name: "db_keys_cached", value: 4}}, ok: true,
 		},
 	}
 
 	for _, tst := range tsts {
-		if kt, kx, ttl, kc, se, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
-
+		t.Run(tst.name, func(t *testing.T) {
+			metrics, ok := parseDBKeyspaceString(tst.db, tst.stats)
 			if ok != tst.ok {
-				t.Errorf("failed for: db:%s stats:%s", tst.db, tst.stats)
-				continue
+				t.Fatalf("parseDBKeyspaceString(%q, %q) ok = %t, want %t", tst.db, tst.stats, ok, tst.ok)
 			}
 
-			if ok && (kt != tst.keysTotal || kx != tst.keysEx || kc != tst.keysCached || se != tst.subkeysExpiring || ttl != tst.avgTTL) {
-				t.Errorf("values not matching, db:%s stats:%s   %f != %f   %f != %f  %f != %f  %f != %f  %f != %f",
-					tst.db, tst.stats,
-					kt, tst.keysTotal,
-					kx, tst.keysEx,
-					kc, tst.keysCached,
-					se, tst.subkeysExpiring,
-					ttl, tst.avgTTL)
+			if ok && !reflect.DeepEqual(metrics, tst.metrics) {
+				t.Errorf("parseDBKeyspaceString(%q, %q) metrics = %#v, want %#v", tst.db, tst.stats, metrics, tst.metrics)
 			}
-		}
+		})
+	}
+}
+
+func TestExtractInfoKeyspaceMetrics(t *testing.T) {
+	tests := []struct {
+		name     string
+		keyspace string
+		want     []string
+		dontWant []string
+	}{
+		{
+			name: "redis", keyspace: "db0:keys=5,expires=3,avg_ttl=1000,subexpiry=2",
+			want:     []string{"test_db_keys", "test_db_keys_expiring", "test_db_avg_ttl_seconds", "test_db_keys_with_expiring_items"},
+			dontWant: []string{"test_db_keys_cached"},
+		},
+		{
+			name: "valkey", keyspace: "db0:keys=5,expires=3,avg_ttl=1000,keys_with_volatile_items=2",
+			want:     []string{"test_db_keys", "test_db_keys_expiring", "test_db_avg_ttl_seconds", "test_db_keys_with_expiring_items"},
+			dontWant: []string{"test_db_keys_cached"},
+		},
+		{
+			name: "cached keys compatibility", keyspace: "db0:keys=5,expires=3,avg_ttl=1000,cached_keys=2",
+			want:     []string{"test_db_keys", "test_db_keys_expiring", "test_db_avg_ttl_seconds", "test_db_keys_cached"},
+			dontWant: []string{"test_db_keys_with_expiring_items"},
+		},
+	}
+
+	for _, tst := range tests {
+		t.Run(tst.name, func(t *testing.T) {
+			e, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+			if err != nil {
+				t.Fatalf("NewRedisExporter() error = %v", err)
+			}
+
+			ch := make(chan prometheus.Metric)
+			go func() {
+				e.extractInfoMetrics(ch, "# Keyspace\n"+tst.keyspace+"\n", 0)
+				close(ch)
+			}()
+
+			descriptions := ""
+			for metric := range ch {
+				descriptions += metric.Desc().String() + "\n"
+			}
+			for _, metric := range tst.want {
+				if !strings.Contains(descriptions, `fqName: "`+metric+`"`) {
+					t.Errorf("missing metric %s", metric)
+				}
+			}
+			for _, metric := range tst.dontWant {
+				if strings.Contains(descriptions, `fqName: "`+metric+`"`) {
+					t.Errorf("unexpected metric %s", metric)
+				}
+			}
+		})
 	}
 }
 

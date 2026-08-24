@@ -133,19 +133,11 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			continue
 
 		case "Keyspace":
-			if keysTotal, keysEx, avgTTL, keysCached, subkeysExpiring, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
+			if metrics, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
 				dbName := fieldKey
 
-				e.registerConstMetricGauge(ch, "db_keys", keysTotal, dbName)
-				e.registerConstMetricGauge(ch, "db_keys_expiring", keysEx, dbName)
-				if keysCached > -1 {
-					e.registerConstMetricGauge(ch, "db_keys_cached", keysCached, dbName)
-				}
-				if subkeysExpiring > -1 {
-					e.registerConstMetricGauge(ch, "db_subkeys_expiring", subkeysExpiring, dbName)
-				}
-				if avgTTL > -1 {
-					e.registerConstMetricGauge(ch, "db_avg_ttl_seconds", avgTTL, dbName)
+				for _, metric := range metrics {
+					e.registerConstMetricGauge(ch, metric.name, metric.value, dbName)
 				}
 				handledDBs[dbName] = true
 				continue
@@ -244,59 +236,71 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 	}
 }
 
-func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, keysCachedTotal float64, subkeysExpiringTotal float64, ok bool) {
+type dbKeyspaceMetric struct {
+	name  string
+	value float64
+}
+
+type dbKeyspaceMetricDefinition struct {
+	fields   []string
+	name     string
+	scale    float64
+	required bool
+}
+
+var dbKeyspaceMetricDefinitions = []dbKeyspaceMetricDefinition{
+	{fields: []string{"keys"}, name: "db_keys", scale: 1, required: true},
+	{fields: []string{"expires"}, name: "db_keys_expiring", scale: 1, required: true},
+	{fields: []string{"avg_ttl"}, name: "db_avg_ttl_seconds", scale: 1.0 / 1000},
+	{fields: []string{"cached_keys"}, name: "db_keys_cached", scale: 1},
+	// Redis and Valkey use different names for keys containing expiring sub-items.
+	{fields: []string{"subexpiry", "keys_with_volatile_items"}, name: "db_keys_with_expiring_items", scale: 1},
+}
+
+func parseDBKeyspaceString(inputKey string, inputVal string) (metrics []dbKeyspaceMetric, ok bool) {
 	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
 
 	if !strings.HasPrefix(inputKey, "db") {
 		log.Debugf("parseDBKeyspaceString inputKey not starting with 'db': [%s]", inputKey)
-		return
+		return nil, false
 	}
 
-	avgTTL = -1
-	keysCachedTotal = -1
-	subkeysExpiringTotal = -1
-	keysFound := false
-	keysExpiringFound := false
-
-	for _, field := range strings.Split(inputVal, ",") {
-		fieldName, _, found := strings.Cut(field, "=")
+	fields := make(map[string]string)
+	for part := range strings.SplitSeq(inputVal, ",") {
+		field, value, found := strings.Cut(part, "=")
 		if !found {
+			log.Debugf("parseDBKeyspaceString invalid field: [%s]", part)
+			return nil, false
+		}
+		fields[field] = value
+	}
+
+	for _, definition := range dbKeyspaceMetricDefinitions {
+		var value string
+		var found bool
+		for _, field := range definition.fields {
+			if value, found = fields[field]; found {
+				break
+			}
+		}
+
+		if !found {
+			if definition.required {
+				log.Debugf("parseDBKeyspaceString missing required field: [%s]", definition.fields[0])
+				return nil, false
+			}
 			continue
 		}
 
-		if fieldName != "keys" && fieldName != "expires" && fieldName != "avg_ttl" && fieldName != "cached_keys" && fieldName != "subexpiry" {
-			continue
-		}
-
-		value, err := extractVal(field)
+		parsed, err := strconv.ParseFloat(value, 64)
 		if err != nil {
-			log.Debugf("parseDBKeyspaceString extractVal(%q) invalid, err: %s", field, err)
-			return
+			log.Debugf("parseDBKeyspaceString invalid field %s=%s, err: %s", definition.fields[0], value, err)
+			return nil, false
 		}
-
-		switch fieldName {
-		case "keys":
-			keysTotal = value
-			keysFound = true
-		case "expires":
-			keysExpiringTotal = value
-			keysExpiringFound = true
-		case "avg_ttl":
-			avgTTL = value / 1000
-		case "cached_keys":
-			keysCachedTotal = value
-		case "subexpiry":
-			subkeysExpiringTotal = value
-		}
+		metrics = append(metrics, dbKeyspaceMetric{name: definition.name, value: parsed * definition.scale})
 	}
 
-	if !keysFound || !keysExpiringFound {
-		log.Debugf("parseDBKeyspaceString missing keys or expires field: [%s]", inputVal)
-		return
-	}
-
-	ok = true
-	return
+	return metrics, true
 }
 
 /*

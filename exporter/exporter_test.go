@@ -986,7 +986,7 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 		"test_latency_percentiles_usec":        false,
 		"test_commands_duration_seconds_total": false,
 		"test_commands_total":                  false,
-		"test_db_subkeys_expiring":             false,
+		"test_db_keys_with_expiring_items":     false,
 	}
 	foundCachedKeys := false
 
