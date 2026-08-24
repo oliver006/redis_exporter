@@ -74,7 +74,8 @@ func TestGatherClusterKeyGroupMetricsErrors(t *testing.T) {
 		scriptReply any
 		scriptErr   error
 	}{
-		{name: "keys", scanReply: []any{"0", "invalid"}},
+		{name: "scan keys", scanReply: []any{"0", "invalid"}},
+		{name: "key conversion", scanReply: []any{"0", []any{struct{}{}}}},
 		{name: "script", scanReply: keys, scriptErr: testErr},
 		{name: "response length", scanReply: keys, scriptReply: []any{int64(0)}},
 		{name: "groups", scanReply: keys, scriptReply: []any{int64(0), "invalid"}},

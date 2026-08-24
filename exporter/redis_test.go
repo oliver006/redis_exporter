@@ -11,10 +11,16 @@ import (
 	"github.com/gomodule/redigo/redis"
 )
 
-func TestConnectToRedisClusterDatabaseRejectsNegativeDatabase(t *testing.T) {
-	e := &Exporter{}
+func TestConnectToRedisClusterDatabaseValidation(t *testing.T) {
+	e, err := NewRedisExporter("redis://127.0.0.1:0", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := e.connectToRedisClusterDatabase(-1); err == nil {
 		t.Fatal("connectToRedisClusterDatabase(-1) unexpectedly succeeded")
+	}
+	if _, err := e.connectToRedisClusterDatabase(1); err == nil {
+		t.Fatal("connectToRedisClusterDatabase(1) unexpectedly succeeded")
 	}
 }
 

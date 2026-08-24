@@ -51,6 +51,78 @@ func TestScanKeyBatchesErrors(t *testing.T) {
 	}
 }
 
+func TestExtractCheckKeyMetricsNotPipelinedErrors(t *testing.T) {
+	testErr := errors.New("test error")
+	e, err := NewRedisExporter("redis://unused:6379", Options{Namespace: "test", IsCluster: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name         string
+		do           func(string, ...any) (any, error)
+		wantCommands []string
+	}{
+		{
+			name: "select",
+			do: func(command string, _ ...any) (any, error) {
+				if command == "SELECT" {
+					return nil, testErr
+				}
+				return nil, errors.New("unexpected command")
+			},
+			wantCommands: []string{"SELECT"},
+		},
+		{
+			name: "type",
+			do: func(command string, _ ...any) (any, error) {
+				if command == "SELECT" {
+					return "OK", nil
+				}
+				if command == "TYPE" {
+					return nil, testErr
+				}
+				return nil, errors.New("unexpected command")
+			},
+			wantCommands: []string{"SELECT", "TYPE"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var commands []string
+			conn := &stubRedisConn{do: func(command string, args ...any) (any, error) {
+				commands = append(commands, command)
+				return test.do(command, args...)
+			}}
+			e.extractCheckKeyMetricsNotPipelined(make(chan prometheus.Metric, 1), conn, []dbKeyPair{{db: "3", key: "key"}})
+			if !reflect.DeepEqual(commands, test.wantCommands) {
+				t.Fatalf("commands = %v, want %v", commands, test.wantCommands)
+			}
+		})
+	}
+}
+
+func TestExtractCountKeysMetricsSelectError(t *testing.T) {
+	e, err := NewRedisExporter("redis://unused:6379", Options{
+		Namespace: "test",
+		CountKeys: "db3=key:*",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var commands []string
+	conn := &stubRedisConn{do: func(command string, _ ...any) (any, error) {
+		commands = append(commands, command)
+		return nil, errors.New("select failed")
+	}}
+
+	e.extractCountKeysMetrics(make(chan prometheus.Metric, 1), conn)
+	if !reflect.DeepEqual(commands, []string{"SELECT"}) {
+		t.Fatalf("commands = %v, want [SELECT]", commands)
+	}
+}
+
 // defaultCount is used for `SCAN whatever COUNT defaultCount` command
 const (
 	defaultCount int64 = 10

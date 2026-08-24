@@ -1,7 +1,9 @@
 package exporter
 
 import (
+	"bufio"
 	"fmt"
+	"net"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -25,6 +27,8 @@ func TestSupportsValkeyClusterScan(t *testing.T) {
 		{name: "Valkey 9.0", info: "valkey_version:9.0.5\n", want: false},
 		{name: "Redis", info: "redis_version:9.1.0\n", want: false},
 		{name: "invalid", info: "valkey_version:dev\n", want: false},
+		{name: "invalid major", info: "valkey_version:dev.1\n", want: false},
+		{name: "invalid minor", info: "valkey_version:9.dev\n", want: false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -63,6 +67,105 @@ func TestClusterDatabaseCount(t *testing.T) {
 			t.Fatalf("clusterDatabaseCount(%q) unexpectedly succeeded", value)
 		}
 	}
+}
+
+func TestScrapeValkeyClusterDatabaseCount(t *testing.T) {
+	tests := []struct {
+		name             string
+		clusterDatabases string
+		wantError        bool
+	}{
+		{name: "valid", clusterDatabases: "4"},
+		{name: "invalid", clusterDatabases: "invalid", wantError: true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			e, err := NewRedisExporter(startValkeyClusterConfigServer(t, test.clusterDatabases), Options{
+				Namespace:                      "test",
+				ExcludeLatencyHistogramMetrics: true,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			metrics := make(chan prometheus.Metric, 1024)
+			err = e.scrapeRedisHost(metrics)
+			close(metrics)
+
+			if test.wantError {
+				if err == nil || !strings.Contains(err.Error(), "invalid config value for key cluster-databases") {
+					t.Fatalf("scrapeRedisHost() error = %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			for metric := range metrics {
+				if !strings.Contains(metric.Desc().String(), `fqName: "test_db_keys"`) {
+					continue
+				}
+				got := &dto.Metric{}
+				if err := metric.Write(got); err != nil {
+					t.Fatal(err)
+				}
+				for _, label := range got.Label {
+					if label.GetName() == "db" && label.GetValue() == "db3" && got.GetGauge().GetValue() == 1 {
+						return
+					}
+				}
+			}
+			t.Fatal("missing database 3 keyspace metric")
+		})
+	}
+}
+
+func startValkeyClusterConfigServer(t *testing.T, clusterDatabases string) string {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		reader := bufio.NewReader(conn)
+		for {
+			args, err := readRESPArray(reader)
+			if err != nil {
+				return
+			}
+			switch strings.ToUpper(args[0]) {
+			case "INFO":
+				info := "# Server\r\nvalkey_version:9.1.0\r\n" +
+					"# Cluster\r\ncluster_enabled:1\r\n" +
+					"# Replication\r\nrole:master\r\n" +
+					"# Keyspace\r\ndb3:keys=1,expires=0,avg_ttl=0\r\n"
+				_, _ = fmt.Fprintf(conn, "$%d\r\n%s\r\n", len(info), info)
+			case "CONFIG":
+				_, _ = fmt.Fprintf(conn,
+					"*4\r\n$9\r\ndatabases\r\n$2\r\n16\r\n$17\r\ncluster-databases\r\n$%d\r\n%s\r\n",
+					len(clusterDatabases), clusterDatabases,
+				)
+			case "CLUSTER":
+				clusterInfo := "cluster_state:ok\r\ncluster_slots_assigned:16384\r\n"
+				_, _ = fmt.Fprintf(conn, "$%d\r\n%s\r\n", len(clusterInfo), clusterInfo)
+			default:
+				_, _ = conn.Write([]byte("-ERR unsupported test command\r\n"))
+			}
+		}
+	}()
+	t.Cleanup(func() {
+		_ = listener.Close()
+		<-done
+	})
+	return "redis://" + listener.Addr().String()
 }
 
 func TestClusterKeyConnOwnsOneConnectionPerDatabase(t *testing.T) {
