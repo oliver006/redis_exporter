@@ -363,8 +363,12 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
 	for _, k := range allKeys {
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
-			log.Errorf("Couldn't select database '%s' when getting key info", k.db)
+		db := k.db
+		if selector, ok := c.(interface{ keyDatabase(string) string }); ok {
+			db = selector.keyDatabase(db)
+		}
+		if _, err := doRedisCmd(c, "SELECT", db); err != nil {
+			log.Errorf("Couldn't select database '%s' when getting key info", db)
 			continue
 		}
 
@@ -375,12 +379,12 @@ func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metri
 		}
 
 		if memUsageInBytes, err := redis.Int64(doRedisCmd(c, "MEMORY", "USAGE", k.key)); err == nil {
-			e.registerConstMetricGauge(ch, "key_memory_usage_bytes", float64(memUsageInBytes), "db"+k.db, k.key)
+			e.registerConstMetricGauge(ch, "key_memory_usage_bytes", float64(memUsageInBytes), "db"+db, k.key)
 		} else {
 			log.Errorf("MEMORY USAGE %s err: %s", k.key, err)
 		}
 
-		dbLabel := "db" + k.db
+		dbLabel := "db" + db
 		e.getKeyInfo(ch, c, dbLabel, keyType, k.key)
 	}
 }

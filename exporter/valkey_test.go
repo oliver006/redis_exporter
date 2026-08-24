@@ -57,6 +57,22 @@ func TestSupportsValkeyClusterScan(t *testing.T) {
 	}
 }
 
+func TestSupportsValkeyClusterDatabases(t *testing.T) {
+	for _, test := range []struct {
+		info string
+		want bool
+	}{
+		{info: "valkey_version:9.0.0\n", want: true},
+		{info: "valkey_version:9.1.0\n", want: true},
+		{info: "valkey_version:8.1.0\n", want: false},
+		{info: "redis_version:9.0.0\n", want: false},
+	} {
+		if got := supportsValkeyClusterDatabases(test.info); got != test.want {
+			t.Errorf("supportsValkeyClusterDatabases(%q) = %t, want %t", test.info, got, test.want)
+		}
+	}
+}
+
 func TestClusterDatabaseCount(t *testing.T) {
 	if got, err := clusterDatabaseCount(map[string]string{"cluster-databases": "8"}); err != nil || got != 8 {
 		t.Fatalf("clusterDatabaseCount() = %d, %v; want 8, nil", got, err)
@@ -85,7 +101,7 @@ func TestClusterKeyConnOwnsOneConnectionPerDatabase(t *testing.T) {
 		return conn, nil
 	}
 
-	conn, err := newClusterKeyConn(connect, true)
+	conn, err := newClusterKeyConn(connect, true, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,52 +166,66 @@ func TestScanKeysUsesOpaqueClusterScanCursor(t *testing.T) {
 	}
 }
 
-func TestClusterCheckKeyKeepsDatabase(t *testing.T) {
-	var connected []int
-	connect := func(db int) (redis.Conn, error) {
-		connected = append(connected, db)
-		return &stubRedisConn{do: func(command string, _ ...any) (any, error) {
-			switch command {
-			case "TYPE":
-				return "list", nil
-			case "MEMORY":
-				return int64(64), nil
-			case "LLEN":
-				return int64(2), nil
-			default:
-				return nil, fmt.Errorf("unexpected command %s", command)
+func TestClusterCheckKeyDatabase(t *testing.T) {
+	tests := []struct {
+		name          string
+		multiDB       bool
+		requestedDB   string
+		wantDB        string
+		wantConnected []int
+	}{
+		{name: "Valkey 9 keeps database", multiDB: true, requestedDB: "3", wantDB: "3", wantConnected: []int{0, 3}},
+		{name: "legacy cluster uses database zero", requestedDB: "11", wantDB: "0", wantConnected: []int{0}},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var connected []int
+			connect := func(db int) (redis.Conn, error) {
+				connected = append(connected, db)
+				return &stubRedisConn{do: func(command string, _ ...any) (any, error) {
+					switch command {
+					case "TYPE":
+						return "list", nil
+					case "MEMORY":
+						return int64(64), nil
+					case "LLEN":
+						return int64(2), nil
+					default:
+						return nil, fmt.Errorf("unexpected command %s", command)
+					}
+				}}, nil
 			}
-		}}, nil
-	}
-	conn, err := newClusterKeyConn(connect, true)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer conn.Close()
+			conn, err := newClusterKeyConn(connect, test.multiDB, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer conn.Close()
 
-	exporter, err := NewRedisExporter("redis://unused:6379", Options{Namespace: "test", IsCluster: true})
-	if err != nil {
-		t.Fatal(err)
-	}
-	metrics := make(chan prometheus.Metric, 2)
-	exporter.extractCheckKeyMetricsNotPipelined(metrics, conn, []dbKeyPair{{db: "3", key: "jobs"}})
-	close(metrics)
+			exporter, err := NewRedisExporter("redis://unused:6379", Options{Namespace: "test", IsCluster: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			metrics := make(chan prometheus.Metric, 2)
+			exporter.extractCheckKeyMetricsNotPipelined(metrics, conn, []dbKeyPair{{db: test.requestedDB, key: "jobs"}})
+			close(metrics)
 
-	if !reflect.DeepEqual(connected, []int{0, 3}) {
-		t.Fatalf("connected databases = %v, want [0 3]", connected)
-	}
-	for metric := range metrics {
-		got := &dto.Metric{}
-		if err := metric.Write(got); err != nil {
-			t.Fatal(err)
-		}
-		labels := make(map[string]string)
-		for _, label := range got.Label {
-			labels[label.GetName()] = label.GetValue()
-		}
-		if labels["db"] != "db3" {
-			t.Errorf("metric has database label %q, want db3", labels["db"])
-		}
+			if !reflect.DeepEqual(connected, test.wantConnected) {
+				t.Fatalf("connected databases = %v, want %v", connected, test.wantConnected)
+			}
+			for metric := range metrics {
+				got := &dto.Metric{}
+				if err := metric.Write(got); err != nil {
+					t.Fatal(err)
+				}
+				labels := make(map[string]string)
+				for _, label := range got.Label {
+					labels[label.GetName()] = label.GetValue()
+				}
+				if want := "db" + test.wantDB; labels["db"] != want {
+					t.Errorf("metric has database label %q, want %q", labels["db"], want)
+				}
+			}
+		})
 	}
 }
 

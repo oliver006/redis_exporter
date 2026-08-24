@@ -921,7 +921,11 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		// in cluster mode we need to create a new, cluster-aware connection
 		// to properly handle cluster-redirects
 		//
-		k, keyConnErr := newClusterKeyConn(e.connectToRedisClusterDatabase, supportsValkeyClusterScan(infoAll))
+		k, keyConnErr := newClusterKeyConn(
+			e.connectToRedisClusterDatabase,
+			supportsValkeyClusterDatabases(infoAll),
+			supportsValkeyClusterScan(infoAll),
+		)
 		if keyConnErr != nil {
 			log.Errorf("failed to get key operation connection: %s", keyConnErr)
 		} else {

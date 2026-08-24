@@ -7,6 +7,14 @@ import (
 )
 
 func supportsValkeyClusterScan(info string) bool {
+	return valkeyVersionAtLeast(info, 9, 1)
+}
+
+func supportsValkeyClusterDatabases(info string) bool {
+	return valkeyVersionAtLeast(info, 9, 0)
+}
+
+func valkeyVersionAtLeast(info string, minimumMajor, minimumMinor int) bool {
 	version, ok := infoField(info, "valkey_version")
 	if !ok {
 		return false
@@ -20,7 +28,7 @@ func supportsValkeyClusterScan(info string) bool {
 	if majorErr != nil || minorErr != nil {
 		return false
 	}
-	return major > 9 || major == 9 && minor >= 1
+	return major > minimumMajor || major == minimumMajor && minor >= minimumMinor
 }
 
 func infoField(info, name string) (string, bool) {

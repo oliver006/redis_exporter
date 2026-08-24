@@ -154,14 +154,16 @@ type clusterKeyConn struct {
 	connect     func(int) (redis.Conn, error)
 	connections map[int]redis.Conn
 	db          int
+	multiDB     bool
 	clusterScan bool
 	err         error
 }
 
-func newClusterKeyConn(connect func(int) (redis.Conn, error), clusterScan bool) (*clusterKeyConn, error) {
+func newClusterKeyConn(connect func(int) (redis.Conn, error), multiDB, clusterScan bool) (*clusterKeyConn, error) {
 	c := &clusterKeyConn{
 		connect:     connect,
 		connections: make(map[int]redis.Conn),
+		multiDB:     multiDB,
 		clusterScan: clusterScan,
 	}
 	if _, err := c.connection(0); err != nil {
@@ -230,6 +232,13 @@ func (c *clusterKeyConn) Close() error {
 		}
 	}
 	return firstErr
+}
+
+func (c *clusterKeyConn) keyDatabase(db string) string {
+	if c.multiDB {
+		return db
+	}
+	return "0"
 }
 
 func (c *clusterKeyConn) scanCommand() string {
