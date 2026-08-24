@@ -36,6 +36,7 @@ test-certs:
 test:
 	TEST_REDIS_URI="redis://localhost:6379" \
 	TEST_VALKEY9_URI="valkey://localhost:16382" \
+	TEST_VALKEY9_REPLICA_URI="valkey://localhost:16381" \
 	TEST_VALKEY9_BUNDLE_URI="valkey://localhost:16389" \
 	TEST_VALKEY9_TLS_URI="valkeys://localhost:16386" \
 	TEST_REDIS7_TLS_URI="rediss://localhost:16387" \

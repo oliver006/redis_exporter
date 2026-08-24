@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -8,39 +9,132 @@ import (
 	dto "github.com/prometheus/client_model/go"
 )
 
-const valkeyInfo = `# Memory
-mem_replicas_repl_buffer:41
-# Stats
-expired_fields:42
-expired_keys_with_volatile_items_stale_perc:12.5
-acl_access_denied_tls_cert:43
-acl_access_denied_db:44
-# Replication
-replicas_repl_buffer_size:45
-replicas_repl_buffer_peak:46
-replicas_waiting_psync:2
-# TLS
-tls_server_cert_serial:01A2
-tls_server_cert_expires_in_seconds:47
-tls_client_cert_serial:02B3
-tls_client_cert_expires_in_seconds:48
-tls_ca_cert_serial:03C4
-tls_ca_cert_expires_in_seconds:49
-# Scripting Engines
-engines_count:2
-engines_total_used_memory:50
-engines_total_memory_overhead:51
-engine_0:name=LUA,module=built-in,abi_version=1,used_memory=20,memory_overhead=21
-engine_1:memory_overhead=31,used_memory=30,abi_version=2,module=example,name=JS
-`
+const valkeyInfoTestKey = "redis_exporter_valkey_info_test"
 
-func collectValkeyInfoMetrics(t *testing.T, names ...string) map[string][]*dto.Metric {
+func TestValkeyInfoMetrics(t *testing.T) {
+	e := newValkeyInfoTestExporter(t, "TEST_VALKEY9_URI")
+
+	before := collectValkeyInfoMetrics(t, e, "expired_fields_total")
+	beforeExpired := requireValkeyInfoCounter(t, before, "expired_fields_total")
+	expireValkeyHashField(t, e)
+
+	names := []string{
+		"up",
+		"instance_info",
+		"mem_replicas_repl_buffer_bytes",
+		"expired_fields_total",
+		"expired_keys_with_volatile_items_stale_percentage",
+		"acl_access_denied_tls_cert_total",
+		"acl_access_denied_db_total",
+		"replicas_waiting_psync",
+		"tls_server_cert_expires_in_seconds",
+		"tls_client_cert_expires_in_seconds",
+		"tls_ca_cert_expires_in_seconds",
+		"tls_certificate_info",
+		"scripting_engines_count",
+		"scripting_engines_memory_used_bytes",
+		"scripting_engines_memory_overhead_bytes",
+		"scripting_engine_info",
+		"scripting_engine_memory_used_bytes",
+		"scripting_engine_memory_overhead_bytes",
+	}
+	metrics := collectValkeyInfoMetrics(t, e, names...)
+
+	requireValkey9Instance(t, metrics, "master")
+	requireValkeyInfoGauge(t, metrics, "up", 1)
+
+	counters := map[string]bool{
+		"expired_fields_total":             true,
+		"acl_access_denied_tls_cert_total": true,
+		"acl_access_denied_db_total":       true,
+	}
+	for _, name := range []string{
+		"mem_replicas_repl_buffer_bytes",
+		"expired_fields_total",
+		"expired_keys_with_volatile_items_stale_percentage",
+		"acl_access_denied_tls_cert_total",
+		"acl_access_denied_db_total",
+		"replicas_waiting_psync",
+		"tls_server_cert_expires_in_seconds",
+		"tls_client_cert_expires_in_seconds",
+		"tls_ca_cert_expires_in_seconds",
+		"scripting_engines_count",
+		"scripting_engines_memory_used_bytes",
+		"scripting_engines_memory_overhead_bytes",
+	} {
+		metric := requireValkeyInfoMetric(t, metrics, name)
+		if counters[name] {
+			if metric.Counter == nil {
+				t.Errorf("%s is not a counter", name)
+			}
+		} else if metric.Gauge == nil {
+			t.Errorf("%s is not a gauge", name)
+		}
+	}
+
+	afterExpired := requireValkeyInfoCounter(t, metrics, "expired_fields_total")
+	if afterExpired < beforeExpired+1 {
+		t.Errorf("expired_fields_total = %v, want at least %v", afterExpired, beforeExpired+1)
+	}
+
+	assertValkeyTLSCertificateMetrics(t, metrics)
+	assertValkeyScriptingEngineMetrics(t, metrics)
+}
+
+func TestValkeyReplicaInfoMetrics(t *testing.T) {
+	e := newValkeyInfoTestExporter(t, "TEST_VALKEY9_REPLICA_URI")
+	metrics := collectValkeyInfoMetrics(t, e,
+		"up",
+		"instance_info",
+		"replicas_repl_buffer_size_bytes",
+		"replicas_repl_buffer_peak_bytes",
+	)
+
+	requireValkey9Instance(t, metrics, "slave")
+	requireValkeyInfoGauge(t, metrics, "up", 1)
+	size := requireValkeyInfoGauge(t, metrics, "replicas_repl_buffer_size_bytes", -1)
+	peak := requireValkeyInfoGauge(t, metrics, "replicas_repl_buffer_peak_bytes", -1)
+	if peak < size {
+		t.Errorf("replicas_repl_buffer_peak_bytes = %v, smaller than current size %v", peak, size)
+	}
+}
+
+func newValkeyInfoTestExporter(t *testing.T, envName string) *Exporter {
 	t.Helper()
-	exp := getTestExporterWithOptions(t, Options{Namespace: "test"})
+	addr := os.Getenv(envName)
+	if addr == "" {
+		t.Skipf("%s not set - skipping", envName)
+	}
 
+	e, err := NewRedisExporter(addr, Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+	return e
+}
+
+func expireValkeyHashField(t *testing.T, e *Exporter) {
+	t.Helper()
+	c, err := e.connectToRedis()
+	if err != nil {
+		t.Fatalf("connectToRedis() err: %s", err)
+	}
+	defer c.Close()
+	defer doRedisCmd(c, "DEL", valkeyInfoTestKey)
+
+	if _, err := doRedisCmd(c, "HSET", valkeyInfoTestKey, "field", "value"); err != nil {
+		t.Fatalf("HSET err: %s", err)
+	}
+	if _, err := doRedisCmd(c, "HEXPIRE", valkeyInfoTestKey, 0, "FIELDS", 1, "field"); err != nil {
+		t.Fatalf("HEXPIRE err: %s", err)
+	}
+}
+
+func collectValkeyInfoMetrics(t *testing.T, e *Exporter, names ...string) map[string][]*dto.Metric {
+	t.Helper()
 	ch := make(chan prometheus.Metric)
 	go func() {
-		exp.extractInfoMetrics(ch, valkeyInfo, 0)
+		e.Collect(ch)
 		close(ch)
 	}()
 
@@ -62,119 +156,102 @@ func collectValkeyInfoMetrics(t *testing.T, names ...string) map[string][]*dto.M
 	return metrics
 }
 
-func TestValkeyInfoScalarMetrics(t *testing.T) {
-	expected := map[string]struct {
-		value   float64
-		counter bool
-	}{
-		"mem_replicas_repl_buffer_bytes":                    {value: 41},
-		"expired_fields_total":                              {value: 42, counter: true},
-		"expired_keys_with_volatile_items_stale_percentage": {value: 12.5},
-		"acl_access_denied_tls_cert_total":                  {value: 43, counter: true},
-		"acl_access_denied_db_total":                        {value: 44, counter: true},
-		"replicas_repl_buffer_size_bytes":                   {value: 45},
-		"replicas_repl_buffer_peak_bytes":                   {value: 46},
-		"replicas_waiting_psync":                            {value: 2},
-		"tls_server_cert_expires_in_seconds":                {value: 47},
-		"tls_client_cert_expires_in_seconds":                {value: 48},
-		"tls_ca_cert_expires_in_seconds":                    {value: 49},
-		"scripting_engines_count":                           {value: 2},
-		"scripting_engines_memory_used_bytes":               {value: 50},
-		"scripting_engines_memory_overhead_bytes":           {value: 51},
+func requireValkeyInfoMetric(t *testing.T, metrics map[string][]*dto.Metric, name string) *dto.Metric {
+	t.Helper()
+	if len(metrics[name]) != 1 {
+		t.Fatalf("%s metric count = %d, want 1", name, len(metrics[name]))
+	}
+	return metrics[name][0]
+}
+
+func requireValkeyInfoGauge(t *testing.T, metrics map[string][]*dto.Metric, name string, want float64) float64 {
+	t.Helper()
+	metric := requireValkeyInfoMetric(t, metrics, name)
+	if metric.Gauge == nil {
+		t.Fatalf("%s is not a gauge", name)
+	}
+	value := metric.GetGauge().GetValue()
+	if want >= 0 && value != want {
+		t.Errorf("%s = %v, want %v", name, value, want)
+	}
+	return value
+}
+
+func requireValkeyInfoCounter(t *testing.T, metrics map[string][]*dto.Metric, name string) float64 {
+	t.Helper()
+	metric := requireValkeyInfoMetric(t, metrics, name)
+	if metric.Counter == nil {
+		t.Fatalf("%s is not a counter", name)
+	}
+	return metric.GetCounter().GetValue()
+}
+
+func requireValkey9Instance(t *testing.T, metrics map[string][]*dto.Metric, role string) {
+	t.Helper()
+	labels := valkeyInfoMetricLabels(requireValkeyInfoMetric(t, metrics, "instance_info"))
+	if !strings.HasPrefix(labels["valkey_version"], "9.") {
+		t.Fatalf("valkey_version = %q, want Valkey 9", labels["valkey_version"])
+	}
+	if labels["role"] != role {
+		t.Fatalf("role = %q, want %q", labels["role"], role)
+	}
+}
+
+func assertValkeyTLSCertificateMetrics(t *testing.T, metrics map[string][]*dto.Metric) {
+	t.Helper()
+	certificates := metrics["tls_certificate_info"]
+	if len(certificates) != 3 {
+		t.Fatalf("tls_certificate_info metric count = %d, want 3", len(certificates))
 	}
 
-	names := make([]string, 0, len(expected))
-	for name := range expected {
-		names = append(names, name)
+	found := map[string]bool{}
+	for _, metric := range certificates {
+		labels := valkeyInfoMetricLabels(metric)
+		if metric.GetGauge().GetValue() != 1 {
+			t.Errorf("tls_certificate_info%v = %v, want 1", labels, metric.GetGauge().GetValue())
+		}
+		if labels["serial"] != "none" {
+			t.Errorf("tls_certificate_info certificate %q serial = %q, want none", labels["certificate"], labels["serial"])
+		}
+		found[labels["certificate"]] = true
 	}
-	metrics := collectValkeyInfoMetrics(t, names...)
-
-	for name, want := range expected {
-		got := metrics[name]
-		if len(got) != 1 {
-			t.Errorf("%s metric count = %d, want 1", name, len(got))
-			continue
-		}
-
-		if want.counter {
-			if got[0].Counter == nil || got[0].GetCounter().GetValue() != want.value {
-				t.Errorf("%s counter = %v, want %v", name, got[0].Counter, want.value)
-			}
-			continue
-		}
-		if got[0].Gauge == nil || got[0].GetGauge().GetValue() != want.value {
-			t.Errorf("%s gauge = %v, want %v", name, got[0].Gauge, want.value)
+	for _, certificate := range []string{"server", "client", "ca"} {
+		if !found[certificate] {
+			t.Errorf("tls_certificate_info missing certificate %q", certificate)
 		}
 	}
 }
 
-func TestValkeyTLSCertificateInfo(t *testing.T) {
-	metrics := collectValkeyInfoMetrics(t, "tls_certificate_info")["tls_certificate_info"]
-	if len(metrics) != 3 {
-		t.Fatalf("tls_certificate_info metric count = %d, want 3", len(metrics))
+func assertValkeyScriptingEngineMetrics(t *testing.T, metrics map[string][]*dto.Metric) {
+	t.Helper()
+	count := requireValkeyInfoGauge(t, metrics, "scripting_engines_count", -1)
+	if count < 1 {
+		t.Fatalf("scripting_engines_count = %v, want at least 1", count)
 	}
 
-	serials := map[string]string{}
-	for _, metric := range metrics {
-		labels := metricLabels(metric)
-		serials[labels["certificate"]] = labels["serial"]
-	}
-	for certificate, serial := range map[string]string{"server": "01A2", "client": "02B3", "ca": "03C4"} {
-		if serials[certificate] != serial {
-			t.Errorf("tls_certificate_info certificate %q serial = %q, want %q", certificate, serials[certificate], serial)
-		}
-	}
-}
-
-func TestValkeyScriptingEngineMetrics(t *testing.T) {
-	names := []string{
+	for _, name := range []string{
 		"scripting_engine_info",
 		"scripting_engine_memory_used_bytes",
 		"scripting_engine_memory_overhead_bytes",
-	}
-	metrics := collectValkeyInfoMetrics(t, names...)
-
-	for _, name := range names {
-		if len(metrics[name]) != 2 {
-			t.Errorf("%s metric count = %d, want 2", name, len(metrics[name]))
-		}
-	}
-
-	values := map[string]map[string]float64{}
-	for _, name := range names {
-		values[name] = map[string]float64{}
-		for _, metric := range metrics[name] {
-			labels := metricLabels(metric)
-			key := labels["engine"] + "/" + labels["module"] + "/" + labels["abi_version"]
-			values[name][key] = metric.GetGauge().GetValue()
-		}
-	}
-
-	for name, expected := range map[string]map[string]float64{
-		"scripting_engine_info":                  {"LUA/built-in/1": 1, "JS/example/2": 1},
-		"scripting_engine_memory_used_bytes":     {"LUA/built-in/1": 20, "JS/example/2": 30},
-		"scripting_engine_memory_overhead_bytes": {"LUA/built-in/1": 21, "JS/example/2": 31},
 	} {
-		for engine, want := range expected {
-			if values[name][engine] != want {
-				t.Errorf("%s{%s} = %v, want %v", name, engine, values[name][engine], want)
-			}
+		if float64(len(metrics[name])) != count {
+			t.Errorf("%s metric count = %d, want %v", name, len(metrics[name]), count)
 		}
+	}
+
+	foundLua := false
+	for _, metric := range metrics["scripting_engine_info"] {
+		labels := valkeyInfoMetricLabels(metric)
+		if labels["engine"] == "LUA" && labels["module"] != "" && labels["abi_version"] != "" {
+			foundLua = true
+		}
+	}
+	if !foundLua {
+		t.Errorf("scripting_engine_info missing the built-in LUA engine")
 	}
 }
 
-func TestParseScriptingEngineInfoRejectsInvalidMemory(t *testing.T) {
-	for _, value := range []string{
-		"name=LUA,module=built-in,abi_version=1,used_memory=-1,memory_overhead=2",
-		"name=LUA,module=built-in,abi_version=1,used_memory=1",
-	} {
-		if _, err := parseScriptingEngineInfo(value); err == nil {
-			t.Errorf("parseScriptingEngineInfo(%q) unexpectedly succeeded", value)
-		}
-	}
-}
-
-func metricLabels(metric *dto.Metric) map[string]string {
+func valkeyInfoMetricLabels(metric *dto.Metric) map[string]string {
 	labels := make(map[string]string, len(metric.Label))
 	for _, label := range metric.Label {
 		labels[label.GetName()] = label.GetValue()

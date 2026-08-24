@@ -7,6 +7,14 @@ services:
       - "16382:6379"
       - "6379:6379"
 
+  valkey9-replica:
+    image: valkey/valkey:9
+    depends_on:
+      - valkey9
+    command: "valkey-server --protected-mode no --replicaof valkey9 6379"
+    ports:
+      - "16381:6379"
+
   valkey9-tls:
     image: valkey/valkey:9
     volumes:
