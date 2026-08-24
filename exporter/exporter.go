@@ -538,6 +538,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"db_keys":                                            {txt: "Total number of keys by DB", lbls: []string{"db"}},
 		"db_keys_cached":                                     {txt: "Total number of cached keys by DB", lbls: []string{"db"}},
 		"db_keys_expiring":                                   {txt: "Total number of expiring keys by DB", lbls: []string{"db"}},
+		"db_keys_with_expiring_items":                        {txt: "Total number of keys with expiring items by DB", lbls: []string{"db"}},
 		"errors_total":                                       {txt: `Total number of errors per error type`, lbls: []string{"err"}},
 		"exporter_last_scrape_error":                         {txt: "The last scrape error status.", lbls: []string{"err"}},
 		"key_group_count":                                    {txt: `Count of keys in key group`, lbls: []string{"db", "key_group"}},

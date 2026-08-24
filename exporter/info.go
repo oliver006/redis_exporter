@@ -133,16 +133,11 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			continue
 
 		case "Keyspace":
-			if keysTotal, keysEx, avgTTL, keysCached, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
+			if metrics, ok := parseDBKeyspaceString(fieldKey, fieldValue); ok {
 				dbName := fieldKey
 
-				e.registerConstMetricGauge(ch, "db_keys", keysTotal, dbName)
-				e.registerConstMetricGauge(ch, "db_keys_expiring", keysEx, dbName)
-				if keysCached > -1 {
-					e.registerConstMetricGauge(ch, "db_keys_cached", keysCached, dbName)
-				}
-				if avgTTL > -1 {
-					e.registerConstMetricGauge(ch, "db_avg_ttl_seconds", avgTTL, dbName)
+				for _, metric := range metrics {
+					e.registerConstMetricGauge(ch, metric.name, metric.value, dbName)
 				}
 				handledDBs[dbName] = true
 				continue
@@ -241,52 +236,71 @@ func (e *Exporter) extractClusterInfoMetrics(ch chan<- prometheus.Metric, info s
 	}
 }
 
-/*
-valid example: db0:keys=1,expires=0,avg_ttl=0,cached_keys=0
-*/
-func parseDBKeyspaceString(inputKey string, inputVal string) (keysTotal float64, keysExpiringTotal float64, avgTTL float64, keysCachedTotal float64, ok bool) {
+type dbKeyspaceMetric struct {
+	name  string
+	value float64
+}
+
+type dbKeyspaceMetricDefinition struct {
+	fields   []string
+	name     string
+	scale    float64
+	required bool
+}
+
+var dbKeyspaceMetricDefinitions = []dbKeyspaceMetricDefinition{
+	{fields: []string{"keys"}, name: "db_keys", scale: 1, required: true},
+	{fields: []string{"expires"}, name: "db_keys_expiring", scale: 1, required: true},
+	{fields: []string{"avg_ttl"}, name: "db_avg_ttl_seconds", scale: 1.0 / 1000},
+	{fields: []string{"cached_keys"}, name: "db_keys_cached", scale: 1},
+	// Redis and Valkey use different names for keys containing expiring sub-items.
+	{fields: []string{"subexpiry", "keys_with_volatile_items"}, name: "db_keys_with_expiring_items", scale: 1},
+}
+
+func parseDBKeyspaceString(inputKey string, inputVal string) (metrics []dbKeyspaceMetric, ok bool) {
 	log.Debugf("parseDBKeyspaceString inputKey: [%s] inputVal: [%s]", inputKey, inputVal)
 
 	if !strings.HasPrefix(inputKey, "db") {
 		log.Debugf("parseDBKeyspaceString inputKey not starting with 'db': [%s]", inputKey)
-		return
+		return nil, false
 	}
 
-	split := strings.Split(inputVal, ",")
-	if len(split) < 2 {
-		log.Debugf("parseDBKeyspaceString strings.Split(inputVal) invalid: %#v", split)
-		return
-	}
-
-	var err error
-	if keysTotal, err = extractVal(split[0]); err != nil {
-		log.Debugf("parseDBKeyspaceString extractVal(split[0]) invalid, err: %s", err)
-		return
-	}
-	if keysExpiringTotal, err = extractVal(split[1]); err != nil {
-		log.Debugf("parseDBKeyspaceString extractVal(split[1]) invalid, err: %s", err)
-		return
-	}
-
-	avgTTL = -1
-	if len(split) > 2 {
-		if avgTTL, err = extractVal(split[2]); err != nil {
-			log.Debugf("parseDBKeyspaceString extractVal(split[2]) invalid, err: %s", err)
-			return
+	fields := make(map[string]string)
+	for part := range strings.SplitSeq(inputVal, ",") {
+		field, value, found := strings.Cut(part, "=")
+		if !found {
+			log.Debugf("parseDBKeyspaceString invalid field: [%s]", part)
+			return nil, false
 		}
-		avgTTL /= 1000
+		fields[field] = value
 	}
 
-	keysCachedTotal = -1
-	if len(split) > 3 {
-		if keysCachedTotal, err = extractVal(split[3]); err != nil {
-			log.Debugf("parseDBKeyspaceString extractVal(split[3]) invalid, err: %s", err)
-			return
+	for _, definition := range dbKeyspaceMetricDefinitions {
+		var value string
+		var found bool
+		for _, field := range definition.fields {
+			if value, found = fields[field]; found {
+				break
+			}
 		}
+
+		if !found {
+			if definition.required {
+				log.Debugf("parseDBKeyspaceString missing required field: [%s]", definition.fields[0])
+				return nil, false
+			}
+			continue
+		}
+
+		parsed, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			log.Debugf("parseDBKeyspaceString invalid field %s=%s, err: %s", definition.fields[0], value, err)
+			return nil, false
+		}
+		metrics = append(metrics, dbKeyspaceMetric{name: definition.name, value: parsed * definition.scale})
 	}
 
-	ok = true
-	return
+	return metrics, true
 }
 
 /*
