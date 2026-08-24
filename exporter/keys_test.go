@@ -200,8 +200,8 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 				Namespace: "test", DisableExportingKeyValues: disableExportingValues,
 				CheckSingleKeys: fmt.Sprintf(
 					"%s=%s,%s=%s",
-					dbNumStrFull, url.QueryEscape(testKeys[0]),
-					dbNumStrFull, url.QueryEscape(TestKeyNameSet),
+					"db0", url.QueryEscape(testKeys[0]),
+					"db0", url.QueryEscape(TestKeyNameSet),
 				),
 				IsCluster: true,
 			},
