@@ -78,9 +78,9 @@ func TestKeyValuesAsLabel(t *testing.T) {
 }
 
 func TestClusterKeyValuesAndSizes(t *testing.T) {
-	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	clusterUri := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	if clusterUri == "" {
-		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
+		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_VALKEY_CLUSTER_MASTER_URI")
 	}
 	setupTestKeysCluster(t, clusterUri)
 	defer deleteTestKeysCluster(t, clusterUri)
@@ -616,9 +616,9 @@ func TestCheckKeysMultipleDBs(t *testing.T) {
 }
 
 func TestClusterGetKeyInfo(t *testing.T) {
-	clusterUri := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	clusterUri := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	if clusterUri == "" {
-		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_REDIS_CLUSTER_MASTER_URI")
+		t.Skipf("Skipping TestClusterKeyValuesAndSizes, don't have env var TEST_VALKEY_CLUSTER_MASTER_URI")
 	}
 
 	e, _ := NewRedisExporter(

@@ -19,9 +19,9 @@ const (
 )
 
 func TestCommandLog(t *testing.T) {
-	addr := os.Getenv("TEST_VALKEY8_URI")
+	addr := os.Getenv("TEST_VALKEY9_URI")
 	if addr == "" {
-		t.Skipf("TEST_VALKEY8_URI not set - skipping")
+		t.Skipf("TEST_VALKEY9_URI not set - skipping")
 	}
 
 	e := getTestExporterWithAddr(addr)

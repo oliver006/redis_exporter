@@ -409,10 +409,10 @@ func waitForCapturedSNI(t *testing.T, sniCh <-chan string) string {
 	}
 }
 
-func TestValkeyTLSScheme(t *testing.T) {
+func TestRedisAndValkeyTLSSchemes(t *testing.T) {
 	for _, host := range []string{
 		os.Getenv("TEST_REDIS7_TLS_URI"),
-		os.Getenv("TEST_VALKEY8_TLS_URI"),
+		os.Getenv("TEST_VALKEY9_TLS_URI"),
 	} {
 		t.Run(host, func(t *testing.T) {
 			if host == "" {

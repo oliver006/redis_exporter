@@ -27,16 +27,16 @@ func setupSearchIndex(t *testing.T, addr string) error {
 }
 
 func TestExtractSearchIndexesMetrics(t *testing.T) {
-	test_redis8_uri := os.Getenv("TEST_REDIS8_URI")
-	test_valkey8_bundle_uri := os.Getenv("TEST_VALKEY8_BUNDLE_URI")
-	if test_redis8_uri == "" || test_valkey8_bundle_uri == "" {
-		t.Skipf("TEST_REDIS8_URI or TEST_VALKEY8_BUNDLE_URI aren't set - skipping")
+	testRedis8URI := os.Getenv("TEST_REDIS8_URI")
+	testValkey9BundleURI := os.Getenv("TEST_VALKEY9_BUNDLE_URI")
+	if testRedis8URI == "" || testValkey9BundleURI == "" {
+		t.Skipf("TEST_REDIS8_URI or TEST_VALKEY9_BUNDLE_URI aren't set - skipping")
 	}
-	if err := setupSearchIndex(t, test_redis8_uri); err != nil {
-		t.Fatalf("couldn't create search index in TEST_REDIS8_URI (%s), err: %s ", test_redis8_uri, err)
+	if err := setupSearchIndex(t, testRedis8URI); err != nil {
+		t.Fatalf("couldn't create search index in TEST_REDIS8_URI (%s), err: %s ", testRedis8URI, err)
 	}
-	if err := setupSearchIndex(t, test_valkey8_bundle_uri); err != nil {
-		t.Fatalf("couldn't create search index in TEST_VALKEY8_BUNDLE_URI (%s), err: %s ", test_valkey8_bundle_uri, err)
+	if err := setupSearchIndex(t, testValkey9BundleURI); err != nil {
+		t.Fatalf("couldn't create search index in TEST_VALKEY9_BUNDLE_URI (%s), err: %s ", testValkey9BundleURI, err)
 	}
 
 	tsts := []struct {
@@ -44,10 +44,10 @@ func TestExtractSearchIndexesMetrics(t *testing.T) {
 		inclSearchIndexesMetrics bool
 		wantSearchIndexesMetrics bool
 	}{
-		{addr: test_redis8_uri, inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
-		{addr: test_redis8_uri, inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
-		{addr: test_valkey8_bundle_uri, inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
-		{addr: test_valkey8_bundle_uri, inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
+		{addr: testRedis8URI, inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
+		{addr: testRedis8URI, inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
+		{addr: testValkey9BundleURI, inclSearchIndexesMetrics: true, wantSearchIndexesMetrics: true},
+		{addr: testValkey9BundleURI, inclSearchIndexesMetrics: false, wantSearchIndexesMetrics: false},
 	}
 
 	for _, tst := range tsts {

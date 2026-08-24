@@ -102,12 +102,12 @@ func TestStreamsGetStreamInfo(t *testing.T) {
 	}
 }
 
-func TestStreamsGetStreamInfoUsingValKey7(t *testing.T) {
-	if os.Getenv("TEST_VALKEY7_URI") == "" {
-		t.Skipf("TEST_VALKEY7_URI not set - skipping")
+func TestStreamsGetStreamInfoUsingValkey9(t *testing.T) {
+	if os.Getenv("TEST_VALKEY9_URI") == "" {
+		t.Skipf("TEST_VALKEY9_URI not set - skipping")
 	}
 
-	addr := strings.Replace(os.Getenv("TEST_VALKEY7_URI"), "valkey://", "redis://", 1)
+	addr := strings.Replace(os.Getenv("TEST_VALKEY9_URI"), "valkey://", "redis://", 1)
 	c, err := redis.DialURL(addr)
 	if err != nil {
 		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
@@ -282,11 +282,11 @@ func TestStreamsScanStreamGroups123(t *testing.T) {
 	}
 }
 
-func TestStreamsScanStreamGroupsUsingValKey7(t *testing.T) {
-	if os.Getenv("TEST_VALKEY7_URI") == "" {
-		t.Skipf("TEST_VALKEY7_URI not set - skipping")
+func TestStreamsScanStreamGroupsUsingValkey9(t *testing.T) {
+	if os.Getenv("TEST_VALKEY9_URI") == "" {
+		t.Skipf("TEST_VALKEY9_URI not set - skipping")
 	}
-	addr := strings.Replace(os.Getenv("TEST_VALKEY7_URI"), "valkey://", "redis://", 1)
+	addr := strings.Replace(os.Getenv("TEST_VALKEY9_URI"), "valkey://", "redis://", 1)
 	db := dbNumStr
 
 	c, err := redis.DialURL(addr)
@@ -625,11 +625,11 @@ func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 }
 
 func TestClusterStreamMetricsExtraction(t *testing.T) {
-	if os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI") == "" {
-		t.Skipf("TEST_REDIS_CLUSTER_MASTER_URI not set - skipping cluster stream test")
+	if os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI") == "" {
+		t.Skipf("TEST_VALKEY_CLUSTER_MASTER_URI not set - skipping cluster stream test")
 	}
 
-	clusterURI := os.Getenv("TEST_REDIS_CLUSTER_MASTER_URI")
+	clusterURI := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 
 	// Test streams to create
 	testStreams := []string{"audit_stream", "sa_audit_stream", "test_stream_cluster"}
