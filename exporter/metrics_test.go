@@ -165,3 +165,54 @@ used_active_time_io_thread_foo:4.5
 		t.Errorf(`active_time_io_thread_seconds_total{thread="1"} = %f, want 3.5`, foundIOThreads["1"])
 	}
 }
+
+func TestRedis810InfoMetrics(t *testing.T) {
+	exp, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	info := `# Memory
+used_memory_hash_templates:8192
+# Persistence
+backup_in_progress:1
+# Stats
+hash_templates:7
+hash_template_keys:123
+`
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		exp.extractInfoMetrics(ch, info, 0)
+		close(ch)
+	}()
+
+	want := map[string]float64{
+		"memory_used_hash_templates_bytes": 8192,
+		"backup_in_progress":               1,
+		"hash_templates":                   7,
+		"hash_template_keys":               123,
+	}
+
+	for metric := range ch {
+		desc := metric.Desc().String()
+		for name, wantValue := range want {
+			if !strings.Contains(desc, `fqName: "test_`+name+`"`) {
+				continue
+			}
+
+			got := &dto.Metric{}
+			if err := metric.Write(got); err != nil {
+				t.Fatalf("metric.Write() err: %s", err)
+			}
+			if gotValue := got.GetGauge().GetValue(); gotValue != wantValue {
+				t.Errorf("%s value = %f, want %f", name, gotValue, wantValue)
+			}
+			delete(want, name)
+		}
+	}
+
+	for name := range want {
+		t.Errorf("didn't find test_%s", name)
+	}
+}
