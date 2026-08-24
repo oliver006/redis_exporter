@@ -15,10 +15,10 @@ import (
 
 func TestKeyspaceStringParser(t *testing.T) {
 	tsts := []struct {
-		db                                    string
-		stats                                 string
-		keysTotal, keysEx, keysCached, avgTTL float64
-		ok                                    bool
+		db                                                     string
+		stats                                                  string
+		keysTotal, keysEx, keysCached, subkeysExpiring, avgTTL float64
+		ok                                                     bool
 	}{
 		{db: "xxx", stats: "", ok: false},
 		{db: "xxx", stats: "keys=1,expires=0,avg_ttl=0", ok: false},
@@ -31,32 +31,38 @@ func TestKeyspaceStringParser(t *testing.T) {
 		{db: "db3", stats: "keys=123,expires=0,avg_ttl=zzz", ok: false},
 		{db: "db3", stats: "keys=1,expires=0,avg_ttl=zzz,cached_keys=0", ok: false},
 		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=zzz", ok: false},
-		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0,extra=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
+		{db: "db3", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0,extra=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, subkeysExpiring: -1, ok: true},
 
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, ok: true},
-		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: -1, subkeysExpiring: -1, ok: true},
+		{db: "db0", stats: "keys=1,expires=0,avg_ttl=0,cached_keys=0", keysTotal: 1, keysEx: 0, avgTTL: 0, keysCached: 0, subkeysExpiring: -1, ok: true},
 
 		{
 			db: "db0", stats: "keys=25714011,expires=25091314,avg_ttl=685620459,subexpiry=0",
-			keysTotal: 25714011, keysEx: 25091314, keysCached: 0, avgTTL: 685620.459000,
+			keysTotal: 25714011, keysEx: 25091314, keysCached: -1, subkeysExpiring: 0, avgTTL: 685620.459000,
+			ok: true,
+		},
+		{
+			db: "db0", stats: "subexpiry=3,cached_keys=4,expires=2,keys=10,avg_ttl=1000",
+			keysTotal: 10, keysEx: 2, keysCached: 4, subkeysExpiring: 3, avgTTL: 1,
 			ok: true,
 		},
 	}
 
 	for _, tst := range tsts {
-		if kt, kx, ttl, kc, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
+		if kt, kx, ttl, kc, se, ok := parseDBKeyspaceString(tst.db, tst.stats); true {
 
 			if ok != tst.ok {
 				t.Errorf("failed for: db:%s stats:%s", tst.db, tst.stats)
 				continue
 			}
 
-			if ok && (kt != tst.keysTotal || kx != tst.keysEx || kc != tst.keysCached || ttl != tst.avgTTL) {
-				t.Errorf("values not matching, db:%s stats:%s   %f != %f   %f != %f  %f != %f  %f != %f",
+			if ok && (kt != tst.keysTotal || kx != tst.keysEx || kc != tst.keysCached || se != tst.subkeysExpiring || ttl != tst.avgTTL) {
+				t.Errorf("values not matching, db:%s stats:%s   %f != %f   %f != %f  %f != %f  %f != %f  %f != %f",
 					tst.db, tst.stats,
 					kt, tst.keysTotal,
 					kx, tst.keysEx,
 					kc, tst.keysCached,
+					se, tst.subkeysExpiring,
 					ttl, tst.avgTTL)
 			}
 		}

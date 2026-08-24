@@ -986,10 +986,15 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 		"test_latency_percentiles_usec":        false,
 		"test_commands_duration_seconds_total": false,
 		"test_commands_total":                  false,
+		"test_db_subkeys_expiring":             false,
 	}
+	foundCachedKeys := false
 
 	for m := range chM {
 		descString := m.Desc().String()
+		if strings.Contains(descString, "test_db_keys_cached") {
+			foundCachedKeys = true
+		}
 		for k := range want {
 			if strings.Contains(descString, k) {
 				want[k] = true
@@ -1001,6 +1006,9 @@ db1:keys=18,expires=13,avg_ttl=145372776312,subexpiry=0
 		if !found {
 			t.Errorf("didn't find metric: %s", k)
 		}
+	}
+	if foundCachedKeys {
+		t.Error("found test_db_keys_cached metric for Redis subexpiry field")
 	}
 }
 
