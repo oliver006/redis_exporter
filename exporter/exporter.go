@@ -89,6 +89,7 @@ type Options struct {
 	ClusterDiscoverHostnames       bool
 	ExportClientList               bool
 	ExportClientsInclPort          bool
+	ClientIdleThresholdSeconds     int64
 	ConnectionTimeouts             time.Duration
 	MetricsPath                    string
 	RedisMetricsOnly               bool
@@ -103,6 +104,10 @@ type Options struct {
 	InclMetricsForEmptyDatabases   bool
 	AppendInstanceRoleLabel        bool
 	DisableScrapeEndpoint          bool
+}
+
+func (o Options) exportIdleClientCount() bool {
+	return o.ClientIdleThresholdSeconds > 0
 }
 
 func getInstanceRoleFromInfo(info string) string {
@@ -133,6 +138,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		if _, err := regexp.Compile(opts.CheckSearchIndexes); err != nil {
 			return nil, fmt.Errorf("invalid check-search-indexes regex %q: %w", opts.CheckSearchIndexes, err)
 		}
+	}
+
+	if opts.ClientIdleThresholdSeconds < 0 {
+		return nil, fmt.Errorf("client-idle-threshold-seconds must be >= 0, got: %d", opts.ClientIdleThresholdSeconds)
 	}
 
 	if opts.Registry == nil {
@@ -563,6 +572,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"db_keys_with_expiring_items":                        {txt: "Total number of keys with expiring items by DB", lbls: []string{"db"}},
 		"errors_total":                                       {txt: `Total number of errors per error type`, lbls: []string{"err"}},
 		"exporter_last_scrape_error":                         {txt: "The last scrape error status.", lbls: []string{"err"}},
+		"idle_clients":                                       {txt: "Number of idle client connections at or above the threshold_seconds value", lbls: []string{"threshold_seconds"}},
 		"key_group_count":                                    {txt: `Count of keys in key group`, lbls: []string{"db", "key_group"}},
 		"key_group_memory_usage_bytes":                       {txt: `Total memory usage of key group in bytes`, lbls: []string{"db", "key_group"}},
 		"key_memory_usage_bytes":                             {txt: `The memory usage of "key" in bytes`, lbls: []string{"db", "key"}},
@@ -957,7 +967,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractSentinelConfig(ch, c)
 	}
 
-	if e.options.ExportClientList {
+	if e.options.ExportClientList || e.options.exportIdleClientCount() {
 		e.extractConnectedClientMetrics(ch, c)
 	}
 

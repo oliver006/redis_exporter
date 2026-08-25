@@ -21,9 +21,11 @@ type ClientInfo struct {
 	Db,
 	Host,
 	Port,
+	Cmd,
 	Resp string
 	CreatedAt,
 	IdleSince,
+	IdleSeconds,
 	Sub,
 	Psub,
 	Ssub,
@@ -71,6 +73,12 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			}
 			connectedClient.CreatedAt = createdAt
 		case "idle":
+			idleSec, err := strconv.ParseInt(vPart[1], 10, 64)
+			if err != nil {
+				log.Debugf("could not parse 'idle' field(%s): %s", vPart[1], err.Error())
+				return nil, false
+			}
+			connectedClient.IdleSeconds = idleSec
 			idleSinceTs, err := durationFieldToTimestamp(vPart[1])
 			if err != nil {
 				log.Debugf("could not parse 'idle' field(%s): %s", vPart[1], err.Error())
@@ -109,6 +117,8 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			}
 			connectedClient.Host = strings.Join(hostPortString[:len(hostPortString)-1], ":")
 			connectedClient.Port = hostPortString[len(hostPortString)-1]
+		case "cmd":
+			connectedClient.Cmd = vPart[1]
 		case "resp":
 			connectedClient.Resp = vPart[1]
 		}
@@ -125,6 +135,22 @@ func durationFieldToTimestamp(field string) (int64, error) {
 	return time.Now().Unix() - parsed, nil
 }
 
+// idleClientExcludedFlags lists CLIENT LIST flag runes excluded from idle_clients,
+// aligned with Redis/Valkey clientsCronHandleTimeout (see timeout.c): pub/sub (P),
+// blocked (b), master (M), replica (S), MONITOR (O), cluster slot migration (g, o).
+const idleClientExcludedFlags = "PbMSOgo"
+
+// clientCountsTowardIdleMetric reports whether a CLIENT LIST entry should be
+// included in the idle_clients aggregate.
+func clientCountsTowardIdleMetric(flags string) bool {
+	for _, r := range idleClientExcludedFlags {
+		if strings.ContainsRune(flags, r) {
+			return false
+		}
+	}
+	return true
+}
+
 func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	reply, err := redis.String(doRedisCmd(c, "CLIENT", "LIST"))
 	if err != nil {
@@ -135,6 +161,7 @@ func (e *Exporter) extractConnectedClientMetrics(ch chan<- prometheus.Metric, c 
 }
 
 func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheus.Metric) {
+	idleCount := int64(0)
 
 	for s := range strings.SplitSeq(input, "\n") {
 		info, ok := parseClientListString(s)
@@ -142,6 +169,17 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 			log.Debugf("parseClientListString( %s ) - couldn';t parse input", s)
 			continue
 		}
+
+		if e.options.exportIdleClientCount() &&
+			info.IdleSeconds >= e.options.ClientIdleThresholdSeconds &&
+			clientCountsTowardIdleMetric(info.Flags) {
+			idleCount++
+		}
+
+		if !e.options.ExportClientList {
+			continue
+		}
+
 		clientInfoLabels := []string{"id", "name", "flags", "db", "host"}
 		clientInfoLabelValues := []string{info.Id, info.Name, info.Flags, info.Db, info.Host}
 
@@ -249,5 +287,11 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 				clientBaseLabelsValues...,
 			)
 		}
+	}
+
+	if e.options.exportIdleClientCount() {
+		threshold := strconv.FormatInt(e.options.ClientIdleThresholdSeconds, 10)
+		e.createMetricDescription("idle_clients", []string{"threshold_seconds"})
+		e.registerConstMetricGauge(ch, "idle_clients", float64(idleCount), threshold)
 	}
 }
