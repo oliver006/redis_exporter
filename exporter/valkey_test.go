@@ -343,9 +343,9 @@ func TestGatherClusterKeyGroupMetrics(t *testing.T) {
 }
 
 func TestValkey91ClusterDatabasesAndScan(t *testing.T) {
-	uri := os.Getenv("TEST_VALKEY91_CLUSTER_URI")
+	uri := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	if uri == "" {
-		t.Skip("TEST_VALKEY91_CLUSTER_URI is not set")
+		t.Skip("TEST_VALKEY_CLUSTER_MASTER_URI is not set")
 	}
 
 	keys := make([]string, 3)

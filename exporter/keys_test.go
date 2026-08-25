@@ -763,8 +763,10 @@ func TestRedis88ClusterArrayGetKeyInfo(t *testing.T) {
 	e, _ := NewRedisExporter(
 		clusterUri,
 		Options{
-			Namespace:       "test",
-			CheckSingleKeys: "array_test,events:1",
+			Namespace: "test",
+			// Redis clusters only support database 0. Keep accepting an explicit
+			// non-zero database here as the exporter did before Valkey multi-DB support.
+			CheckSingleKeys: "db11=array_test,db11=events:1",
 			IsCluster:       true,
 		},
 	)
