@@ -118,6 +118,16 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 		case "Server":
 			e.handleMetricsServer(ch, fieldKey, fieldValue)
 
+		case "TLS":
+			if e.handleMetricsTLS(ch, fieldKey, fieldValue) {
+				continue
+			}
+
+		case "Scripting Engines":
+			if e.handleMetricsScriptingEngines(ch, fieldKey, fieldValue) {
+				continue
+			}
+
 		case "Commandstats":
 			cmd, calls, usecsTotal := e.handleMetricsCommandStats(ch, fieldKey, fieldValue)
 			cmdCount[cmd] = uint64(calls)
