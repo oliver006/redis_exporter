@@ -106,6 +106,8 @@ services:
 
   valkey9-cluster:
     image: oliver006/valkey-cluster:9.1.1
+    volumes:
+      - ./contrib/valkey-cluster-multidb.tmpl:/valkey-conf/valkey-cluster.tmpl:ro
     environment:
       - IP=0.0.0.0
     ports:
