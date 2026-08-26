@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"fmt"
+	"math"
 	"net/http/httptest"
 	"os"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -391,6 +393,132 @@ func TestParseCommandStats(t *testing.T) {
 		})
 	}
 
+}
+
+func TestParseCommandSlowlogStats(t *testing.T) {
+	for _, test := range []struct {
+		name                        string
+		value                       string
+		wantCount, wantSum, wantMax float64
+		wantAvailable, wantError    bool
+	}{
+		{
+			name:          "absent",
+			value:         "calls=2,usec=10,usec_per_call=5.00,rejected_calls=0,failed_calls=0",
+			wantAvailable: false,
+		},
+		{
+			name:          "redis 8.8",
+			value:         "calls=2,usec=10,usec_per_call=5.00,rejected_calls=0,failed_calls=0,slowlog_count=2,slowlog_time_ms_sum=125.50,slowlog_time_ms_max=75.25",
+			wantCount:     2,
+			wantSum:       125.5,
+			wantMax:       75.25,
+			wantAvailable: true,
+		},
+		{
+			name:      "incomplete",
+			value:     "calls=2,slowlog_count=2",
+			wantError: true,
+		},
+		{
+			name:      "invalid",
+			value:     "calls=2,slowlog_count=nope,slowlog_time_ms_sum=1,slowlog_time_ms_max=1",
+			wantError: true,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			count, sum, max, available, err := parseMetricsCommandSlowlogStats(test.value)
+			if (err != nil) != test.wantError {
+				t.Fatalf("parseMetricsCommandSlowlogStats() err = %v, wantError %t", err, test.wantError)
+			}
+			if count != test.wantCount || sum != test.wantSum || max != test.wantMax || available != test.wantAvailable {
+				t.Errorf("parseMetricsCommandSlowlogStats() = (%v, %v, %v, %t), want (%v, %v, %v, %t)", count, sum, max, available, test.wantCount, test.wantSum, test.wantMax, test.wantAvailable)
+			}
+		})
+	}
+}
+
+func TestRedisEightEightInfoMetrics(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+	info := `# Clients
+active_clients:4
+# Stats
+eventloop_cycles_with_clients_processing:11
+total_client_processing_events:12
+avg_pipeline_length_sum:30
+avg_pipeline_length_cnt:10
+avg_pipeline_length:3.00
+slowlog_commands_count:7
+slowlog_commands_time_ms_max:400.00
+slowlog_commands_time_ms_sum:1250.00
+# Commandstats
+cmdstat_xnack:calls=4,usec=40,usec_per_call=10.00,rejected_calls=0,failed_calls=0,slowlog_count=2,slowlog_time_ms_sum=300.00,slowlog_time_ms_max=200.00
+`
+
+	type expectedMetric struct {
+		value   float64
+		counter bool
+		found   bool
+	}
+	want := map[string]*expectedMetric{
+		"active_clients": {value: 4},
+		"eventloop_cycles_with_clients_processing_total": {value: 11, counter: true},
+		"client_processing_events_total":                 {value: 12, counter: true},
+		"client_processing_pipeline_commands_total":      {value: 30, counter: true},
+		"client_processing_pipeline_batches_total":       {value: 10, counter: true},
+		"client_processing_pipeline_length":              {value: 3},
+		"slowlog_commands_total":                         {value: 7, counter: true},
+		"slowlog_commands_duration_seconds_max":          {value: 0.4},
+		"slowlog_commands_duration_seconds_total":        {value: 1.25, counter: true},
+		"commands_slowlog_total":                         {value: 2, counter: true},
+		"commands_slowlog_duration_seconds_total":        {value: 0.3, counter: true},
+		"commands_slowlog_duration_seconds_max":          {value: 0.2},
+	}
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.extractInfoMetrics(ch, info, 0)
+		close(ch)
+	}()
+	for metric := range ch {
+		desc := metric.Desc().String()
+		for name, expected := range want {
+			if !strings.Contains(desc, `fqName: "test_`+name+`"`) {
+				continue
+			}
+			var got dto.Metric
+			if err := metric.Write(&got); err != nil {
+				t.Fatalf("metric.Write(%s) err: %s", name, err)
+			}
+			var value float64
+			if expected.counter {
+				if got.Counter == nil {
+					t.Errorf("%s is not a counter", name)
+					continue
+				}
+				value = got.Counter.GetValue()
+			} else {
+				if got.Gauge == nil {
+					t.Errorf("%s is not a gauge", name)
+					continue
+				}
+				value = got.Gauge.GetValue()
+			}
+			if math.Abs(value-expected.value) > 1e-9 {
+				t.Errorf("%s value = %v, want %v", name, value, expected.value)
+			}
+			expected.found = true
+		}
+	}
+
+	for name, expected := range want {
+		if !expected.found {
+			t.Errorf("metric %s was not emitted", name)
+		}
+	}
 }
 
 func TestParseErrorStats(t *testing.T) {

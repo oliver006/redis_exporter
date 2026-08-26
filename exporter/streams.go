@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -19,6 +20,13 @@ type streamInfo struct {
 	Groups            int64  `redis:"groups"`
 	MaxDeletedEntryId string `redis:"max-deleted-entry-id"`
 	EntriesAdded      int64  `redis:"entries-added"`
+	IDMPDuration      int64  `redis:"idmp-duration"`
+	IDMPMaxSize       int64  `redis:"idmp-maxsize"`
+	PIDsTracked       int64  `redis:"pids-tracked"`
+	IIDsTracked       int64  `redis:"iids-tracked"`
+	IIDsAdded         int64  `redis:"iids-added"`
+	IIDsDuplicates    int64  `redis:"iids-duplicates"`
+	IDMPAvailable     bool
 	FirstEntryId      string
 	LastEntryId       string
 	StreamGroupsInfo  []streamGroupsInfo
@@ -31,6 +39,8 @@ type streamGroupsInfo struct {
 	LastDeliveredId          string `redis:"last-delivered-id"`
 	EntriesRead              int64  `redis:"entries-read"`
 	Lag                      int64  `redis:"lag"`
+	NackedCount              int64
+	NackedCountAvailable     bool
 	StreamGroupConsumersInfo []streamGroupConsumersInfo
 }
 
@@ -46,32 +56,55 @@ func getStreamInfo(c redis.Conn, key string) (*streamInfo, error) {
 		return nil, err
 	}
 
-	// Scan slice to struct
-	var stream streamInfo
-	if err := redis.ScanStruct(values, &stream); err != nil {
+	stream, err := parseStreamInfo(values)
+	if err != nil {
 		return nil, err
-	}
-
-	// Extract first and last id from slice
-	for idx, v := range values {
-		vbytes, ok := v.([]byte)
-		if !ok {
-			continue
-		}
-		if string(vbytes) == "first-entry" {
-			stream.FirstEntryId = getStreamEntryId(values, idx+1)
-		}
-		if string(vbytes) == "last-entry" {
-			stream.LastEntryId = getStreamEntryId(values, idx+1)
-		}
 	}
 
 	stream.StreamGroupsInfo, err = scanStreamGroups(c, key)
 	if err != nil {
 		return nil, err
 	}
+	if len(stream.StreamGroupsInfo) > 0 {
+		nackedCounts, err := scanStreamGroupNackedCounts(c, key)
+		if err != nil {
+			log.Debugf("Couldn't get XNACK state for stream '%s': %s", key, err)
+		} else {
+			for idx := range stream.StreamGroupsInfo {
+				group := &stream.StreamGroupsInfo[idx]
+				if count, ok := nackedCounts[group.Name]; ok {
+					group.NackedCount = count
+					group.NackedCountAvailable = true
+				}
+			}
+		}
+	}
 
-	log.Debugf("getStreamInfo() stream: %#v", &stream)
+	log.Debugf("getStreamInfo() stream: %#v", stream)
+	return stream, nil
+}
+
+func parseStreamInfo(values []any) (*streamInfo, error) {
+	var stream streamInfo
+	if err := redis.ScanStruct(values, &stream); err != nil {
+		return nil, err
+	}
+
+	for idx := 0; idx+1 < len(values); idx += 2 {
+		key, err := redis.String(values[idx], nil)
+		if err != nil {
+			continue
+		}
+		switch key {
+		case "first-entry":
+			stream.FirstEntryId = getStreamEntryId(values, idx+1)
+		case "last-entry":
+			stream.LastEntryId = getStreamEntryId(values, idx+1)
+		case "idmp-duration":
+			stream.IDMPAvailable = true
+		}
+	}
+
 	return &stream, nil
 }
 
@@ -128,6 +161,61 @@ func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
 	return result, nil
 }
 
+func scanStreamGroupNackedCounts(c redis.Conn, stream string) (map[string]int64, error) {
+	values, err := redis.Values(doRedisCmd(c, "XINFO", "STREAM", stream, "FULL", "COUNT", 1))
+	if err != nil {
+		return nil, err
+	}
+	return parseStreamGroupNackedCounts(values)
+}
+
+func parseStreamGroupNackedCounts(values []any) (map[string]int64, error) {
+	result := map[string]int64{}
+	var groups []any
+	for idx := 0; idx+1 < len(values); idx += 2 {
+		key, err := redis.String(values[idx], nil)
+		if err != nil || key != "groups" {
+			continue
+		}
+		groups, err = redis.Values(values[idx+1], nil)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't parse stream groups: %w", err)
+		}
+		break
+	}
+
+	for _, rawGroup := range groups {
+		fields, err := redis.Values(rawGroup, nil)
+		if err != nil {
+			return nil, fmt.Errorf("couldn't parse stream group: %w", err)
+		}
+		var name string
+		var nackedCount int64
+		var nackedCountAvailable bool
+		for idx := 0; idx+1 < len(fields); idx += 2 {
+			key, err := redis.String(fields[idx], nil)
+			if err != nil {
+				continue
+			}
+			switch key {
+			case "name":
+				name, err = redis.String(fields[idx+1], nil)
+			case "nacked-count":
+				nackedCount, err = redis.Int64(fields[idx+1], nil)
+				nackedCountAvailable = err == nil
+			}
+			if err != nil {
+				return nil, fmt.Errorf("couldn't parse stream group field %q: %w", key, err)
+			}
+		}
+		if name != "" && nackedCountAvailable {
+			result[name] = nackedCount
+		}
+	}
+
+	return result, nil
+}
+
 func scanStreamGroupConsumers(c redis.Conn, stream string, group string) ([]streamGroupConsumersInfo, error) {
 	consumers, err := redis.Values(doRedisCmd(c, "XINFO", "CONSUMERS", stream, group))
 	if err != nil {
@@ -173,6 +261,44 @@ func parseStreamItemId(id string) float64 {
 	return parsedId
 }
 
+func (e *Exporter) registerStreamMetrics(ch chan<- prometheus.Metric, dbLabel string, key string, info *streamInfo) {
+	e.registerConstMetricGauge(ch, "stream_length", float64(info.Length), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_radix_tree_keys", float64(info.RadixTreeKeys), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_radix_tree_nodes", float64(info.RadixTreeNodes), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_last_generated_id", parseStreamItemId(info.LastGeneratedId), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_groups", float64(info.Groups), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_max_deleted_entry_id", parseStreamItemId(info.MaxDeletedEntryId), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_first_entry_id", parseStreamItemId(info.FirstEntryId), dbLabel, key)
+	e.registerConstMetricGauge(ch, "stream_last_entry_id", parseStreamItemId(info.LastEntryId), dbLabel, key)
+	e.registerConstMetric(ch, "stream_entries_added_total", float64(info.EntriesAdded), prometheus.CounterValue, dbLabel, key)
+
+	if info.IDMPAvailable {
+		e.registerConstMetricGauge(ch, "stream_idmp_duration_seconds", float64(info.IDMPDuration), dbLabel, key)
+		e.registerConstMetricGauge(ch, "stream_idmp_max_size", float64(info.IDMPMaxSize), dbLabel, key)
+		e.registerConstMetricGauge(ch, "stream_idmp_producer_ids_tracked", float64(info.PIDsTracked), dbLabel, key)
+		e.registerConstMetricGauge(ch, "stream_idmp_idempotent_ids_tracked", float64(info.IIDsTracked), dbLabel, key)
+		e.registerConstMetric(ch, "stream_idmp_entries_added_total", float64(info.IIDsAdded), prometheus.CounterValue, dbLabel, key)
+		e.registerConstMetric(ch, "stream_idmp_duplicates_total", float64(info.IIDsDuplicates), prometheus.CounterValue, dbLabel, key)
+	}
+
+	for _, group := range info.StreamGroupsInfo {
+		e.registerConstMetricGauge(ch, "stream_group_consumers", float64(group.Consumers), dbLabel, key, group.Name)
+		e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(group.Pending), dbLabel, key, group.Name)
+		e.registerConstMetricGauge(ch, "stream_group_last_delivered_id", parseStreamItemId(group.LastDeliveredId), dbLabel, key, group.Name)
+		e.registerConstMetricGauge(ch, "stream_group_entries_read", float64(group.EntriesRead), dbLabel, key, group.Name)
+		e.registerConstMetricGauge(ch, "stream_group_lag", float64(group.Lag), dbLabel, key, group.Name)
+		if group.NackedCountAvailable {
+			e.registerConstMetricGauge(ch, "stream_group_messages_nacked", float64(group.NackedCount), dbLabel, key, group.Name)
+		}
+		if !e.options.StreamsExcludeConsumerMetrics {
+			for _, consumer := range group.StreamGroupConsumersInfo {
+				e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(consumer.Pending), dbLabel, key, group.Name, consumer.Name)
+				e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(consumer.Idle)/1e3, dbLabel, key, group.Name, consumer.Name)
+			}
+		}
+	}
+}
+
 func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Conn) {
 	streams, err := parseKeyArg(e.options.CheckStreams)
 	if err != nil {
@@ -206,29 +332,6 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 			continue
 		}
 		dbLabel := "db" + k.db
-
-		e.registerConstMetricGauge(ch, "stream_length", float64(info.Length), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_radix_tree_keys", float64(info.RadixTreeKeys), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_radix_tree_nodes", float64(info.RadixTreeNodes), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_last_generated_id", parseStreamItemId(info.LastGeneratedId), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_groups", float64(info.Groups), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_max_deleted_entry_id", parseStreamItemId(info.MaxDeletedEntryId), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_first_entry_id", parseStreamItemId(info.FirstEntryId), dbLabel, k.key)
-		e.registerConstMetricGauge(ch, "stream_last_entry_id", parseStreamItemId(info.LastEntryId), dbLabel, k.key)
-		e.registerConstMetric(ch, "stream_entries_added_total", float64(info.EntriesAdded), prometheus.CounterValue, dbLabel, k.key)
-
-		for _, g := range info.StreamGroupsInfo {
-			e.registerConstMetricGauge(ch, "stream_group_consumers", float64(g.Consumers), dbLabel, k.key, g.Name)
-			e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(g.Pending), dbLabel, k.key, g.Name)
-			e.registerConstMetricGauge(ch, "stream_group_last_delivered_id", parseStreamItemId(g.LastDeliveredId), dbLabel, k.key, g.Name)
-			e.registerConstMetricGauge(ch, "stream_group_entries_read", float64(g.EntriesRead), dbLabel, k.key, g.Name)
-			e.registerConstMetricGauge(ch, "stream_group_lag", float64(g.Lag), dbLabel, k.key, g.Name)
-			if !e.options.StreamsExcludeConsumerMetrics {
-				for _, c := range g.StreamGroupConsumersInfo {
-					e.registerConstMetricGauge(ch, "stream_group_consumer_messages_pending", float64(c.Pending), dbLabel, k.key, g.Name, c.Name)
-					e.registerConstMetricGauge(ch, "stream_group_consumer_idle_seconds", float64(c.Idle)/1e3, dbLabel, k.key, g.Name, c.Name)
-				}
-			}
-		}
+		e.registerStreamMetrics(ch, dbLabel, k.key, info)
 	}
 }

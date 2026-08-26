@@ -8,6 +8,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -33,6 +34,147 @@ func isNotTestTimestamp(returned string) bool {
 		}
 	}
 	return true
+}
+
+func TestParseRedisIDMPStreamInfo(t *testing.T) {
+	values := []any{
+		[]byte("length"), int64(2),
+		[]byte("last-generated-id"), []byte("1638006862417-2"),
+		[]byte("idmp-duration"), int64(60),
+		[]byte("idmp-maxsize"), int64(100),
+		[]byte("pids-tracked"), int64(3),
+		[]byte("iids-tracked"), int64(7),
+		[]byte("iids-added"), int64(11),
+		[]byte("iids-duplicates"), int64(2),
+		[]byte("first-entry"), []any{[]byte("1638006862416-0"), []any{}},
+		[]byte("last-entry"), []any{[]byte("1638006862417-2"), []any{}},
+	}
+
+	info, err := parseStreamInfo(values)
+	if err != nil {
+		t.Fatalf("parseStreamInfo() err: %s", err)
+	}
+	if !info.IDMPAvailable {
+		t.Fatal("IDMP fields were not marked available")
+	}
+	if info.IDMPDuration != 60 || info.IDMPMaxSize != 100 || info.PIDsTracked != 3 || info.IIDsTracked != 7 || info.IIDsAdded != 11 || info.IIDsDuplicates != 2 {
+		t.Errorf("unexpected IDMP stream info: %#v", info)
+	}
+	if info.FirstEntryId != "1638006862416-0" || info.LastEntryId != "1638006862417-2" {
+		t.Errorf("unexpected stream entry IDs: first=%q last=%q", info.FirstEntryId, info.LastEntryId)
+	}
+}
+
+func TestParseStreamGroupNackedCounts(t *testing.T) {
+	values := []any{
+		[]byte("length"), int64(3),
+		[]byte("groups"), []any{
+			[]any{[]byte("name"), []byte("workers"), []byte("nacked-count"), int64(2)},
+			[]any{[]byte("name"), []byte("other"), []byte("nacked-count"), int64(0)},
+			[]any{[]byte("name"), []byte("pre-8.8")},
+		},
+	}
+
+	got, err := parseStreamGroupNackedCounts(values)
+	if err != nil {
+		t.Fatalf("parseStreamGroupNackedCounts() err: %s", err)
+	}
+	if len(got) != 2 || got["workers"] != 2 || got["other"] != 0 {
+		t.Errorf("parseStreamGroupNackedCounts() = %#v, want workers=2 and other=0", got)
+	}
+}
+
+func TestRedisIDMPAndXNACKStreamMetrics(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+	info := &streamInfo{
+		IDMPAvailable:  true,
+		IDMPDuration:   60,
+		IDMPMaxSize:    100,
+		PIDsTracked:    3,
+		IIDsTracked:    7,
+		IIDsAdded:      11,
+		IIDsDuplicates: 2,
+		StreamGroupsInfo: []streamGroupsInfo{{
+			Name: "workers", NackedCount: 2, NackedCountAvailable: true,
+		}},
+	}
+	type expectedMetric struct {
+		value   float64
+		counter bool
+		found   bool
+	}
+	want := map[string]*expectedMetric{
+		"stream_idmp_duration_seconds":       {value: 60},
+		"stream_idmp_max_size":               {value: 100},
+		"stream_idmp_producer_ids_tracked":   {value: 3},
+		"stream_idmp_idempotent_ids_tracked": {value: 7},
+		"stream_idmp_entries_added_total":    {value: 11, counter: true},
+		"stream_idmp_duplicates_total":       {value: 2, counter: true},
+		"stream_group_messages_nacked":       {value: 2},
+	}
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.registerStreamMetrics(ch, "db0", "events", info)
+		close(ch)
+	}()
+	for metric := range ch {
+		for name, expected := range want {
+			if !strings.Contains(metric.Desc().String(), `fqName: "test_`+name+`"`) {
+				continue
+			}
+			var got dto.Metric
+			if err := metric.Write(&got); err != nil {
+				t.Fatalf("metric.Write(%s) err: %s", name, err)
+			}
+			var value float64
+			if expected.counter {
+				if got.Counter == nil {
+					t.Errorf("%s is not a counter", name)
+					continue
+				}
+				value = got.Counter.GetValue()
+			} else {
+				if got.Gauge == nil {
+					t.Errorf("%s is not a gauge", name)
+					continue
+				}
+				value = got.Gauge.GetValue()
+			}
+			if value != expected.value {
+				t.Errorf("%s value = %v, want %v", name, value, expected.value)
+			}
+			expected.found = true
+		}
+	}
+	for name, expected := range want {
+		if !expected.found {
+			t.Errorf("metric %s was not emitted", name)
+		}
+	}
+}
+
+func TestStreamMetricsOmitUnavailableIDMPAndXNACKState(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+	info := &streamInfo{StreamGroupsInfo: []streamGroupsInfo{{Name: "workers"}}}
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.registerStreamMetrics(ch, "db0", "events", info)
+		close(ch)
+	}()
+	for metric := range ch {
+		desc := metric.Desc().String()
+		if strings.Contains(desc, "stream_idmp_") || strings.Contains(desc, "stream_group_messages_nacked") {
+			t.Errorf("unsupported stream state was emitted: %s", desc)
+		}
+	}
 }
 
 func TestStreamsGetStreamInfo(t *testing.T) {

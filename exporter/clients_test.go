@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func TestDurationFieldToTimestamp(t *testing.T) {
@@ -76,6 +77,14 @@ func TestParseClientListString(t *testing.T) {
 			expectedOk:   true,
 			expectedInfo: ClientInfo{Id: "40253233", CreatedAt: convertDurationToTimestampInt64("782"), IdleSince: convertDurationToTimestampInt64("0"), Flags: "N", Db: "0", Sub: 896, Psub: 18, Ssub: 17, Watch: 3, Qbuf: 26, QbufFree: 32742, Oll: 555, OMem: 0, TotMem: 61466, Host: "fd40:1481:21:dbe0:7021:300:a03:1a06", Port: "44426", User: "default"},
 		}, {
+			in:         "id=15 addr=127.0.0.1:64960 name=worker read-events=42 avg-pipeline-len-sum=12 avg-pipeline-len-cnt=4",
+			expectedOk: true,
+			expectedInfo: ClientInfo{
+				Id: "15", Name: "worker", Ssub: -1, Watch: -1, Host: "127.0.0.1", Port: "64960",
+				ReadEvents: 42, PipelineLengthSum: 12, PipelineLengthCount: 4,
+				readEventsAvailable: true, pipelineLengthSumAvailable: true, pipelineLengthCountAvailable: true,
+			},
+		}, {
 			in:         "id=14 addr=127.0.0.1:64958 fd=9 name=foo age=ABCDE idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=client",
 			expectedOk: false,
 		}, {
@@ -138,6 +147,47 @@ func TestParseClientListString(t *testing.T) {
 
 		if *info != tst.expectedInfo {
 			t.Errorf("TestParseClientListString( %s ) error. Given: %#v Wanted: %#v", tst.in, info, tst.expectedInfo)
+		}
+	}
+}
+
+func TestRedisEightEightClientProcessingMetrics(t *testing.T) {
+	e := getTestExporterWithOptions(t, Options{Namespace: "test"})
+	input := "id=15 addr=127.0.0.1:64960 name=worker read-events=42 avg-pipeline-len-sum=12 avg-pipeline-len-cnt=4\n"
+	want := map[string]float64{
+		"connected_client_read_events_total":       42,
+		"connected_client_pipeline_commands_total": 12,
+		"connected_client_pipeline_batches_total":  4,
+	}
+	found := map[string]bool{}
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.parseConnectedClientMetrics(input, ch)
+		close(ch)
+	}()
+	for metric := range ch {
+		for name, expected := range want {
+			if !strings.Contains(metric.Desc().String(), `fqName: "test_`+name+`"`) {
+				continue
+			}
+			var got dto.Metric
+			if err := metric.Write(&got); err != nil {
+				t.Fatalf("metric.Write(%s) err: %s", name, err)
+			}
+			if got.Counter == nil {
+				t.Errorf("%s is not a counter", name)
+				continue
+			}
+			if got.Counter.GetValue() != expected {
+				t.Errorf("%s value = %v, want %v", name, got.Counter.GetValue(), expected)
+			}
+			found[name] = true
+		}
+	}
+	for name := range want {
+		if !found[name] {
+			t.Errorf("metric %s was not emitted", name)
 		}
 	}
 }

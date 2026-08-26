@@ -464,6 +464,42 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	return
 }
 
+func parseMetricsCommandSlowlogStats(fieldValue string) (count float64, timeMsSum float64, timeMsMax float64, available bool, err error) {
+	var foundCount, foundTimeSum, foundTimeMax bool
+	for _, field := range strings.Split(fieldValue, ",") {
+		parts := strings.SplitN(field, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		var target *float64
+		switch parts[0] {
+		case "slowlog_count":
+			target = &count
+			foundCount = true
+		case "slowlog_time_ms_sum":
+			target = &timeMsSum
+			foundTimeSum = true
+		case "slowlog_time_ms_max":
+			target = &timeMsMax
+			foundTimeMax = true
+		default:
+			continue
+		}
+
+		*target, err = strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			return 0, 0, 0, false, fmt.Errorf("invalid %s: %w", parts[0], err)
+		}
+	}
+
+	available = foundCount || foundTimeSum || foundTimeMax
+	if available && !(foundCount && foundTimeSum && foundTimeMax) {
+		return 0, 0, 0, false, errors.New("incomplete command slowlog stats")
+	}
+	return
+}
+
 func parseMetricsLatencyStats(fieldKey string, fieldValue string) (cmd string, percentileMap map[float64]float64, errorOut error) {
 	/*
 		# Latencystats
@@ -556,6 +592,18 @@ func (e *Exporter) handleMetricsCommandStats(ch chan<- prometheus.Metric, fieldK
 		e.createMetricDescription("commands_failed_calls_total", []string{"cmd"})
 		e.registerConstMetric(ch, "commands_rejected_calls_total", rejectedCalls, prometheus.CounterValue, cmd)
 		e.registerConstMetric(ch, "commands_failed_calls_total", failedCalls, prometheus.CounterValue, cmd)
+	}
+
+	slowlogCount, slowlogTimeMsSum, slowlogTimeMsMax, slowlogStats, err := parseMetricsCommandSlowlogStats(fieldValue)
+	if err != nil {
+		log.Debugf("parseMetricsCommandSlowlogStats( %s ) err: %s", fieldValue, err)
+	} else if slowlogStats {
+		e.createMetricDescription("commands_slowlog_total", []string{"cmd"})
+		e.createMetricDescription("commands_slowlog_duration_seconds_total", []string{"cmd"})
+		e.createMetricDescription("commands_slowlog_duration_seconds_max", []string{"cmd"})
+		e.registerConstMetric(ch, "commands_slowlog_total", slowlogCount, prometheus.CounterValue, cmd)
+		e.registerConstMetric(ch, "commands_slowlog_duration_seconds_total", slowlogTimeMsSum/1e3, prometheus.CounterValue, cmd)
+		e.registerConstMetricGauge(ch, "commands_slowlog_duration_seconds_max", slowlogTimeMsMax/1e3, cmd)
 	}
 	return
 }
