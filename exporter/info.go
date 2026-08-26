@@ -494,7 +494,7 @@ func parseMetricsCommandSlowlogStats(fieldValue string) (count float64, timeMsSu
 	}
 
 	available = foundCount || foundTimeSum || foundTimeMax
-	if available && !(foundCount && foundTimeSum && foundTimeMax) {
+	if available && (!foundCount || !foundTimeSum || !foundTimeMax) {
 		return 0, 0, 0, false, errors.New("incomplete command slowlog stats")
 	}
 	return
