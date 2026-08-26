@@ -196,7 +196,8 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 
 	log.Debugf("allStreams: %#v", allStreams)
 	for _, k := range allStreams {
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+		db, err := selectRedisDatabase(c, k.db)
+		if err != nil {
 			log.Debugf("Couldn't select database '%s' when getting stream info", k.db)
 			continue
 		}
@@ -205,7 +206,7 @@ func (e *Exporter) extractStreamMetrics(ch chan<- prometheus.Metric, c redis.Con
 			log.Errorf("couldn't get info for stream '%s', err: %s", k.key, err)
 			continue
 		}
-		dbLabel := "db" + k.db
+		dbLabel := "db" + db
 
 		e.registerConstMetricGauge(ch, "stream_length", float64(info.Length), dbLabel, k.key)
 		e.registerConstMetricGauge(ch, "stream_radix_tree_keys", float64(info.RadixTreeKeys), dbLabel, k.key)

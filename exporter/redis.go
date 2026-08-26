@@ -150,23 +150,25 @@ func (e *Exporter) connectToRedisClusterDatabase(db int) (redis.Conn, error) {
 	return c, err
 }
 
+// clusterKeyConn owns one redirect-aware cluster connection per logical database.
+// Database selection must happen while dialing so redisc replacements after
+// MOVED/ASK redirects stay in the same database.
 type clusterKeyConn struct {
-	connect     func(int) (redis.Conn, error)
-	connections map[int]redis.Conn
-	db          int
-	multiDB     bool
-	clusterScan bool
-	err         error
+	redis.Conn
+	connect         func(int) (redis.Conn, error)
+	connections     map[int]redis.Conn
+	supportsMultiDB bool
+	useClusterScan  bool
 }
 
-func newClusterKeyConn(connect func(int) (redis.Conn, error), multiDB, clusterScan bool) (*clusterKeyConn, error) {
+func newClusterKeyConn(connect func(int) (redis.Conn, error), supportsMultiDB, useClusterScan bool) (*clusterKeyConn, error) {
 	c := &clusterKeyConn{
-		connect:     connect,
-		connections: make(map[int]redis.Conn),
-		multiDB:     multiDB,
-		clusterScan: clusterScan,
+		connect:         connect,
+		connections:     make(map[int]redis.Conn),
+		supportsMultiDB: supportsMultiDB,
+		useClusterScan:  useClusterScan,
 	}
-	if _, err := c.connection(0); err != nil {
+	if _, err := c.selectDatabase("0"); err != nil {
 		return nil, err
 	}
 	return c, nil
@@ -178,50 +180,26 @@ func (c *clusterKeyConn) connection(db int) (redis.Conn, error) {
 	}
 	conn, err := c.connect(db)
 	if err != nil {
-		c.err = err
 		return nil, err
 	}
 	c.connections[db] = conn
 	return conn, nil
 }
 
-func (c *clusterKeyConn) Do(cmd string, args ...any) (any, error) {
-	if strings.EqualFold(cmd, "SELECT") {
-		if len(args) != 1 {
-			return nil, fmt.Errorf("SELECT expects one database argument")
-		}
-		db, err := strconv.Atoi(fmt.Sprint(args[0]))
-		if err != nil || db < 0 {
-			return nil, fmt.Errorf("invalid database index %q", args[0])
-		}
-		if _, err := c.connection(db); err != nil {
-			return nil, err
-		}
-		c.db = db
-		return "OK", nil
+func (c *clusterKeyConn) selectDatabase(db string) (string, error) {
+	if !c.supportsMultiDB {
+		db = "0"
 	}
-
-	conn, err := c.connection(c.db)
+	dbNumber, err := strconv.Atoi(db)
+	if err != nil || dbNumber < 0 {
+		return db, fmt.Errorf("invalid database index %q", db)
+	}
+	conn, err := c.connection(dbNumber)
 	if err != nil {
-		return nil, err
+		return db, err
 	}
-	return conn.Do(cmd, args...)
-}
-
-func (c *clusterKeyConn) Send(string, ...any) error {
-	return fmt.Errorf("cluster key connection does not support pipelining")
-}
-
-func (c *clusterKeyConn) Flush() error {
-	return fmt.Errorf("cluster key connection does not support pipelining")
-}
-
-func (c *clusterKeyConn) Receive() (any, error) {
-	return nil, fmt.Errorf("cluster key connection does not support pipelining")
-}
-
-func (c *clusterKeyConn) Err() error {
-	return c.err
+	c.Conn = conn
+	return db, nil
 }
 
 func (c *clusterKeyConn) Close() error {
@@ -234,18 +212,23 @@ func (c *clusterKeyConn) Close() error {
 	return firstErr
 }
 
-func (c *clusterKeyConn) keyDatabase(db string) string {
-	if c.multiDB {
-		return db
-	}
-	return "0"
-}
-
 func (c *clusterKeyConn) scanCommand() string {
-	if c.clusterScan {
+	if c.useClusterScan {
 		return "CLUSTERSCAN"
 	}
 	return "SCAN"
+}
+
+type databaseSelector interface {
+	selectDatabase(string) (string, error)
+}
+
+func selectRedisDatabase(c redis.Conn, db string) (string, error) {
+	if selector, ok := c.(databaseSelector); ok {
+		return selector.selectDatabase(db)
+	}
+	_, err := doRedisCmd(c, "SELECT", db)
+	return db, err
 }
 
 func doRedisCmd(c redis.Conn, cmd string, args ...any) (any, error) {

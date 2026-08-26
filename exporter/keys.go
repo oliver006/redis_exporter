@@ -363,12 +363,9 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 
 func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
 	for _, k := range allKeys {
-		db := k.db
-		if selector, ok := c.(interface{ keyDatabase(string) string }); ok {
-			db = selector.keyDatabase(db)
-		}
-		if _, err := doRedisCmd(c, "SELECT", db); err != nil {
-			log.Errorf("Couldn't select database '%s' when getting key info", db)
+		db, err := selectRedisDatabase(c, k.db)
+		if err != nil {
+			log.Errorf("Couldn't select database '%s' when getting key info", k.db)
 			continue
 		}
 
@@ -397,7 +394,8 @@ func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.
 	}
 
 	for _, k := range cntKeys {
-		if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+		db, err := selectRedisDatabase(c, k.db)
+		if err != nil {
 			log.Errorf("Couldn't select database '%s' when counting keys", k.db)
 			continue
 		}
@@ -406,7 +404,7 @@ func (e *Exporter) extractCountKeysMetrics(ch chan<- prometheus.Metric, c redis.
 			log.Errorf("couldn't get key count for '%s', err: %s", k.key, err)
 			continue
 		}
-		dbLabel := "db" + k.db
+		dbLabel := "db" + db
 		e.registerConstMetricGauge(ch, "keys_count", float64(cnt), dbLabel, k.key)
 	}
 }
@@ -434,7 +432,8 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64) (expandedK
 	expandedKeys = []dbKeyPair{}
 	for _, k := range keys {
 		if globPattern.MatchString(k.key) {
-			if _, err := doRedisCmd(c, "SELECT", k.db); err != nil {
+			db, err := selectRedisDatabase(c, k.db)
+			if err != nil {
 				return expandedKeys, err
 			}
 			keyNames, err := redis.Strings(scanKeys(c, k.key, count))
@@ -444,7 +443,7 @@ func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64) (expandedK
 			}
 
 			for _, keyName := range keyNames {
-				expandedKeys = append(expandedKeys, dbKeyPair{db: k.db, key: keyName})
+				expandedKeys = append(expandedKeys, dbKeyPair{db: db, key: keyName})
 			}
 		} else {
 			expandedKeys = append(expandedKeys, k)

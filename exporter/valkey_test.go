@@ -189,13 +189,13 @@ func TestClusterKeyConnOwnsOneConnectionPerDatabase(t *testing.T) {
 	if _, err := conn.Do("GET", "first"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.Do("SELECT", "3"); err != nil {
+	if _, err := conn.selectDatabase("3"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := conn.Do("GET", "second"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := conn.Do("SELECT", 3); err != nil {
+	if _, err := conn.selectDatabase("3"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -271,6 +271,8 @@ func TestClusterCheckKeyDatabase(t *testing.T) {
 						return int64(64), nil
 					case "LLEN":
 						return int64(2), nil
+					case "CLUSTERSCAN":
+						return []any{"0", []any{"jobs:1"}}, nil
 					default:
 						return nil, fmt.Errorf("unexpected command %s", command)
 					}
@@ -305,6 +307,15 @@ func TestClusterCheckKeyDatabase(t *testing.T) {
 				if want := "db" + test.wantDB; labels["db"] != want {
 					t.Errorf("metric has database label %q, want %q", labels["db"], want)
 				}
+			}
+
+			keys, err := getKeysFromPatterns(conn, []dbKeyPair{{db: test.requestedDB, key: "jobs:*"}}, 10)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantKeys := []dbKeyPair{{db: test.wantDB, key: "jobs:1"}}
+			if !reflect.DeepEqual(keys, wantKeys) {
+				t.Errorf("expanded keys = %v, want %v", keys, wantKeys)
 			}
 		})
 	}
@@ -359,6 +370,7 @@ func TestValkey91ClusterDatabasesAndScan(t *testing.T) {
 			break
 		}
 	}
+	streamKey := "stream-" + keys[0]
 
 	fixtureExporter, err := NewRedisExporter(uri, Options{IsCluster: true})
 	if err != nil {
@@ -375,10 +387,20 @@ func TestValkey91ClusterDatabasesAndScan(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		streamEntries := 1
+		if db == 3 {
+			streamEntries = 2
+		}
+		for range streamEntries {
+			if _, err := conn.Do("XADD", streamKey, "*", "field", "value"); err != nil {
+				t.Fatal(err)
+			}
+		}
 		defer func(conn redis.Conn) {
 			for _, key := range keys {
 				_, _ = conn.Do("DEL", key)
 			}
+			_, _ = conn.Do("DEL", streamKey)
 		}(conn)
 	}
 
@@ -387,6 +409,7 @@ func TestValkey91ClusterDatabasesAndScan(t *testing.T) {
 		IsCluster:                 true,
 		CheckKeys:                 "db0=valkey91:*,db3=valkey91:*",
 		CountKeys:                 "db0=valkey91:*,db3=valkey91:*",
+		CheckSingleStreams:        "db0=" + streamKey + ",db3=" + streamKey,
 		CheckKeyGroups:            `^valkey91:{(.-)}:`,
 		CheckKeysBatchSize:        10,
 		MaxDistinctKeyGroups:      100,
@@ -412,5 +435,11 @@ func TestValkey91ClusterDatabasesAndScan(t *testing.T) {
 	}
 	if !strings.Contains(body, `valkey91_key_group_count{db="db3",key_group="exporter-slot-`) {
 		t.Error("missing database 3 cluster key-group metrics")
+	}
+	for db, length := range map[string]int{"db0": 1, "db3": 2} {
+		want := fmt.Sprintf(`valkey91_stream_length{db="%s",stream="%s"} %d`, db, streamKey, length)
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %s", want)
+		}
 	}
 }

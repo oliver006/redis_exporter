@@ -42,38 +42,18 @@ func TestClusterKeyConnErrors(t *testing.T) {
 			closeErr: closeErr,
 		}, nil
 	}
-	conn, err := newClusterKeyConn(connect, false, false)
+	conn, err := newClusterKeyConn(connect, true, false)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	for _, args := range [][]any{nil, {"1", "2"}, {"invalid"}, {-1}} {
-		if _, err := conn.Do("SELECT", args...); err == nil {
-			t.Errorf("SELECT%v unexpectedly succeeded", args)
+	for _, db := range []string{"invalid", "-1"} {
+		if _, err := conn.selectDatabase(db); err == nil {
+			t.Errorf("selectDatabase(%q) unexpectedly succeeded", db)
 		}
 	}
-	if _, err := conn.Do("SELECT", 2); !errors.Is(err, connectErr) {
-		t.Fatalf("SELECT 2 error = %v, want %v", err, connectErr)
-	}
-	if !errors.Is(conn.Err(), connectErr) {
-		t.Fatalf("Err() = %v, want %v", conn.Err(), connectErr)
-	}
-
-	conn.db = 2
-	if _, err := conn.Do("GET", "key"); !errors.Is(err, connectErr) {
-		t.Fatalf("GET error = %v, want %v", err, connectErr)
-	}
-	if err := conn.Send("GET", "key"); err == nil {
-		t.Error("Send() unexpectedly succeeded")
-	}
-	if err := conn.Flush(); err == nil {
-		t.Error("Flush() unexpectedly succeeded")
-	}
-	if _, err := conn.Receive(); err == nil {
-		t.Error("Receive() unexpectedly succeeded")
-	}
-	if got := conn.keyDatabase("3"); got != "0" {
-		t.Errorf("keyDatabase() = %q, want 0", got)
+	if _, err := conn.selectDatabase("2"); !errors.Is(err, connectErr) {
+		t.Fatalf("selectDatabase(2) error = %v, want %v", err, connectErr)
 	}
 	if got := conn.scanCommand(); got != "SCAN" {
 		t.Errorf("scanCommand() = %q, want SCAN", got)

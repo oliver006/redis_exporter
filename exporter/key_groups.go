@@ -104,7 +104,7 @@ func (e *Exporter) gatherKeyGroupsMetricsForAllDatabases(c redis.Conn, dbCount i
 		return allMetrics
 	}
 	for db := range dbCount {
-		if _, err := doRedisCmd(c, "SELECT", db); err != nil {
+		if _, err := selectRedisDatabase(c, fmt.Sprint(db)); err != nil {
 			log.Errorf("Couldn't select database %d when getting key info.", db)
 			continue
 		}
