@@ -105,11 +105,10 @@ services:
       - "16402:6379"
 
   valkey9-cluster:
-    image: oliver006/valkey-cluster:9.1.1
-    volumes:
-      - ./contrib/valkey-cluster-multidb.tmpl:/valkey-conf/valkey-cluster.tmpl:ro
+    image: oliver006/valkey-cluster:9.1.1-r1
     environment:
       - IP=0.0.0.0
+      - CLUSTER_DATABASES=4
     ports:
       - 7000-7005:7000-7005
       - 17000-17005:7000-7005
