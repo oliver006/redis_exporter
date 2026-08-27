@@ -409,7 +409,7 @@ func TestParseCommandSlowlogStats(t *testing.T) {
 		},
 		{
 			name:          "redis 8.8",
-			value:         "calls=2,usec=10,usec_per_call=5.00,rejected_calls=0,failed_calls=0,slowlog_count=2,slowlog_time_ms_sum=125.50,slowlog_time_ms_max=75.25",
+			value:         "calls=2,usec=10,usec_per_call=5.00,rejected_calls=0,failed_calls=0,ignored,slowlog_count=2,slowlog_time_ms_sum=125.50,slowlog_time_ms_max=75.25",
 			wantCount:     2,
 			wantSum:       125.5,
 			wantMax:       75.25,
@@ -435,6 +435,22 @@ func TestParseCommandSlowlogStats(t *testing.T) {
 				t.Errorf("parseMetricsCommandSlowlogStats() = (%v, %v, %v, %t), want (%v, %v, %v, %t)", count, sum, max, available, test.wantCount, test.wantSum, test.wantMax, test.wantAvailable)
 			}
 		})
+	}
+}
+
+func TestCommandStatsIgnoreMalformedSlowlogStats(t *testing.T) {
+	e := getTestExporterWithOptions(t, Options{Namespace: "test"})
+	ch := make(chan prometheus.Metric, 8)
+	cmd, calls, usec := e.handleMetricsCommandStats(ch, "cmdstat_get", "calls=2,usec=10,usec_per_call=5.00,rejected_calls=0,failed_calls=0,slowlog_count=2")
+	close(ch)
+
+	if cmd != "get" || calls != 2 || usec != 10 {
+		t.Fatalf("base command stats = (%q, %v, %v), want (get, 2, 10)", cmd, calls, usec)
+	}
+	for metric := range ch {
+		if strings.Contains(metric.Desc().String(), "commands_slowlog_") {
+			t.Errorf("malformed slowlog stats emitted a metric: %s", metric.Desc())
+		}
 	}
 }
 
