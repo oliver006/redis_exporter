@@ -213,12 +213,15 @@ func requireValkeyInfoCounter(t *testing.T, metrics map[string][]*dto.Metric, na
 
 func requireValkey9Instance(t *testing.T, metrics map[string][]*dto.Metric, role string) {
 	t.Helper()
-	labels := valkeyInfoMetricLabels(requireValkeyInfoMetric(t, metrics, "instance_info"))
+	labels := metricLabels(requireValkeyInfoMetric(t, metrics, "instance_info"))
 	if !strings.HasPrefix(labels["valkey_version"], "9.") {
 		t.Fatalf("valkey_version = %q, want Valkey 9", labels["valkey_version"])
 	}
 	if labels["role"] != role {
 		t.Fatalf("role = %q, want %q", labels["role"], role)
+	}
+	if labels["redis_mode"] != "standalone" {
+		t.Fatalf("redis_mode = %q, want standalone", labels["redis_mode"])
 	}
 }
 
@@ -231,7 +234,7 @@ func valkeyTLSCertificateSerials(t *testing.T, metrics map[string][]*dto.Metric)
 
 	serials := map[string]string{}
 	for _, metric := range certificates {
-		labels := valkeyInfoMetricLabels(metric)
+		labels := metricLabels(metric)
 		if metric.GetGauge().GetValue() != 1 {
 			t.Errorf("tls_certificate_info%v = %v, want 1", labels, metric.GetGauge().GetValue())
 		}
@@ -245,7 +248,7 @@ func valkeyTLSCertificateSerials(t *testing.T, metrics map[string][]*dto.Metric)
 	return serials
 }
 
-func valkeyInfoMetricLabels(metric *dto.Metric) map[string]string {
+func metricLabels(metric *dto.Metric) map[string]string {
 	labels := make(map[string]string, len(metric.Label))
 	for _, label := range metric.Label {
 		labels[label.GetName()] = label.GetValue()

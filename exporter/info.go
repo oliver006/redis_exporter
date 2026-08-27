@@ -183,13 +183,17 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	}
 
 	instanceRole := keyValues["role"]
+	instanceMode := keyValues["redis_mode"]
+	if instanceMode == "" {
+		instanceMode = keyValues["server_mode"]
+	}
 
 	lbls := []string{"role", "redis_version", "redis_build_id", "redis_mode", "os", "maxmemory_policy", "tcp_port", "run_id", "process_id", "master_replid"}
 	lblVals := []string{
 		instanceRole,
 		keyValues["redis_version"],
 		keyValues["redis_build_id"],
-		keyValues["redis_mode"],
+		instanceMode,
 		keyValues["os"],
 		keyValues["maxmemory_policy"],
 		keyValues["tcp_port"],
@@ -204,6 +208,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 	if valkeyReleaseStage, ok := keyValues["valkey_release_stage"]; ok {
 		lbls = append(lbls, "valkey_release_stage")
 		lblVals = append(lblVals, valkeyReleaseStage)
+	}
+	if availabilityZone := keyValues["availability_zone"]; availabilityZone != "" {
+		lbls = append(lbls, "availability_zone")
+		lblVals = append(lblVals, availabilityZone)
 	}
 
 	e.createMetricDescription("instance_info", lbls)

@@ -11,6 +11,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -735,5 +736,73 @@ func TestInstanceInfoLabelsChangeBetweenScrapes(t *testing.T) {
 	noLabel := e.createMetricDescription("uptime_in_seconds", nil)
 	if noLabel != e.createMetricDescription("uptime_in_seconds", nil) {
 		t.Errorf("expected cached description to be reused for a metric without labels")
+	}
+}
+
+func TestInstanceInfoModeCompatibilityAndAvailabilityZone(t *testing.T) {
+	tests := []struct {
+		name             string
+		info             string
+		wantMode         string
+		wantAvailability string
+	}{
+		{
+			name:             "valkey 9",
+			info:             "# Server\nserver_mode:cluster\nvalkey_version:9.1.0\navailability_zone:zone-a\n",
+			wantMode:         "cluster",
+			wantAvailability: "zone-a",
+		},
+		{
+			name:     "valkey 8",
+			info:     "# Server\nserver_mode:standalone\nvalkey_version:8.1.9\navailability_zone:\n",
+			wantMode: "standalone",
+		},
+		{
+			name:     "redis",
+			info:     "# Server\nredis_mode:sentinel\nredis_version:8.2.0\n",
+			wantMode: "sentinel",
+		},
+	}
+
+	for _, tst := range tests {
+		t.Run(tst.name, func(t *testing.T) {
+			e, err := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+			if err != nil {
+				t.Fatalf("NewRedisExporter() err: %s", err)
+			}
+
+			ch := make(chan prometheus.Metric)
+			go func() {
+				e.extractInfoMetrics(ch, tst.info, 0)
+				close(ch)
+			}()
+
+			var labels map[string]string
+			for metric := range ch {
+				if !strings.Contains(metric.Desc().String(), `fqName: "test_instance_info"`) {
+					continue
+				}
+				got := &dto.Metric{}
+				if err := metric.Write(got); err != nil {
+					t.Fatalf("metric.Write() err: %s", err)
+				}
+				labels = metricLabels(got)
+			}
+
+			if labels == nil {
+				t.Fatal("instance_info metric missing")
+			}
+			if labels["redis_mode"] != tst.wantMode {
+				t.Errorf("redis_mode = %q, want %q", labels["redis_mode"], tst.wantMode)
+			}
+			availability, hasAvailability := labels["availability_zone"]
+			if tst.wantAvailability == "" {
+				if hasAvailability {
+					t.Errorf("availability_zone = %q, want label omitted", availability)
+				}
+			} else if !hasAvailability || availability != tst.wantAvailability {
+				t.Errorf("availability_zone = %q, want %q", availability, tst.wantAvailability)
+			}
+		})
 	}
 }
