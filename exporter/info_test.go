@@ -673,6 +673,22 @@ func Test_parseMetricsLatencyStats(t *testing.T) {
 	}
 }
 
+func TestHandleMetricsLatencyStats(t *testing.T) {
+	e := &Exporter{}
+	got := map[string]map[float64]float64{}
+
+	e.handleMetricsLatencyStats("latency_percentiles_usec_ping", "p50=0.001,p99=1.003", got)
+	want := map[string]map[float64]float64{"ping": {50: 0.001, 99: 1.003}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("handleMetricsLatencyStats() = %#v, want %#v", got, want)
+	}
+
+	e.handleMetricsLatencyStats("invalid", "p50=1", got)
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("invalid latency stats changed the result: %#v", got)
+	}
+}
+
 // instance_info must survive a Valkey 8.0 -> 8.1 upgrade that adds the new
 // valkey_release_stage INFO field between scrapes, without a restart.
 func TestInstanceInfoLabelsChangeBetweenScrapes(t *testing.T) {
