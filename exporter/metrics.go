@@ -88,6 +88,8 @@ func (e *Exporter) parseAndRegisterConstMetric(ch chan<- prometheus.Metric, fiel
 	case "latest_fork_usec":
 		metricName = "latest_fork_seconds"
 		val = val / 1e6
+	case "slowlog_commands_duration_seconds_max", "slowlog_commands_duration_seconds_total":
+		val /= 1e3
 	}
 
 	e.registerConstMetric(ch, metricName, val, t)

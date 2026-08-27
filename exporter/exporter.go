@@ -171,6 +171,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 
 			// # Clients
 			"connected_clients":            "connected_clients",
+			"active_clients":               "active_clients", // Added in Redis 8.8
 			"blocked_clients":              "blocked_clients",
 			"maxclients":                   "max_clients",
 			"tracking_clients":             "tracking_clients",
@@ -298,6 +299,8 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"hash_template_keys":                     "hash_template_keys",                     // Added in Redis 8.10
 			"instantaneous_eventloop_cycles_per_sec": "instantaneous_eventloop_cycles_per_sec", // Added in Redis 7.0
 			"instantaneous_eventloop_duration_usec":  "instantaneous_eventloop_duration_usec",  // Added in Redis 7.0
+			"avg_pipeline_length":                    "client_processing_pipeline_length",      // Added in Redis 8.8
+			"slowlog_commands_time_ms_max":           "slowlog_commands_duration_seconds_max",  // Added in Redis 8.8
 
 			// # Replication
 			"connected_slaves":               "connected_slaves",
@@ -426,9 +429,15 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"keyspace_hits":                  "keyspace_hits_total",
 			"keyspace_misses":                "keyspace_misses_total",
 
-			"eventloop_cycles":           "eventloop_cycles_total",                // Added in Redis 7.0
-			"eventloop_duration_sum":     "eventloop_duration_sum_usec_total",     // Added in Redis 7.0
-			"eventloop_duration_cmd_sum": "eventloop_duration_cmd_sum_usec_total", // Added in Redis 7.0
+			"eventloop_cycles":                         "eventloop_cycles_total",                         // Added in Redis 7.0
+			"eventloop_duration_sum":                   "eventloop_duration_sum_usec_total",              // Added in Redis 7.0
+			"eventloop_duration_cmd_sum":               "eventloop_duration_cmd_sum_usec_total",          // Added in Redis 7.0
+			"eventloop_cycles_with_clients_processing": "eventloop_cycles_with_clients_processing_total", // Added in Redis 8.8
+			"total_client_processing_events":           "client_processing_events_total",                 // Added in Redis 8.8
+			"avg_pipeline_length_sum":                  "client_processing_pipeline_commands_total",      // Added in Redis 8.8
+			"avg_pipeline_length_cnt":                  "client_processing_pipeline_batches_total",       // Added in Redis 8.8
+			"slowlog_commands_count":                   "slowlog_commands_total",                         // Added in Redis 8.8
+			"slowlog_commands_time_ms_sum":             "slowlog_commands_duration_seconds_total",        // Added in Redis 8.8
 
 			"used_cpu_sys":              "cpu_sys_seconds_total",
 			"used_cpu_user":             "cpu_user_seconds_total",
@@ -549,7 +558,19 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"commands_failed_calls_total":                        {txt: `Total number of errors prior command execution per command`, lbls: []string{"cmd"}},
 		"commands_latencies_usec":                            {txt: `A histogram of latencies per command`, lbls: []string{"cmd"}},
 		"commands_rejected_calls_total":                      {txt: `Total number of errors within command execution per command`, lbls: []string{"cmd"}},
+		"commands_slowlog_duration_seconds_max":              {txt: `Maximum slowlogged command execution time in seconds per command`, lbls: []string{"cmd"}},
+		"commands_slowlog_duration_seconds_total":            {txt: `Total slowlogged command execution time in seconds per command`, lbls: []string{"cmd"}},
+		"commands_slowlog_total":                             {txt: `Total number of slowlogged calls per command`, lbls: []string{"cmd"}},
 		"commands_total":                                     {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
+		"active_clients":                                     {txt: `Number of clients active in Redis's rolling activity window`},
+		"client_processing_events_total":                     {txt: `Total attempts to process client input buffers`},
+		"client_processing_pipeline_batches_total":           {txt: `Total client input parsing batches that parsed at least one command`},
+		"client_processing_pipeline_commands_total":          {txt: `Total commands parsed across client input parsing batches`},
+		"client_processing_pipeline_length":                  {txt: `Average number of commands parsed per client input parsing batch`},
+		"connected_client_pipeline_batches_total":            {txt: `Total input parsing batches that parsed at least one command for this client`, lbls: []string{"id", "name"}},
+		"connected_client_pipeline_commands_total":           {txt: `Total commands parsed across input parsing batches for this client`, lbls: []string{"id", "name"}},
+		"connected_client_read_events_total":                 {txt: `Total read events for this client`, lbls: []string{"id", "name"}},
+		"eventloop_cycles_with_clients_processing_total":     {txt: `Total event loop cycles that processed client input buffers`},
 		"config_client_output_buffer_limit_bytes":            {txt: `The configured buffer limits per class`, lbls: []string{"class", "limit"}},
 		"config_client_output_buffer_limit_overcome_seconds": {txt: `How long for buffer limits per class to be exceeded before replicas are dropped`, lbls: []string{"class", "limit"}},
 		"config_key_value":                                   {txt: `Config key and value`, lbls: []string{"key", "value"}},
@@ -643,6 +664,9 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"commandlog_slow_length":                             {txt: `Total entries in the slow command log`},
 		"slowlog_last_id":                                    {txt: `Last id of slowlog`},
 		"slowlog_length":                                     {txt: `Total slowlog`},
+		"slowlog_commands_duration_seconds_max":              {txt: `Maximum execution time in seconds among slowlogged commands`},
+		"slowlog_commands_duration_seconds_total":            {txt: `Total execution time in seconds of slowlogged commands`},
+		"slowlog_commands_total":                             {txt: `Total number of commands written to the slowlog`},
 		"start_time_seconds":                                 {txt: "Start time of the Redis instance since unix epoch in seconds."},
 		"stream_entries_added_total":                         {txt: "The count of all entries added to the stream during its lifetime", lbls: []string{"db", "stream"}},
 		"stream_first_entry_id":                              {txt: `The epoch timestamp (ms) of the first message in the stream`, lbls: []string{"db", "stream"}},
@@ -652,8 +676,15 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"stream_group_entries_read":                          {txt: `Total number of entries read from the stream group`, lbls: []string{"db", "stream", "group"}},
 		"stream_group_lag":                                   {txt: `The number of messages waiting to be delivered to the stream group's consumers`, lbls: []string{"db", "stream", "group"}},
 		"stream_group_last_delivered_id":                     {txt: `The epoch timestamp (ms) of the last delivered message`, lbls: []string{"db", "stream", "group"}},
+		"stream_group_messages_nacked":                       {txt: `Number of messages currently in the stream group's NACK zone`, lbls: []string{"db", "stream", "group"}},
 		"stream_group_messages_pending":                      {txt: `Pending number of messages in that stream group`, lbls: []string{"db", "stream", "group"}},
 		"stream_groups":                                      {txt: `Groups count of stream`, lbls: []string{"db", "stream"}},
+		"stream_idmp_duplicates_total":                       {txt: `Total duplicate idempotent IDs detected during the stream's lifetime`, lbls: []string{"db", "stream"}},
+		"stream_idmp_duration_seconds":                       {txt: `Duration in seconds that each idempotent ID is retained`, lbls: []string{"db", "stream"}},
+		"stream_idmp_entries_added_total":                    {txt: `Total stream entries added with an idempotent ID`, lbls: []string{"db", "stream"}},
+		"stream_idmp_idempotent_ids_tracked":                 {txt: `Number of idempotent IDs currently tracked by the stream`, lbls: []string{"db", "stream"}},
+		"stream_idmp_max_size":                               {txt: `Maximum recent idempotent IDs retained per producer ID`, lbls: []string{"db", "stream"}},
+		"stream_idmp_producer_ids_tracked":                   {txt: `Number of idempotent producer IDs currently tracked by the stream`, lbls: []string{"db", "stream"}},
 		"stream_last_entry_id":                               {txt: `The epoch timestamp (ms) of the last message in the stream`, lbls: []string{"db", "stream"}},
 		"stream_last_generated_id":                           {txt: `The epoch timestamp (ms) of the latest message on the stream`, lbls: []string{"db", "stream"}},
 		"stream_length":                                      {txt: `The number of elements of the stream`, lbls: []string{"db", "stream"}},
@@ -711,11 +742,15 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 	}
 
 	for _, v := range e.metricMapGauges {
-		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
+		if _, described := e.metricDescriptions[v]; !described {
+			ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
+		}
 	}
 
 	for _, v := range e.metricMapCounters {
-		ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
+		if _, described := e.metricDescriptions[v]; !described {
+			ch <- newMetricDescr(e.options.Namespace, v, v+" metric", nil)
+		}
 	}
 
 	ch <- e.totalScrapes.Desc()

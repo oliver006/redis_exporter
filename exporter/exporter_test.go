@@ -331,6 +331,31 @@ func TestIncludeSystemMemoryMetric(t *testing.T) {
 	}
 }
 
+func TestDescribeEmitsMappedMetricsOnce(t *testing.T) {
+	e := getTestExporterWithOptions(t, Options{Namespace: "test"})
+	ch := make(chan *prometheus.Desc, 1000)
+	e.Describe(ch)
+	close(ch)
+
+	want := map[string]int{
+		"test_slowlog_commands_total":                  0,
+		"test_slowlog_commands_duration_seconds_total": 0,
+		"test_slowlog_commands_duration_seconds_max":   0,
+	}
+	for desc := range ch {
+		for name := range want {
+			if strings.Contains(desc.String(), `fqName: "`+name+`"`) {
+				want[name]++
+			}
+		}
+	}
+	for name, count := range want {
+		if count != 1 {
+			t.Errorf("Describe() emitted %s %d times, want once", name, count)
+		}
+	}
+}
+
 func TestIncludeConfigMetrics(t *testing.T) {
 	for _, inc := range []bool{false, true} {
 		e, _ := NewRedisExporter(os.Getenv("TEST_REDIS_URI"), Options{Namespace: "test", InclConfigMetrics: inc})

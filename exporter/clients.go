@@ -34,6 +34,12 @@ type ClientInfo struct {
 	Oll,
 	OMem,
 	TotMem int64
+	ReadEvents,
+	PipelineLengthSum,
+	PipelineLengthCount uint64
+	readEventsAvailable,
+	pipelineLengthSumAvailable,
+	pipelineLengthCountAvailable bool
 }
 
 /*
@@ -101,6 +107,21 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 			connectedClient.OMem, _ = strconv.ParseInt(vPart[1], 10, 64)
 		case "tot-mem":
 			connectedClient.TotMem, _ = strconv.ParseInt(vPart[1], 10, 64)
+		case "read-events":
+			if value, err := strconv.ParseUint(vPart[1], 10, 64); err == nil {
+				connectedClient.ReadEvents = value
+				connectedClient.readEventsAvailable = true
+			}
+		case "avg-pipeline-len-sum":
+			if value, err := strconv.ParseUint(vPart[1], 10, 64); err == nil {
+				connectedClient.PipelineLengthSum = value
+				connectedClient.pipelineLengthSumAvailable = true
+			}
+		case "avg-pipeline-len-cnt":
+			if value, err := strconv.ParseUint(vPart[1], 10, 64); err == nil {
+				connectedClient.PipelineLengthCount = value
+				connectedClient.pipelineLengthCountAvailable = true
+			}
 		case "addr":
 			hostPortString := strings.Split(vPart[1], ":")
 			if len(hostPortString) < 2 {
@@ -181,6 +202,9 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 			"connected_client_query_buffer_free_space_bytes",
 			"connected_client_output_buffer_length_bytes",
 			"connected_client_output_list_length",
+			"connected_client_read_events_total",
+			"connected_client_pipeline_commands_total",
+			"connected_client_pipeline_batches_total",
 		} {
 			e.createMetricDescription(metricName, clientBaseLabels)
 		}
@@ -234,6 +258,25 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 			ch, "connected_client_output_list_length", float64(info.Oll),
 			clientBaseLabelsValues...,
 		)
+
+		if info.readEventsAvailable {
+			e.registerConstMetric(
+				ch, "connected_client_read_events_total", float64(info.ReadEvents), prometheus.CounterValue,
+				clientBaseLabelsValues...,
+			)
+		}
+		if info.pipelineLengthSumAvailable {
+			e.registerConstMetric(
+				ch, "connected_client_pipeline_commands_total", float64(info.PipelineLengthSum), prometheus.CounterValue,
+				clientBaseLabelsValues...,
+			)
+		}
+		if info.pipelineLengthCountAvailable {
+			e.registerConstMetric(
+				ch, "connected_client_pipeline_batches_total", float64(info.PipelineLengthCount), prometheus.CounterValue,
+				clientBaseLabelsValues...,
+			)
+		}
 
 		if info.Ssub != -1 {
 			e.createMetricDescription("connected_client_shard_channel_subscriptions_count", clientBaseLabels)
