@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"bytes"
 	"fmt"
 	"net/http/httptest"
 	"os"
@@ -10,7 +11,152 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
+	log "github.com/sirupsen/logrus"
 )
+
+type sentinelConfigConn struct {
+	reply any
+}
+
+func (c *sentinelConfigConn) Close() error { return nil }
+func (c *sentinelConfigConn) Err() error   { return nil }
+func (c *sentinelConfigConn) Do(string, ...any) (any, error) {
+	return c.reply, nil
+}
+func (c *sentinelConfigConn) Send(string, ...any) error { return nil }
+func (c *sentinelConfigConn) Flush() error              { return nil }
+func (c *sentinelConfigConn) Receive() (any, error)     { return nil, nil }
+
+func sentinelConfigReply() []any {
+	return []any{
+		[]byte("sentinel-pass"), []byte("application-secret-canary"),
+		[]byte("resolve-hostnames"), []byte("yes"),
+	}
+}
+
+func collectSentinelConfigKeyValues(t *testing.T, redact bool) []*dto.Metric {
+	t.Helper()
+
+	e, err := NewRedisExporter("", Options{
+		Namespace:           "test",
+		InclConfigMetrics:   true,
+		RedactConfigMetrics: redact,
+	})
+	if err != nil {
+		t.Fatalf("NewRedisExporter: %v", err)
+	}
+
+	ch := make(chan prometheus.Metric, 8)
+	e.extractSentinelConfig(ch, &sentinelConfigConn{reply: sentinelConfigReply()})
+	close(ch)
+
+	var metrics []*dto.Metric
+	for metric := range ch {
+		if !strings.Contains(metric.Desc().String(), "sentinel_config_key_value") {
+			continue
+		}
+		got := &dto.Metric{}
+		if err := metric.Write(got); err != nil {
+			t.Fatalf("metric.Write: %v", err)
+		}
+		metrics = append(metrics, got)
+	}
+	return metrics
+}
+
+func hasSentinelConfigKeyValue(metrics []*dto.Metric, key, value string) bool {
+	for _, metric := range metrics {
+		labels := make(map[string]string, len(metric.GetLabel()))
+		for _, label := range metric.GetLabel() {
+			labels[label.GetName()] = label.GetValue()
+		}
+		if labels["key"] == key && labels["value"] == value {
+			return true
+		}
+	}
+	return false
+}
+
+func TestSensitiveConfigKey(t *testing.T) {
+	tests := []struct {
+		key  string
+		want bool
+	}{
+		{key: "masterauth", want: true},
+		{key: "requirepass", want: true},
+		{key: "tls-key-file-pass", want: true},
+		{key: "tls-client-key-file-pass", want: true},
+		{key: "SENTINEL-PASS", want: true},
+		{key: "service-password-file", want: true},
+		{key: "resolve-hostnames", want: false},
+	}
+
+	for _, test := range tests {
+		t.Run(test.key, func(t *testing.T) {
+			if got := isSensitiveConfigKey(test.key); got != test.want {
+				t.Fatalf("isSensitiveConfigKey(%q) = %t, want %t", test.key, got, test.want)
+			}
+		})
+	}
+}
+
+func TestSentinelConfigRedaction(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		redact     bool
+		wantSecret bool
+	}{
+		{name: "enabled", redact: true, wantSecret: false},
+		{name: "disabled", redact: false, wantSecret: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			metrics := collectSentinelConfigKeyValues(t, test.redact)
+			gotSecret := hasSentinelConfigKeyValue(metrics, "sentinel-pass", "application-secret-canary")
+			if gotSecret != test.wantSecret {
+				t.Fatalf("sentinel-pass exported = %t, want %t", gotSecret, test.wantSecret)
+			}
+			if !hasSentinelConfigKeyValue(metrics, "resolve-hostnames", "yes") {
+				t.Fatal("non-sensitive Sentinel config was not exported")
+			}
+		})
+	}
+}
+
+func TestSentinelConfigDebugLogDoesNotContainValues(t *testing.T) {
+	e, err := NewRedisExporter("", Options{
+		Namespace:           "test",
+		InclConfigMetrics:   true,
+		RedactConfigMetrics: false,
+	})
+	if err != nil {
+		t.Fatalf("NewRedisExporter: %v", err)
+	}
+
+	logger := log.StandardLogger()
+	originalOutput := logger.Out
+	originalLevel := logger.GetLevel()
+	t.Cleanup(func() {
+		logger.SetOutput(originalOutput)
+		logger.SetLevel(originalLevel)
+	})
+
+	var logs bytes.Buffer
+	logger.SetOutput(&logs)
+	logger.SetLevel(log.DebugLevel)
+
+	ch := make(chan prometheus.Metric, 8)
+	e.extractSentinelConfig(ch, &sentinelConfigConn{reply: sentinelConfigReply()})
+	close(ch)
+
+	for _, value := range []string{"application-secret-canary", "yes"} {
+		if strings.Contains(logs.String(), value) {
+			t.Fatalf("Sentinel config value %q leaked to debug logs: %s", value, logs.String())
+		}
+	}
+	if !strings.Contains(logs.String(), "Sentinel config contains 2 entries") {
+		t.Fatalf("sanitized Sentinel config log missing: %s", logs.String())
+	}
+}
 
 func TestSentinelExtractInfoMetrics(t *testing.T) {
 	if os.Getenv("TEST_VALKEY_SENTINEL_URI") == "" {
