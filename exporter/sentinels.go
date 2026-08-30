@@ -113,9 +113,12 @@ func (e *Exporter) extractSentinelConfig(ch chan<- prometheus.Metric, c redis.Co
 		return
 	}
 
-	log.Debugf("Sentinel config: %v", sentinelConfig)
+	log.Debugf("Sentinel config contains %d entries", len(sentinelConfig))
 
 	for strKey, strVal := range sentinelConfig {
+		if e.options.RedactConfigMetrics && isSensitiveConfigKey(strKey) {
+			continue
+		}
 		e.registerConstMetricGauge(ch, "sentinel_config_key_value", 1.0, strKey, strVal)
 		if val, err := strconv.ParseFloat(strVal, 64); err == nil {
 			e.registerConstMetricGauge(ch, "sentinel_config_value", val, strKey)
