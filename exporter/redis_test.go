@@ -109,7 +109,10 @@ func TestPasswordInvalid(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	want := `test_exporter_last_scrape_error{err="dial redis: unknown network redis"} 1`
+	// was "dial redis: unknown network redis" — a fallback bug masking
+	// the real error, see connectToRedis(). Now surfaces the actual
+	// auth failure.
+	want := `test_exporter_last_scrape_error{err="NOAUTH Authentication required."} 1`
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, want) {
 		t.Errorf(`error, expected string "%s" in body, got body: \n\n%s`, want, body)

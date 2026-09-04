@@ -190,6 +190,36 @@ func TestVerifiedIPTargetFailsWithoutTLSServerName(t *testing.T) {
 	}
 }
 
+// Regression test: when DialURL() fails on a rediss:// target (e.g. bad
+// credentials), connectToRedis()'s fallback used to split the address on
+// "://" and dial with the scheme itself as the network type, producing
+// "unknown network rediss" instead of the real error. It should always
+// dial "tcp" — TLS is handled via the DialUseTLS option, not the network
+// string. Related: #362, #478, #387.
+func TestConnectToRedisFallbackDialsTCPNotScheme(t *testing.T) {
+	addr, caCertFile, _ := startTinyRedisTLSServer(t)
+
+	e, err := NewRedisExporter("rediss://"+addr, Options{
+		Password:      "wrong-password",
+		CaCertFile:    caCertFile,
+		TLSServerName: "localhost",
+	})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	_, err = e.connectToRedis()
+	if err == nil {
+		t.Fatal("connectToRedis() succeeded, want auth failure")
+	}
+	if strings.Contains(err.Error(), "unknown network") {
+		t.Fatalf("connectToRedis() err = %q, fallback dialed the scheme instead of tcp", err)
+	}
+	if !strings.Contains(err.Error(), "WRONGPASS") {
+		t.Fatalf("connectToRedis() err = %q, want the real WRONGPASS from the server", err)
+	}
+}
+
 func startTinyRedisTLSServer(t *testing.T) (string, string, <-chan string) {
 	t.Helper()
 
@@ -342,6 +372,9 @@ func serveTinyRedisConnection(conn net.Conn) {
 		}
 
 		switch strings.ToUpper(args[0]) {
+		case "AUTH":
+			// mirrors real Redis's rejection for a bad password
+			_, _ = conn.Write([]byte("-WRONGPASS invalid username-password pair or user is disabled.\r\n"))
 		case "INFO":
 			_, _ = conn.Write([]byte("$" + strconv.Itoa(len(tinyRedisInfo)) + "\r\n" + tinyRedisInfo + "\r\n"))
 		case "SLOWLOG":

@@ -76,13 +76,15 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	c, err := redis.DialURL(uri, options...)
 	if err != nil {
 		log.Debugf("DialURL() failed, err: %s", err)
-		if frags := strings.Split(e.redisAddr, "://"); len(frags) == 2 {
-			log.Debugf("Trying: Dial(): %s %s", frags[0], frags[1])
-			c, err = redis.Dial(frags[0], frags[1], options...)
-		} else {
-			log.Debugf("Trying: Dial(): tcp %s", e.redisAddr)
-			c, err = redis.Dial("tcp", e.redisAddr, options...)
+		// Always dial "tcp" here — TLS comes from the DialUseTLS option,
+		// not the network type. Parse via url.Host (not a plain string
+		// split) so any embedded user:pass@ is stripped too.
+		addr := e.redisAddr
+		if u, parseErr := url.Parse(uri); parseErr == nil && u.Host != "" {
+			addr = u.Host
 		}
+		log.Debugf("Trying: Dial(): tcp %s", addr)
+		c, err = redis.Dial("tcp", addr, options...)
 	}
 	return c, err
 }
