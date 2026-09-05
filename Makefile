@@ -35,6 +35,8 @@ test-certs:
 .PHONY: test
 test:
 	TEST_REDIS_URI="redis://localhost:6379" \
+	TEST_REDIS_CONNECTION_URI="redis://localhost:16391" \
+	TEST_REDIS_UNIX_URI="unix:///tmp/redis-exporter-connection-tests/redis.sock" \
 	TEST_VALKEY9_URI="valkey://localhost:16382" \
 	TEST_VALKEY9_REPLICA_URI="valkey://localhost:16381" \
 	TEST_VALKEY9_BUNDLE_URI="valkey://localhost:16389" \
