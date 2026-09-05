@@ -80,6 +80,18 @@ services:
     ports:
       - "16390:6379"
 
+  redis-connection-tests:
+    image: redis:7.4
+    command: >-
+      redis-server --protected-mode no --save "" --databases 1
+      --unixsocket /data/redis.sock --unixsocketperm 777
+      --user exporter on '>exporter-password' '~*' '&*' '+@all'
+    volumes:
+      # The Linux CI runner connects to this socket directly.
+      - /tmp/redis-exporter-connection-tests:/data
+    ports:
+      - "16391:6379"
+
   redis6:
     image: redis:6.2
     command: "redis-server --protected-mode no"

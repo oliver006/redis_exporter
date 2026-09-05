@@ -11,7 +11,7 @@ import (
 func TestHostVariations(t *testing.T) {
 	host := strings.ReplaceAll(os.Getenv("TEST_REDIS_URI"), "redis://", "")
 
-	for _, prefix := range []string{"", "redis://", "tcp://", ""} {
+	for _, prefix := range []string{"", "redis://", "tcp://", "REDIS://"} {
 		e, _ := NewRedisExporter(prefix+host, Options{SkipTLSVerification: true})
 		c, err := e.connectToRedis()
 		if err != nil {
@@ -109,7 +109,7 @@ func TestPasswordInvalid(t *testing.T) {
 	ts := httptest.NewServer(e)
 	defer ts.Close()
 
-	want := `test_exporter_last_scrape_error{err="dial redis: unknown network redis"} 1`
+	want := `test_exporter_last_scrape_error{err="WRONGPASS invalid username-password pair or user is disabled."} 1`
 	body := downloadURL(t, ts.URL+"/metrics")
 	if !strings.Contains(body, want) {
 		t.Errorf(`error, expected string "%s" in body, got body: \n\n%s`, want, body)
