@@ -25,6 +25,7 @@ services:
       --tls-cert-file     /tls/redis.crt
       --tls-key-file      /tls/redis.key
       --tls-ca-cert-file  /tls/ca.crt
+      --user exporter on '>exporter-password' '~*' '&*' '+@all'
     ports:
       - "16386:6379"
 
