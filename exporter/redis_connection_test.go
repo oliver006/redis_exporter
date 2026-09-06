@@ -118,3 +118,62 @@ func TestConnectToRedisURLDatabase(t *testing.T) {
 		})
 	}
 }
+
+func TestConnectToRedisTLSBadPassword(t *testing.T) {
+	uri := os.Getenv("TEST_VALKEY9_TLS_URI")
+	if uri == "" {
+		t.Skip("TEST_VALKEY9_TLS_URI not set")
+	}
+	u, err := url.Parse(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tst := range []struct {
+		name          string
+		password      string
+		urlPassword   bool
+		wantWrongPass bool
+	}{
+		{name: "valid-url", password: "exporter-password", urlPassword: true},
+		{name: "invalid-url", password: "wrong-password", urlPassword: true, wantWrongPass: true},
+		{name: "valid-options", password: "exporter-password"},
+		{name: "invalid-options", password: "wrong-password", wantWrongPass: true},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			target := *u
+			opts := Options{
+				Namespace:           "test",
+				ConnectionTimeouts:  time.Second,
+				SkipTLSVerification: true,
+				ClientCertFile:      "../contrib/tls/redis.crt",
+				ClientKeyFile:       "../contrib/tls/redis.key",
+			}
+			if tst.urlPassword {
+				target.User = url.UserPassword("exporter", tst.password)
+			} else {
+				opts.User = "exporter"
+				opts.Password = tst.password
+			}
+			e, err := NewRedisExporter(target.String(), opts)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !tst.wantWrongPass {
+				requireConnectionTestPing(t, e)
+				return
+			}
+
+			c, err := e.connectToRedis()
+			if c != nil {
+				c.Close()
+			}
+			var redisErr redis.Error
+			if !errors.As(err, &redisErr) || !strings.HasPrefix(string(redisErr), "WRONGPASS ") {
+				t.Fatalf("connectToRedis() = %v; want Redis WRONGPASS error", err)
+			}
+			requireConnectionTestScrape(t, e, "0",
+				`test_exporter_last_scrape_error{err="`+err.Error()+`"} 1`)
+		})
+	}
+}
