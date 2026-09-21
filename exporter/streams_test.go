@@ -795,6 +795,64 @@ func TestStreamsExtractStreamMetrics(t *testing.T) {
 	}
 }
 
+func TestStreamsExtractStreamMetricsSkipsNonStreamKeys(t *testing.T) {
+	if os.Getenv("TEST_REDIS_URI") == "" {
+		t.Skipf("TEST_REDIS_URI not set - skipping")
+	}
+	addr := os.Getenv("TEST_REDIS_URI")
+	nonStreamKey := TestKeyNameStream + "-hash"
+	e, _ := NewRedisExporter(
+		addr,
+		Options{Namespace: "test", CheckStreams: dbNumStrFull + "=" + TestKeyNameStream + "*", CheckKeysBatchSize: 1000},
+	)
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("Couldn't connect to %#v: %#v", addr, err)
+	}
+
+	setupTestKeys(t, addr)
+	defer deleteTestKeys(t, addr)
+
+	// a key that matches the stream pattern but isn't a stream
+	if _, err = c.Do("SELECT", dbNumStr); err != nil {
+		t.Errorf("Couldn't select database %#v", dbNumStr)
+	}
+	fixtures := []keyFixture{newKeyFixture("HSET", nonStreamKey, "field_1", "str_1")}
+	createKeyFixtures(t, c, fixtures)
+	defer func() {
+		if _, err := c.Do("SELECT", dbNumStr); err != nil {
+			t.Errorf("Couldn't select database %#v", dbNumStr)
+		}
+		deleteKeyFixtures(t, c, fixtures)
+		c.Close()
+	}()
+
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.extractStreamMetrics(chM, c)
+		close(chM)
+	}()
+
+	streams := map[string]bool{}
+	for m := range chM {
+		var got dto.Metric
+		if err := m.Write(&got); err != nil {
+			t.Fatalf("metric.Write() err: %s", err)
+		}
+		for _, label := range got.GetLabel() {
+			if label.GetName() == "stream" {
+				streams[label.GetValue()] = true
+			}
+		}
+	}
+	if !streams[TestKeyNameStream] {
+		t.Errorf("didn't find metrics for stream %s", TestKeyNameStream)
+	}
+	if streams[nonStreamKey] {
+		t.Errorf("found stream metrics for non-stream key %s", nonStreamKey)
+	}
+}
+
 func TestStreamsExtractStreamMetricsExcludeConsumer(t *testing.T) {
 	if os.Getenv("TEST_REDIS_URI") == "" {
 		t.Skipf("TEST_REDIS_URI not set - skipping")

@@ -333,7 +333,7 @@ func TestScanKeys(t *testing.T) {
 
 	createKeyFixtures(t, c, fixtures)
 
-	matches, err := redis.Strings(scanKeys(c, "get_keys_test_*shouldmatch*", defaultCount))
+	matches, err := redis.Strings(scanKeys(c, "get_keys_test_*shouldmatch*", defaultCount, ""))
 	if err != nil {
 		t.Errorf("Error getting keys matching a pattern: %#v", err)
 	}
@@ -356,7 +356,7 @@ func TestScanKeys(t *testing.T) {
 		"pattern": invalidCount,
 	}
 	for pattern, count := range invalidFixtures {
-		got, err := redis.Strings(scanKeys(c, pattern, count))
+		got, err := redis.Strings(scanKeys(c, pattern, count, ""))
 		if err != nil {
 			t.Logf("\"Passed\" expected, got error: %#v", err)
 			if pattern == "" && err.Error() != "pattern shouldn't be empty" {
@@ -367,6 +367,64 @@ func TestScanKeys(t *testing.T) {
 				t.Errorf("Error expected, got valid response: %#v", got)
 			}
 		}
+	}
+}
+
+func TestScanKeysWithType(t *testing.T) {
+	fixtures := []keyFixture{
+		newKeyFixture("SET", "scan_type_test_string_1", "Woohoo!"),
+		newKeyFixture("SET", "scan_type_test_string_2", "Woohoo!"),
+		newKeyFixture("HSET", "scan_type_test_hash", "field_1", "str_1"),
+		newKeyFixture("XADD", "scan_type_test_stream_1", "*", "field_1", "str_1"),
+		newKeyFixture("XADD", "scan_type_test_stream_2", "*", "field_1", "str_1"),
+	}
+	allKeys := []string{
+		"scan_type_test_hash",
+		"scan_type_test_stream_1",
+		"scan_type_test_stream_2",
+		"scan_type_test_string_1",
+		"scan_type_test_string_2",
+	}
+	streamKeys := []string{
+		"scan_type_test_stream_1",
+		"scan_type_test_stream_2",
+	}
+
+	for _, tst := range []struct {
+		name string
+		addr string
+		want []string
+	}{
+		{"redis", os.Getenv("TEST_REDIS_URI"), streamKeys},
+		// redis 5 has no TYPE option for SCAN, the scan falls back to all key types
+		{"redis5", os.Getenv("TEST_REDIS5_URI"), allKeys},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			if tst.addr == "" {
+				t.Skipf("missing env var, skipping")
+			}
+			c, err := redis.DialURL(tst.addr)
+			if err != nil {
+				t.Fatalf("Couldn't connect to %#v: %#v", tst.addr, err)
+			}
+			if _, err = c.Do("SELECT", dbNumStr); err != nil {
+				t.Errorf("Couldn't select database %#v", dbNumStr)
+			}
+			defer func() {
+				deleteKeyFixtures(t, c, fixtures)
+				c.Close()
+			}()
+			createKeyFixtures(t, c, fixtures)
+
+			got, err := redis.Strings(scanKeys(c, "scan_type_test_*", defaultCount, "stream"))
+			if err != nil {
+				t.Fatalf("Error getting stream keys matching a pattern: %#v", err)
+			}
+			sort.Strings(got)
+			if !reflect.DeepEqual(tst.want, got) {
+				t.Errorf("When scanning for streams:\nexpected: %#v\nactual:   %#v", tst.want, got)
+			}
+		})
 	}
 }
 
@@ -430,7 +488,7 @@ func TestGetKeysFromPatterns(t *testing.T) {
 	}
 	createKeyFixtures(t, c, dbAltFixtures)
 
-	expandedKeys, err := getKeysFromPatterns(c, keys, defaultCount)
+	expandedKeys, err := getKeysFromPatterns(c, keys, defaultCount, "")
 	if err != nil {
 		t.Errorf("Error getting keys from patterns: %#v", err)
 	}
@@ -456,7 +514,7 @@ func TestGetKeysFromPatterns(t *testing.T) {
 		t.Errorf("When expanding keys:\nexpected: %#v\nactual:   %#v", expectedKeys, expandedKeys)
 	}
 
-	got, err := getKeysFromPatterns(c, invalidKeys, defaultCount)
+	got, err := getKeysFromPatterns(c, invalidKeys, defaultCount, "")
 	if err != nil {
 		t.Logf("Expected error - \"invalid DB\": %#v", err)
 	} else {

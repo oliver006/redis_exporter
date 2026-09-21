@@ -163,7 +163,7 @@ func main() {
 		checkKeys                      = flag.String("check-keys", getEnv("REDIS_EXPORTER_CHECK_KEYS", ""), "Comma separated list of key-patterns to export value and length/size, searched for with SCAN")
 		checkSingleKeys                = flag.String("check-single-keys", getEnv("REDIS_EXPORTER_CHECK_SINGLE_KEYS", ""), "Comma separated list of single keys to export value and length/size")
 		checkKeyGroups                 = flag.String("check-key-groups", getEnv("REDIS_EXPORTER_CHECK_KEY_GROUPS", ""), "Comma separated list of lua regex for grouping keys")
-		checkStreams                   = flag.String("check-streams", getEnv("REDIS_EXPORTER_CHECK_STREAMS", ""), "Comma separated list of stream-patterns to export info about streams, groups and consumers, searched for with SCAN")
+		checkStreams                   = flag.String("check-streams", getEnv("REDIS_EXPORTER_CHECK_STREAMS", ""), "Comma separated list of stream-patterns to export info about streams, groups and consumers, searched for with SCAN (only keys of type stream)")
 		checkSingleStreams             = flag.String("check-single-streams", getEnv("REDIS_EXPORTER_CHECK_SINGLE_STREAMS", ""), "Comma separated list of single streams to export info about streams, groups and consumers")
 		streamsExcludeConsumerMetrics  = flag.Bool("streams-exclude-consumer-metrics", getEnvBool("REDIS_EXPORTER_STREAMS_EXCLUDE_CONSUMER_METRICS", false), "Don't collect per consumer metrics for streams (decreases cardinality)")
 		countKeys                      = flag.String("count-keys", getEnv("REDIS_EXPORTER_COUNT_KEYS", ""), "Comma separated list of patterns to count (eg: 'db0=production_*,db3=sessions:*'), searched for with SCAN")
