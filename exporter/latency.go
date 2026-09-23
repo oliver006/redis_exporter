@@ -27,11 +27,14 @@ func (e *Exporter) extractLatencyLatestMetrics(outChan chan<- prometheus.Metric,
 	if err != nil {
 		/*
 			this can be a little too verbose, see e.g. https://github.com/oliver006/redis_exporter/issues/495
-			we're logging this only once as an Error and always as Debugf()
+			unknown commands are expected on targets such as Sentinel; other errors
+			are logged only once as an Error and always as Debugf()
 		*/
-		logLatestErrOnce.Do(func() {
-			log.Errorf("WARNING, LOGGED ONCE ONLY: cmd LATENCY LATEST, err: %s", err)
-		})
+		if !strings.HasPrefix(err.Error(), "ERR unknown command") {
+			logLatestErrOnce.Do(func() {
+				log.Errorf("WARNING, LOGGED ONCE ONLY: cmd LATENCY LATEST, err: %s", err)
+			})
+		}
 		log.Debugf("cmd LATENCY LATEST, err: %s", err)
 		return
 	}
@@ -55,9 +58,11 @@ https://redis.io/docs/latest/commands/latency-histogram/
 func (e *Exporter) extractLatencyHistogramMetrics(outChan chan<- prometheus.Metric, infoAll string, redisConn redis.Conn) {
 	reply, err := redis.Values(doRedisCmd(redisConn, "LATENCY", "HISTOGRAM"))
 	if err != nil {
-		logHistogramErrOnce.Do(func() {
-			log.Errorf("WARNING, LOGGED ONCE ONLY: cmd LATENCY HISTOGRAM, err: %s", err)
-		})
+		if !strings.HasPrefix(err.Error(), "ERR unknown command") {
+			logHistogramErrOnce.Do(func() {
+				log.Errorf("WARNING, LOGGED ONCE ONLY: cmd LATENCY HISTOGRAM, err: %s", err)
+			})
+		}
 		log.Debugf("cmd LATENCY HISTOGRAM, err: %s", err)
 		return
 	}
