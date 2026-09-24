@@ -81,6 +81,7 @@ type Options struct {
 	ExcludeLatencyHistogramMetrics bool
 	RedactConfigMetrics            bool
 	InclSystemMetrics              bool
+	InclCommandStats               bool
 	InclRdbFileSizeMetric          bool
 	SkipTLSVerification            bool
 	SetClientName                  bool
@@ -941,6 +942,15 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	log.Debugf("dbCount: %d", dbCount)
 
 	role := e.extractInfoMetrics(ch, infoAll, dbCount)
+
+	if e.options.InclCommandStats {
+		if infoCommandStats, err := redis.String(doRedisCmd(c, "INFO", "commandstats")); err == nil {
+			log.Debugf("Redis INFO commandstats result: [%#v]", infoCommandStats)
+			e.extractInfoMetrics(ch, infoCommandStats, dbCount)
+		} else {
+			log.Debugf("Redis INFO commandstats err: %s", err)
+		}
+	}
 
 	if !e.options.ExcludeLatencyHistogramMetrics {
 		e.extractLatencyMetrics(ch, infoAll, c)
