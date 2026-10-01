@@ -9,6 +9,9 @@ on:
       - README.md
       - '.github/workflows/update-readme.yml'
 
+permissions:
+  contents: read
+
 jobs:
   sync:
     name: Update Docker Hub README
