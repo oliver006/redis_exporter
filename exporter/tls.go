@@ -75,7 +75,15 @@ func (e *Exporter) CreateServerTLSConfig(certFile, keyFile, caCertFile, minVersi
 		if err != nil {
 			return nil, err
 		}
-		tlsConfig.GetConfigForClient = GetConfigForClientFunc(certFile, keyFile, caCertFile)
+		getConfigForClient := GetConfigForClientFunc(certFile, keyFile, caCertFile)
+		tlsConfig.GetConfigForClient = func(hello *tls.ClientHelloInfo) (*tls.Config, error) {
+			clientConfig, err := getConfigForClient(hello)
+			if err != nil {
+				return nil, err
+			}
+			clientConfig.MinVersion = minVersion
+			return clientConfig, nil
+		}
 	}
 
 	return &tlsConfig, nil

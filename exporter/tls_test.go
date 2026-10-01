@@ -500,6 +500,41 @@ func TestCreateServerTLSConfig(t *testing.T) {
 	}
 }
 
+func TestCreateServerTLSConfigMinVersionWithClientCA(t *testing.T) {
+	e, err := NewRedisExporter("", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	for _, tst := range []struct {
+		minVersionString string
+		want             uint16
+	}{
+		{"TLS1.2", tls.VersionTLS12},
+		{"TLS1.3", tls.VersionTLS13},
+	} {
+		t.Run(tst.minVersionString, func(t *testing.T) {
+			cfg, err := e.CreateServerTLSConfig("../contrib/tls/redis.crt", "../contrib/tls/redis.key", "../contrib/tls/ca.crt", tst.minVersionString)
+			if err != nil {
+				t.Fatalf("CreateServerTLSConfig() err: %s", err)
+			}
+			if cfg.GetConfigForClient == nil {
+				t.Fatalf("expected GetConfigForClient to be set when a client CA is configured")
+			}
+			clientConfig, err := cfg.GetConfigForClient(&tls.ClientHelloInfo{})
+			if err != nil {
+				t.Fatalf("GetConfigForClient() err: %s", err)
+			}
+			if clientConfig.MinVersion != tst.want {
+				t.Errorf("GetConfigForClient() MinVersion = %#x, want %#x", clientConfig.MinVersion, tst.want)
+			}
+			if clientConfig.ClientAuth != tls.RequireAndVerifyClientCert {
+				t.Errorf("GetConfigForClient() ClientAuth = %v, want RequireAndVerifyClientCert", clientConfig.ClientAuth)
+			}
+		})
+	}
+}
+
 func TestGetServerCertificateFunc(t *testing.T) {
 	// positive test
 	_, err := GetServerCertificateFunc("../contrib/tls/ca.crt", "../contrib/tls/ca.key")(nil)
