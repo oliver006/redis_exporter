@@ -516,6 +516,17 @@ func TestParseCommandStats(t *testing.T) {
 			fieldValue:  "calls=75,usec=1024,usec_per_call=16.80,rejected_calls=5,failed_calls=ABC",
 			wantSuccess: false,
 		},
+		{
+			fieldKey:          "cmdstat_xtrim",
+			fieldValue:        "calls=21875,failed_calls=0,rejected_calls=0,usec=1435017,usec_per_call=65.6",
+			wantCmd:           "xtrim",
+			wantCalls:         21875,
+			wantUsecTotal:     1435017,
+			wantSuccess:       true,
+			wantExtraStats:    true,
+			wantFailedCalls:   0,
+			wantRejectedCalls: 0,
+		},
 	} {
 		t.Run(tst.fieldKey+tst.fieldValue, func(t *testing.T) {
 
