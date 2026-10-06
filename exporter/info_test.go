@@ -530,7 +530,7 @@ func TestParseCommandStats(t *testing.T) {
 	} {
 		t.Run(tst.fieldKey+tst.fieldValue, func(t *testing.T) {
 
-			cmd, calls, rejectedCalls, failedCalls, usecTotal, _, err := parseMetricsCommandStats(tst.fieldKey, tst.fieldValue)
+			cmd, calls, rejectedCalls, failedCalls, usecTotal, extendedStats, err := parseMetricsCommandStats(tst.fieldKey, tst.fieldValue)
 
 			if tst.wantSuccess && err != nil {
 				t.Fatalf("err: %s", err)
@@ -561,6 +561,9 @@ func TestParseCommandStats(t *testing.T) {
 			}
 			if usecTotal != tst.wantUsecTotal {
 				t.Fatalf("cmd not matching, got: %f, wanted: %f", usecTotal, tst.wantUsecTotal)
+			}
+			if extendedStats != tst.wantExtraStats {
+				t.Fatalf("extendedStats not matching, got: %t, wanted: %t", extendedStats, tst.wantExtraStats)
 			}
 		})
 	}
