@@ -459,44 +459,45 @@ func parseMetricsCommandStats(fieldKey string, fieldValue string) (cmd string, c
 	}
 	cmd = strings.TrimPrefix(fieldKey, cmdPrefix)
 
-	splitValue := strings.Split(fieldValue, ",")
-	splitLen := len(splitValue)
-	if splitLen < 3 {
+	var foundCalls, foundUsec, foundRejected, foundFailed bool
+
+	for _, field := range strings.Split(fieldValue, ",") {
+		parts := strings.SplitN(field, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		name, valStr := parts[0], parts[1]
+
+		var val float64
+		val, err := strconv.ParseFloat(valStr, 64)
+		if err != nil {
+			errorOut = fmt.Errorf("invalid %s: %w", name, err)
+			return cmd, calls, rejectedCalls, failedCalls, usecTotal, extendedStats, errorOut
+		}
+
+		switch name {
+		case "calls":
+			calls = val
+			foundCalls = true
+		case "usec":
+			usecTotal = val
+			foundUsec = true
+		case "rejected_calls":
+			rejectedCalls = val
+			foundRejected = true
+		case "failed_calls":
+			failedCalls = val
+			foundFailed = true
+		}
+	}
+
+	if !foundCalls || !foundUsec {
 		errorOut = errors.New("invalid fieldValue")
 		return
 	}
 
-	// internal error variable
-	var err error
-	calls, err = extractVal(splitValue[0])
-	if err != nil {
-		errorOut = errors.New("invalid splitValue[0]")
-		return
-	}
-
-	usecTotal, err = extractVal(splitValue[1])
-	if err != nil {
-		errorOut = errors.New("invalid splitValue[1]")
-		return
-	}
-
-	// pre 6.2 did not include rejected/failed calls stats so if we have less than 5 tokens we're done here
-	if splitLen < 5 {
-		return
-	}
-
-	rejectedCalls, err = extractVal(splitValue[3])
-	if err != nil {
-		errorOut = errors.New("invalid rejected_calls while parsing splitValue[3]")
-		return
-	}
-
-	failedCalls, err = extractVal(splitValue[4])
-	if err != nil {
-		errorOut = errors.New("invalid failed_calls while parsing splitValue[4]")
-		return
-	}
-	extendedStats = true
+	// pre 6.2 did not include rejected/failed calls stats
+	extendedStats = foundRejected && foundFailed
 	return
 }
 
