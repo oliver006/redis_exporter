@@ -271,11 +271,26 @@ An example for a URI including a password is: `redis://<<username (optional)>>:<
 
 Alternatively, you can provide the username and/or password using the `--redis.user` and `--redis.password` directly to the redis_exporter.
 
-If you want to use a dedicated Redis user for the redis_exporter (instead of the default user) then you need enable a list of commands for that user.
-You can use the following Redis command to set up the user, just replace `<<<USERNAME>>>` and `<<<PASSWORD>>>` with your desired values.
+If you want to use a dedicated Redis user for the redis_exporter (instead of the default user) then you need to enable a list of commands for that user.
+Use the command below that matches your server and version, replacing `<<<USERNAME>>>` and `<<<PASSWORD>>>` with your desired values.
+
+For Redis before 8.8:
 ```
-ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +arcount +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
+ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +command|info +client -wait +scard +llen +hlen +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
 ```
+
+For Redis 8.8 and later, also grant `ARCOUNT` to collect array key sizes:
+```
+ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +command|info +client -wait +scard +llen +hlen +arcount +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
+```
+
+For Valkey 8.1 and later, also grant `COMMANDLOG LEN` to collect command log metrics:
+```
+ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +command|info +client -wait +scard +llen +hlen +get +eval +slowlog +commandlog|len +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
+```
+
+All three examples grant `COMMAND INFO` so the exporter can check whether `COMMANDLOG` is supported without generating an ACL permission error on each scrape.
+Do not add `+arcount` on servers without `ARCOUNT` or `+commandlog|len` on servers without `COMMANDLOG`: unknown commands cause the entire `ACL SETUSER` command to be rejected.
 
 For monitoring a Sentinel-node you may use the following command with the right ACL:
 ```
