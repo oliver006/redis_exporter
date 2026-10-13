@@ -275,8 +275,10 @@ Alternatively, you can provide the username and/or password using the `--redis.u
 If you want to use a dedicated Redis user for the redis_exporter (instead of the default user) then you need enable a list of commands for that user.
 You can use the following Redis command to set up the user, just replace `<<<USERNAME>>>` and `<<<PASSWORD>>>` with your desired values.
 ```
-ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +arcount +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
+ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|get +xinfo +pfcount -quit +zcard +type +xlen -readwrite -command +client -wait +scard +llen +hlen +arcount +get +eval +slowlog +cluster|info +cluster|slots +cluster|nodes +cluster|slot-stats -hello -echo +info +latency +scan -reset -auth -asking ><<<PASSWORD>>>
 ```
+
+`+cluster|slot-stats` is only needed when you use `--include-cluster-slot-stats`. Without it that command is denied and no `redis_cluster_slot_*` metrics are exported.
 
 For monitoring a Sentinel-node you may use the following command with the right ACL:
 ```
