@@ -302,6 +302,11 @@ ACL SETUSER <<<USERNAME>>> -@all +@connection +memory -readonly +strlen +config|
 All three examples grant `COMMAND INFO` so the exporter can check whether `COMMANDLOG` is supported without generating an ACL permission error on each scrape.
 Do not add `+arcount` on servers without `ARCOUNT` or `+commandlog|len` on servers without `COMMANDLOG`: unknown commands cause the entire `ACL SETUSER` command to be rejected.
 
+For Valkey 8.0+ or Redis 8.2+ the CLUSTER SLOT-STATS needs a specific ACL of `+cluster|slot-stats` included for a dedicated user. This is only needed when `--include-cluster-slot-stats` enables requesting and scraping the metrics.
+```
+ACL SETUSER <<<USERNAME>>> +cluster|slot-stats
+```
+
 For monitoring a Sentinel-node you may use the following command with the right ACL:
 ```
 ACL SETUSER <<<USERNAME>>> -@all +@connection -command +client -hello +info -auth +sentinel|masters +sentinel|replicas +sentinel|slaves +sentinel|sentinels +sentinel|ckquorum ><<<PASSWORD>>>
