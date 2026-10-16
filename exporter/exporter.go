@@ -75,6 +75,7 @@ type Options struct {
 	InclConfigMetrics              bool
 	InclModulesMetrics             bool
 	InclSearchIndexesMetrics       bool
+	InclClusterSlotStats           bool
 	InclSentinelPeerInfo           bool
 	CheckSearchIndexes             string
 	DisableExportingKeyValues      bool
@@ -595,6 +596,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"last_slow_execution_duration_seconds":               {txt: `The amount of time needed for last slow execution, in seconds`},
 		"latency_percentiles_usec":                           {txt: `A summary of latency percentile distribution per command`, lbls: []string{"cmd"}},
 		"latency_spike_duration_seconds":                     {txt: `Length of the last latency spike in seconds`, lbls: []string{"event_name"}},
+		"cluster_slot_key_count":                             {txt: `Number of keys in the slot (CLUSTER SLOT-STATS)`, lbls: []string{"slot"}},
+		"cluster_slot_cpu_usec_total":                        {txt: `Cumulative CPU time in microseconds used by commands targeting the slot (CLUSTER SLOT-STATS)`, lbls: []string{"slot"}},
+		"cluster_slot_network_bytes_in_total":                {txt: `Cumulative inbound network bytes for the slot (CLUSTER SLOT-STATS)`, lbls: []string{"slot"}},
+		"cluster_slot_network_bytes_out_total":               {txt: `Cumulative outbound network bytes for the slot (CLUSTER SLOT-STATS)`, lbls: []string{"slot"}},
 		"latency_spike_last":                                 {txt: `When the latency spike last occurred`, lbls: []string{"event_name"}},
 		"master_last_io_seconds_ago":                         {txt: "Master last io seconds ago", lbls: []string{"master_host", "master_port"}},
 		"master_link_up":                                     {txt: "Master link status on Redis slave", lbls: []string{"master_host", "master_port"}},
@@ -925,6 +930,10 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	if strings.Contains(infoAll, "cluster_enabled:1") {
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
+
+			if e.options.InclClusterSlotStats {
+				e.extractClusterSlotStatsMetrics(ch, c)
+			}
 
 			// in cluster mode Redis only supports one database, so no extra DB number padding needed
 			dbCount = 1
