@@ -85,6 +85,10 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 }
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
+	return e.connectToRedisClusterDatabase(0)
+}
+
+func (e *Exporter) connectToRedisClusterDatabase(db int) (redis.Conn, error) {
 	uri := e.redisAddr
 	if !strings.Contains(uri, "://") {
 		uri = "redis://" + uri
@@ -93,6 +97,10 @@ func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
 	options, err := e.configureOptions(uri)
 	if err != nil {
 		return nil, err
+	}
+	if db > 0 {
+		// Applied to every connection, including replacements after MOVED/ASK.
+		options = append(options, redis.DialDatabase(db))
 	}
 
 	// remove url scheme for redis.Cluster.StartupNodes

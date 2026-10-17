@@ -362,10 +362,12 @@ func (e *Exporter) getKeyInfoPipelined(ch chan<- prometheus.Metric, c redis.Conn
 }
 
 func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metric, c redis.Conn, allKeys []dbKeyPair) {
-	// Cluster mode only has one db
-	// no need to run `SELECT" but got to set it to "0" in the loop because it's used as the label
 	for _, k := range allKeys {
-		k.db = "0"
+		db, err := selectRedisDatabase(c, k.db)
+		if err != nil {
+			log.Errorf("Couldn't select database '%s' when getting key info: %s", k.db, err)
+			continue
+		}
 
 		keyType, err := redis.String(doRedisCmd(c, "TYPE", k.key))
 		if err != nil {
@@ -374,12 +376,12 @@ func (e *Exporter) extractCheckKeyMetricsNotPipelined(ch chan<- prometheus.Metri
 		}
 
 		if memUsageInBytes, err := redis.Int64(doRedisCmd(c, "MEMORY", "USAGE", k.key)); err == nil {
-			e.registerConstMetricGauge(ch, "key_memory_usage_bytes", float64(memUsageInBytes), "db"+k.db, k.key)
+			e.registerConstMetricGauge(ch, "key_memory_usage_bytes", float64(memUsageInBytes), "db"+db, k.key)
 		} else {
 			log.Errorf("MEMORY USAGE %s err: %s", k.key, err)
 		}
 
-		dbLabel := "db" + k.db
+		dbLabel := "db" + db
 		e.getKeyInfo(ch, c, dbLabel, keyType, k.key)
 	}
 }
@@ -427,6 +429,10 @@ var globPattern = regexp.MustCompile(`[\?\*\[\]\^]+`)
 // getKeysFromPatterns does a SCAN for a key if the key contains pattern characters.
 // keyType, when not empty, limits the SCAN to keys of that type.
 func getKeysFromPatterns(c redis.Conn, keys []dbKeyPair, count int64, keyType string) (expandedKeys []dbKeyPair, err error) {
+	if cluster, ok := c.(*clusterKeyConn); ok {
+		// SCAN cursors belong to the scraped node, not a redirect destination.
+		c = cluster.local
+	}
 	expandedKeys = []dbKeyPair{}
 	for _, k := range keys {
 		if globPattern.MatchString(k.key) {
