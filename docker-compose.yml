@@ -118,7 +118,7 @@ services:
       - "16402:6379"
 
   valkey9-cluster:
-    image: oliver006/valkey-cluster:9.0.1
+    image: oliver006/valkey-cluster:9.1.1-r1
     environment:
       - IP=0.0.0.0
     ports:
@@ -145,7 +145,7 @@ services:
       - 27000-27005:27000-27005
 
   valkey9-cluster-password:
-    image: oliver006/valkey-cluster:9.0.1
+    image: oliver006/valkey-cluster:9.1.1-r1
     environment:
       - IP=0.0.0.0
       - INITIAL_PORT=7006
