@@ -90,10 +90,10 @@ func TestClusterKeyValuesAndSizes(t *testing.T) {
 			clusterUri,
 			Options{
 				Namespace: "test", DisableExportingKeyValues: disableExportingValues,
+				// The single-database cluster fixture stores these keys in DB 0.
 				CheckSingleKeys: fmt.Sprintf(
-					"%s=%s,%s=%s",
-					dbNumStrFull, url.QueryEscape(testKeys[0]),
-					dbNumStrFull, url.QueryEscape(TestKeyNameSet),
+					"db0=%s,db0=%s",
+					url.QueryEscape(testKeys[0]), url.QueryEscape(TestKeyNameSet),
 				),
 				IsCluster: true,
 			},

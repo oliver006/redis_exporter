@@ -904,10 +904,12 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	dbCount := 0
+	var config map[string]string
 	if e.options.ConfigCommandName == "-" {
 		log.Debugf("Skipping extractConfigMetrics()")
 	} else {
 		if cfg, err := redis.StringMap(doRedisCmd(c, e.options.ConfigCommandName, "GET", "*")); err == nil {
+			config = cfg
 			dbCount, err = e.extractConfigMetrics(ch, cfg)
 			if err != nil {
 				log.Errorf("Redis extractConfigMetrics() err: %s", err)
@@ -923,11 +925,12 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	if strings.Contains(infoAll, "cluster_enabled:1") {
+		dbCount, err = clusterDatabaseCount(infoAll, config)
+		if err != nil {
+			return err
+		}
 		if clusterInfo, err := redis.String(doRedisCmd(c, "CLUSTER", "INFO")); err == nil {
 			e.extractClusterInfoMetrics(ch, clusterInfo)
-
-			// in cluster mode Redis only supports one database, so no extra DB number padding needed
-			dbCount = 1
 		} else {
 			log.Errorf("Redis CLUSTER INFO err: %s", err)
 		}
@@ -947,12 +950,13 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	}
 
 	var keyConn redis.Conn
+	scanConn := c
 	if e.options.IsCluster {
 		//
 		// in cluster mode we need to create a new, cluster-aware connection
 		// to properly handle cluster-redirects
 		//
-		k, keyConnErr := e.connectToRedisCluster()
+		k, keyConnErr := newClusterKeyConn(e.connectToRedis, e.connectToRedisClusterDatabase, supportsValkeyClusterDatabases(infoAll))
 		if keyConnErr != nil {
 			log.Errorf("failed to get key operation connection: %s", keyConnErr)
 		} else {
@@ -963,6 +967,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			//
 			defer k.Close()
 			keyConn = k
+			scanConn = k.local
 		}
 	} else {
 		// not in cluster mode - we can use our existing connection for retrieving keys and such
@@ -977,7 +982,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 			if err := e.extractCheckKeyMetrics(ch, keyConn); err != nil {
 				log.Errorf("extractCheckKeyMetrics() err: %s", err)
 			}
-			e.extractCountKeysMetrics(ch, keyConn)
+			e.extractCountKeysMetrics(ch, scanConn)
 			e.extractStreamMetrics(ch, keyConn)
 		}
 	} else {
@@ -988,7 +993,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 	e.extractCommandLogMetrics(ch, c)
 
 	if keyConn != nil {
-		e.extractKeyGroupMetrics(ch, keyConn, dbCount)
+		e.extractKeyGroupMetrics(ch, scanConn, dbCount)
 	}
 
 	if strings.Contains(infoAll, "# Sentinel") {
