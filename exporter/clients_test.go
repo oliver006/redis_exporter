@@ -1,11 +1,14 @@
 package exporter
 
 import (
+	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 )
@@ -63,7 +66,7 @@ func TestParseClientListString(t *testing.T) {
 		{
 			in:           "id=11 addr=127.0.0.1:63508 fd=8 name= age=6321 idle=6320 flags=N db=0 sub=0 psub=0 multi=-1 qbuf=0 qbuf-free=0 obl=3 oll=8 omem=0 tot-mem=0 events=r cmd=setex",
 			expectedOk:   true,
-			expectedInfo: ClientInfo{Id: "11", CreatedAt: convertDurationToTimestampInt64("6321"), IdleSince: convertDurationToTimestampInt64("6320"), Flags: "N", Db: "0", Ssub: -1, Watch: -1, Obl: 3, Oll: 8, OMem: 0, TotMem: 0, Host: "127.0.0.1", Port: "63508"},
+			expectedInfo: ClientInfo{Id: "11", CreatedAt: convertDurationToTimestampInt64("6321"), IdleSince: convertDurationToTimestampInt64("6320"), IdleSeconds: 6320, Flags: "N", Db: "0", Ssub: -1, Watch: -1, Obl: 3, Oll: 8, OMem: 0, TotMem: 0, Host: "127.0.0.1", Port: "63508"},
 		}, {
 			in:           "id=14 addr=127.0.0.1:64958 fd=9 name=foo age=5 idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=client",
 			expectedOk:   true,
@@ -152,7 +155,7 @@ func TestParseClientListString(t *testing.T) {
 }
 
 func TestRedisEightEightClientProcessingMetrics(t *testing.T) {
-	e := getTestExporterWithOptions(t, Options{Namespace: "test"})
+	e := getTestExporterWithOptions(t, Options{Namespace: "test", ExportClientList: true})
 	input := "id=15 addr=127.0.0.1:64960 name=worker read-events=42 avg-pipeline-len-sum=12 avg-pipeline-len-cnt=4\n"
 	want := map[string]float64{
 		"connected_client_read_events_total":       42,
@@ -192,12 +195,98 @@ func TestRedisEightEightClientProcessingMetrics(t *testing.T) {
 	}
 }
 
+func TestIdleClientMetrics(t *testing.T) {
+	for _, tt := range []struct {
+		name      string
+		input     string
+		threshold int64
+		err       error
+		want      float64
+	}{
+		{name: "disabled", input: "id=1 addr=127.0.0.1:1234 idle=61 flags=N\n"},
+		{name: "empty", threshold: 60},
+		{
+			name: "threshold boundary", threshold: 60, want: 1,
+			input: "id=1 addr=127.0.0.1:1234 idle=59 flags=N\n" +
+				"id=2 addr=127.0.0.1:1235 idle=60 flags=N\n" +
+				"id=3 addr=127.0.0.1:1236 idle=61 flags=N\n",
+		},
+		{name: "custom threshold", threshold: 10, want: 1, input: "id=1 addr=[::1]:1234 idle=11 flags=N\n"},
+		{
+			name: "special clients", threshold: 60, want: 1,
+			input: "id=1 addr=127.0.0.1:1234 idle=100 flags=b\n" +
+				"id=2 addr=127.0.0.1:1235 idle=100 flags=P\n" +
+				"id=3 addr=127.0.0.1:1236 idle=100 flags=S\n" +
+				"id=4 addr=127.0.0.1:1237 idle=100 flags=M\n" +
+				"id=5 addr=127.0.0.1:1238 idle=100 flags=bU\n" +
+				"id=6 addr=127.0.0.1:1239 idle=100 flags=x\n",
+		},
+		{
+			name: "invalid or missing idle", threshold: 60,
+			input: "id=1 addr=127.0.0.1:1234 idle=invalid flags=N\n" +
+				"id=2 addr=127.0.0.1:1235 flags=N\n" +
+				"id=3 addr=127.0.0.1:1236 idle=-1 flags=N\n" +
+				"id=4 addr=127.0.0.1:1237 idle=9223372036854775808 flags=N\n" +
+				"invalid\n",
+		},
+		{name: "command error", threshold: 60, err: redis.Error("NOPERM CLIENT LIST is not allowed")},
+	} {
+		for _, exportClientList := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/export-client-list=%t", tt.name, exportClientList), func(t *testing.T) {
+				e, err := NewRedisExporter("", Options{Namespace: "test", ExportClientList: exportClientList, ExportClientIdleThreshold: tt.threshold})
+				if err != nil {
+					t.Fatal(err)
+				}
+				c := &queuedRedisConn{replies: []redisReply{{value: tt.input, err: tt.err}}}
+				ch := make(chan prometheus.Metric, 128)
+				e.extractConnectedClientMetrics(ch, c)
+				close(ch)
+				if !reflect.DeepEqual(c.calls, [][]any{{"CLIENT", "LIST"}}) {
+					t.Errorf("commands = %v, want a single CLIENT LIST", c.calls)
+				}
+				found := 0
+				for metric := range ch {
+					if !strings.Contains(metric.Desc().String(), `fqName: "test_idle_clients"`) {
+						if !exportClientList {
+							t.Errorf("unexpected per-client metric: %s", metric.Desc())
+						}
+						continue
+					}
+					found++
+					var got dto.Metric
+					if err := metric.Write(&got); err != nil {
+						t.Fatal(err)
+					}
+					if got.Gauge == nil || got.Gauge.GetValue() != tt.want || len(got.Label) != 0 {
+						t.Errorf("idle_clients = %v, want an unlabeled gauge with value %v", &got, tt.want)
+					}
+				}
+				wantCount := 0
+				if tt.threshold > 0 && tt.err == nil {
+					wantCount = 1
+				}
+				if found != wantCount {
+					t.Errorf("idle_clients metric count = %d, want %d", found, wantCount)
+				}
+			})
+		}
+	}
+}
+
+func TestNegativeClientIdleThreshold(t *testing.T) {
+	if _, err := NewRedisExporter("", Options{ExportClientIdleThreshold: -1}); err == nil {
+		t.Fatal("expected an error for a negative idle threshold")
+	}
+}
+
 func TestExportClientList(t *testing.T) {
-	for _, isExportClientList := range []bool{true, false} {
-		e := getTestExporterWithOptions(t, Options{
-			Namespace:        "test",
-			ExportClientList: isExportClientList,
-		})
+	for _, opts := range []Options{
+		{Namespace: "test"},
+		{Namespace: "test", ExportClientList: true},
+		{Namespace: "test", ExportClientIdleThreshold: 60},
+		{Namespace: "test", ExportClientList: true, ExportClientIdleThreshold: 60},
+	} {
+		e := getTestExporterWithOptions(t, opts)
 
 		chM := make(chan prometheus.Metric)
 		go func() {
@@ -223,19 +312,26 @@ func TestExportClientList(t *testing.T) {
 			{in: "connected_client_shard_channel_subscriptions_count"},
 			{in: "connected_client_info"},
 		}
+		foundIdleClients := false
 		for m := range chM {
 			desc := m.Desc().String()
+			if strings.Contains(desc, `fqName: "test_idle_clients"`) {
+				foundIdleClients = true
+			}
 			for i := range tsts {
 				if strings.Contains(desc, tsts[i].in) {
 					tsts[i].found = true
 				}
 			}
 		}
+		if foundIdleClients != (opts.ExportClientIdleThreshold > 0) {
+			t.Errorf("idle_clients presence = %t with threshold %d", foundIdleClients, opts.ExportClientIdleThreshold)
+		}
 
 		for _, tst := range tsts {
-			if isExportClientList && !tst.found {
+			if opts.ExportClientList && !tst.found {
 				t.Errorf("%s was *not* found in isExportClientList metrics but expected", tst.in)
-			} else if !isExportClientList && tst.found {
+			} else if !opts.ExportClientList && tst.found {
 				t.Errorf("%s was *found* in isExportClientList metrics but *not* expected", tst.in)
 			}
 		}
