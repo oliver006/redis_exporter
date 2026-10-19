@@ -198,6 +198,7 @@ func main() {
 		pingOnConnect                  = flag.Bool("ping-on-connect", getEnvBool("REDIS_EXPORTER_PING_ON_CONNECT", false), "Whether to ping the redis instance after connecting")
 		inclConfigMetrics              = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
 		inclModulesMetrics             = flag.Bool("include-modules-metrics", getEnvBool("REDIS_EXPORTER_INCL_MODULES_METRICS", false), "Whether to collect Redis Modules metrics")
+		inclClusterSlotStats           = flag.Bool("include-cluster-slot-stats", getEnvBool("REDIS_EXPORTER_INCL_CLUSTER_SLOT_STATS", false), "Whether to collect per-slot metrics from CLUSTER SLOT-STATS (Valkey 8.0+, up to 16384 slots x 4 series)")
 		inclSearchIndexesMetrics       = flag.Bool("include-search-indexes-metrics", getEnvBool("REDIS_EXPORTER_INCL_SEARCH_INDEXES_METRICS", false), "Whether to collect Redis Search indexes metrics")
 		inclSentinelPeerInfo           = flag.Bool("include-sentinel-peer-info", getEnvBool("REDIS_EXPORTER_INCL_SENTINEL_PEER_INFO", false), "Whether to export sentinel_peer_info metrics (high cardinality)")
 		checkSearchIndexes             = flag.String("check-search-indexes", getEnv("REDIS_EXPORTER_CHECK_SEARCH_INDEXES", ".*"), "Regex pattern for Redis Search indexes to export metrics from FT.INFO command")
@@ -289,6 +290,7 @@ func main() {
 			ClusterDiscoverHostnames:       *clusterDiscoverHostnames,
 			InclModulesMetrics:             *inclModulesMetrics,
 			InclSearchIndexesMetrics:       *inclSearchIndexesMetrics,
+			InclClusterSlotStats:           *inclClusterSlotStats,
 			InclSentinelPeerInfo:           *inclSentinelPeerInfo,
 			CheckSearchIndexes:             *checkSearchIndexes,
 			ExportClientList:               *exportClientList,
