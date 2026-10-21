@@ -122,6 +122,77 @@ func TestExtractInfoKeyspaceMetrics(t *testing.T) {
 	}
 }
 
+func TestExtractInfoThreadsMetrics(t *testing.T) {
+	info := "# Threads\n" +
+		"io_thread_0:clients=1,reads=2,writes=3\n" +
+		"io_thread_1:clients=4,reads=5,writes=6\n"
+
+	want := map[string]map[string]float64{
+		"test_io_thread_clients":                {"0": 1, "1": 4},
+		"test_io_thread_reads_processed_total":  {"0": 2, "1": 5},
+		"test_io_thread_writes_processed_total": {"0": 3, "1": 6},
+	}
+
+	e, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() error = %v", err)
+	}
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.extractInfoMetrics(ch, info, 0)
+		close(ch)
+	}()
+
+	got := map[string]map[string]float64{}
+	for metric := range ch {
+		desc := metric.Desc().String()
+		name := ""
+		for candidate := range want {
+			if strings.Contains(desc, `fqName: "`+candidate+`"`) {
+				name = candidate
+				break
+			}
+		}
+		if name == "" {
+			continue
+		}
+		m := &dto.Metric{}
+		if err := metric.Write(m); err != nil {
+			t.Fatalf("metric.Write() err: %s", err)
+		}
+		var value float64
+		if m.Gauge != nil {
+			value = m.GetGauge().GetValue()
+		} else if m.Counter != nil {
+			value = m.GetCounter().GetValue()
+		}
+		thread := ""
+		for _, label := range m.GetLabel() {
+			if label.GetName() == "thread" {
+				thread = label.GetValue()
+			}
+		}
+		if got[name] == nil {
+			got[name] = map[string]float64{}
+		}
+		got[name][thread] = value
+	}
+
+	for name, threads := range want {
+		for thread, wantValue := range threads {
+			gotValue, ok := got[name][thread]
+			if !ok {
+				t.Errorf("missing metric %s{thread=%q}", name, thread)
+				continue
+			}
+			if gotValue != wantValue {
+				t.Errorf("%s{thread=%q} = %v, want %v", name, thread, gotValue, wantValue)
+			}
+		}
+	}
+}
+
 func TestLiveKeyspaceExpiringItemsMetric(t *testing.T) {
 	tests := []struct {
 		name        string
