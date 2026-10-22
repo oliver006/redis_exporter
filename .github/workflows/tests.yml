@@ -20,8 +20,8 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v4
 
-      - name: Set up Docker Compose
-        run: sudo apt-get install docker-compose
+      - name: Verify Docker Compose
+        run: docker compose version
 
       # need to do this before we start the services as they need the TLS creds
       - name: Create test certs for TLS
@@ -30,7 +30,7 @@ jobs:
           chmod 777 ./contrib/tls/*
 
       - name: Start services
-        run: docker-compose up -d
+        run: docker compose up -d
         working-directory: ./
 
       - name: Setup Go
@@ -78,7 +78,7 @@ jobs:
           file: coverage.txt
 
       - name: Stop services
-        run: docker-compose down
+        run: docker compose down
         working-directory: ./
 
 
