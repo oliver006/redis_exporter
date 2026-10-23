@@ -142,6 +142,10 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 			e.handleMetricsErrorStats(ch, fieldKey, fieldValue)
 			continue
 
+		case "Threads":
+			e.handleMetricsThreads(ch, fieldKey, fieldValue)
+			continue
+
 		case "Cluster Info":
 			// Valkey 9.1 includes CLUSTER INFO in INFO ALL. It is collected separately.
 			continue
@@ -655,5 +659,44 @@ func (e *Exporter) handleMetricsLatencyStats(fieldKey string, fieldValue string,
 func (e *Exporter) handleMetricsErrorStats(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
 	if errorPrefix, count, err := parseMetricsErrorStats(fieldKey, fieldValue); err == nil {
 		e.registerConstMetric(ch, "errors_total", count, prometheus.CounterValue, errorPrefix)
+	}
+}
+
+// handleMetricsThreads exports the per IO thread counters that Redis 8 reports
+// in the "# Threads" section of INFO ALL, e.g.
+//
+//	io_thread_0:clients=1,reads=2,writes=3
+//
+// The thread index is exposed as a "thread" label, the same way the per thread
+// active time is exposed.
+func (e *Exporter) handleMetricsThreads(ch chan<- prometheus.Metric, fieldKey string, fieldValue string) {
+	matches := ioThreadRE.FindStringSubmatch(fieldKey)
+	if matches == nil {
+		return
+	}
+	thread := matches[1]
+
+	for _, field := range strings.Split(fieldValue, ",") {
+		parts := strings.SplitN(field, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		val, err := strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			log.Debugf("couldn't parse %s, err: %s", parts[1], err)
+			continue
+		}
+
+		switch parts[0] {
+		case "clients":
+			e.createMetricDescription("io_thread_clients", []string{"thread"})
+			e.registerConstMetric(ch, "io_thread_clients", val, prometheus.GaugeValue, thread)
+		case "reads":
+			e.createMetricDescription("io_thread_reads_processed_total", []string{"thread"})
+			e.registerConstMetric(ch, "io_thread_reads_processed_total", val, prometheus.CounterValue, thread)
+		case "writes":
+			e.createMetricDescription("io_thread_writes_processed_total", []string{"thread"})
+			e.registerConstMetric(ch, "io_thread_writes_processed_total", val, prometheus.CounterValue, thread)
+		}
 	}
 }

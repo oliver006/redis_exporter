@@ -122,6 +122,180 @@ func TestExtractInfoKeyspaceMetrics(t *testing.T) {
 	}
 }
 
+func TestExtractInfoThreadsMetrics(t *testing.T) {
+	info := "# Threads\n" +
+		"io_thread_0:clients=1,reads=2,writes=3\n" +
+		"io_thread_1:clients=4,reads=5,writes=6\n"
+
+	want := map[string]map[string]float64{
+		"test_io_thread_clients":                {"0": 1, "1": 4},
+		"test_io_thread_reads_processed_total":  {"0": 2, "1": 5},
+		"test_io_thread_writes_processed_total": {"0": 3, "1": 6},
+	}
+
+	e, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() error = %v", err)
+	}
+
+	got := collectThreadMetrics(t, e, info)
+
+	for name, threads := range want {
+		for thread, wantValue := range threads {
+			gotValue, ok := got[name][thread]
+			if !ok {
+				t.Errorf("missing metric %s{thread=%q}", name, thread)
+				continue
+			}
+			if gotValue != wantValue {
+				t.Errorf("%s{thread=%q} = %v, want %v", name, thread, gotValue, wantValue)
+			}
+		}
+	}
+}
+
+// A line of the section that is not a thread, a field without a value and a
+// value that is not a number are all skipped instead of breaking the scrape.
+func TestExtractInfoThreadsMetricsSkipsMalformedEntries(t *testing.T) {
+	info := "# Threads\n" +
+		"not_a_thread:clients=1\n" +
+		"io_thread_0:clients,reads=2,writes=3\n" +
+		"io_thread_1:clients=abc,reads=5,writes=6\n"
+
+	want := map[string]map[string]float64{
+		"test_io_thread_clients":                {},
+		"test_io_thread_reads_processed_total":  {"0": 2, "1": 5},
+		"test_io_thread_writes_processed_total": {"0": 3, "1": 6},
+	}
+
+	e, err := NewRedisExporter("unix:///tmp/doesnt.matter", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() error = %v", err)
+	}
+
+	got := collectThreadMetrics(t, e, info)
+
+	for name, threads := range want {
+		if len(got[name]) != len(threads) {
+			t.Errorf("%s has %d threads, want %d: %v", name, len(got[name]), len(threads), got[name])
+		}
+		for thread, wantValue := range threads {
+			gotValue, ok := got[name][thread]
+			if !ok {
+				t.Errorf("missing metric %s{thread=%q}", name, thread)
+				continue
+			}
+			if gotValue != wantValue {
+				t.Errorf("%s{thread=%q} = %v, want %v", name, thread, gotValue, wantValue)
+			}
+		}
+	}
+}
+
+// collectThreadMetrics extracts the per-thread metrics of one INFO section.
+func collectThreadMetrics(t *testing.T, e *Exporter, info string) map[string]map[string]float64 {
+	t.Helper()
+
+	names := []string{
+		"test_io_thread_clients",
+		"test_io_thread_reads_processed_total",
+		"test_io_thread_writes_processed_total",
+	}
+
+	ch := make(chan prometheus.Metric)
+	go func() {
+		e.extractInfoMetrics(ch, info, 0)
+		close(ch)
+	}()
+
+	got := map[string]map[string]float64{}
+	for metric := range ch {
+		desc := metric.Desc().String()
+		name := ""
+		for _, candidate := range names {
+			if strings.Contains(desc, `fqName: "`+candidate+`"`) {
+				name = candidate
+				break
+			}
+		}
+		if name == "" {
+			continue
+		}
+		m := &dto.Metric{}
+		if err := metric.Write(m); err != nil {
+			t.Fatalf("metric.Write() err: %s", err)
+		}
+		var value float64
+		if m.Gauge != nil {
+			value = m.GetGauge().GetValue()
+		} else if m.Counter != nil {
+			value = m.GetCounter().GetValue()
+		}
+		thread := ""
+		for _, label := range m.GetLabel() {
+			if label.GetName() == "thread" {
+				thread = label.GetValue()
+			}
+		}
+		if got[name] == nil {
+			got[name] = map[string]float64{}
+		}
+		got[name][thread] = value
+	}
+	return got
+}
+
+// The per-thread metrics of the "# Threads" section, checked against a Redis
+// running with several IO threads.
+func TestLiveThreadsMetricsOnMultiThreadRedis(t *testing.T) {
+	// The instance is the redis8-io-threads service of docker-compose.yml;
+	// CI sets the variable to the port that service publishes.
+	addr := os.Getenv("TEST_REDIS_IO_THREADS_URI")
+	if addr == "" {
+		t.Skipf("TEST_REDIS_IO_THREADS_URI not set - skipping")
+	}
+
+	e, err := NewRedisExporter(addr, Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() error = %v", err)
+	}
+
+	c, err := e.connectToRedis()
+	if err != nil {
+		t.Fatalf("connectToRedis() error = %v", err)
+	}
+	defer c.Close()
+
+	info, err := redis.String(c.Do("INFO", "ALL"))
+	if err != nil {
+		t.Fatalf("INFO ALL error = %v", err)
+	}
+	threads := regexp.MustCompile(`(?m)^io_thread_(\d+):`).FindAllStringSubmatch(info, -1)
+	if len(threads) < 2 {
+		t.Fatalf("expected a Redis with several IO threads, got %d:\n%s", len(threads), info)
+	}
+
+	ts := httptest.NewServer(e)
+	defer ts.Close()
+	body := downloadURL(t, ts.URL+"/metrics")
+
+	for _, match := range threads {
+		thread := match[1]
+		for _, name := range []string{
+			"test_io_thread_clients",
+			"test_io_thread_reads_processed_total",
+			"test_io_thread_writes_processed_total",
+		} {
+			pattern := regexp.MustCompile(
+				`(?m)^` + regexp.QuoteMeta(name) + `\{[^}]*thread="` + thread + `"[^}]*\} `,
+			)
+			if !pattern.MatchString(body) {
+				t.Errorf("missing metric %s for thread %s:\n%s", name, thread, body)
+			}
+		}
+	}
+}
+
 func TestLiveKeyspaceExpiringItemsMetric(t *testing.T) {
 	tests := []struct {
 		name        string

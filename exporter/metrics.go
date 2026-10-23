@@ -13,6 +13,7 @@ import (
 
 var metricNameRE = regexp.MustCompile(`[^a-zA-Z0-9_]`)
 var activeTimeIOThreadRE = regexp.MustCompile(`^used_active_time_io_thread_([0-9]+)$`)
+var ioThreadRE = regexp.MustCompile(`^io_thread_([0-9]+)$`)
 
 func sanitizeMetricName(n string) string {
 	return metricNameRE.ReplaceAllString(n, "_")

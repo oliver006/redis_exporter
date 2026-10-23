@@ -57,6 +57,7 @@ jobs:
           LOG_LEVEL: "info"
           TEST_REDIS_URI: "redis://localhost:16388"
           TEST_PWD_REDIS_URI: "redis://:redis-password@localhost:16380"
+          TEST_REDIS_IO_THREADS_URI: "redis://localhost:16392"
         run: |
           go test -v -race -p 1 ./...
 
