@@ -248,13 +248,11 @@ func collectThreadMetrics(t *testing.T, e *Exporter, info string) map[string]map
 // The per-thread metrics of the "# Threads" section, checked against a Redis
 // running with several IO threads.
 func TestLiveThreadsMetricsOnMultiThreadRedis(t *testing.T) {
-	// The instance is the redis8-io-threads service of docker-compose.yml, so
-	// the port is the one that service publishes. The environment variable
-	// overrides it for a setup that publishes it elsewhere.
+	// The instance is the redis8-io-threads service of docker-compose.yml;
+	// CI sets the variable to the port that service publishes.
 	addr := os.Getenv("TEST_REDIS_IO_THREADS_URI")
-	required := addr != ""
 	if addr == "" {
-		addr = "redis://localhost:16392"
+		t.Skipf("TEST_REDIS_IO_THREADS_URI not set - skipping")
 	}
 
 	e, err := NewRedisExporter(addr, Options{Namespace: "test"})
@@ -264,9 +262,6 @@ func TestLiveThreadsMetricsOnMultiThreadRedis(t *testing.T) {
 
 	c, err := e.connectToRedis()
 	if err != nil {
-		if !required {
-			t.Skipf("no multi-threaded Redis at %s: %v", addr, err)
-		}
 		t.Fatalf("connectToRedis() error = %v", err)
 	}
 	defer c.Close()
