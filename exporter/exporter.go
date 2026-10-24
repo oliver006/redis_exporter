@@ -90,6 +90,7 @@ type Options struct {
 	ClusterDiscoverHostnames       bool
 	ExportClientList               bool
 	ExportClientsInclPort          bool
+	ExportClientIdleThreshold      int64
 	ConnectionTimeouts             time.Duration
 	MetricsPath                    string
 	RedisMetricsOnly               bool
@@ -129,6 +130,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 	}
 
 	log.Debugf("NewRedisExporter = using redis uri: %s", uri)
+
+	if opts.ExportClientIdleThreshold < 0 {
+		return nil, fmt.Errorf("export-client-idle-threshold must not be negative")
+	}
 
 	if opts.InclSearchIndexesMetrics {
 		if _, err := regexp.Compile(opts.CheckSearchIndexes); err != nil {
@@ -564,6 +569,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"commands_slowlog_total":                             {txt: `Total number of slowlogged calls per command`, lbls: []string{"cmd"}},
 		"commands_total":                                     {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
 		"active_clients":                                     {txt: `Number of clients active in Redis's rolling activity window`},
+		"idle_clients":                                       {txt: `Number of clients idle longer than the configured threshold in seconds, excluding blocked, pub/sub, replication, and MONITOR clients`},
 		"client_processing_events_total":                     {txt: `Total attempts to process client input buffers`},
 		"client_processing_pipeline_batches_total":           {txt: `Total client input parsing batches that parsed at least one command`},
 		"client_processing_pipeline_commands_total":          {txt: `Total commands parsed across client input parsing batches`},
@@ -1011,7 +1017,7 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		e.extractSentinelConfig(ch, c)
 	}
 
-	if e.options.ExportClientList {
+	if e.options.ExportClientList || e.options.ExportClientIdleThreshold > 0 {
 		e.extractConnectedClientMetrics(ch, c)
 	}
 
