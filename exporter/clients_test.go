@@ -88,6 +88,10 @@ func TestParseClientListString(t *testing.T) {
 				readEventsAvailable: true, pipelineLengthSumAvailable: true, pipelineLengthCountAvailable: true,
 			},
 		}, {
+			in:           "id=17 addr=127.0.0.1:1234 name=app=web lib-name=test=lib",
+			expectedOk:   true,
+			expectedInfo: ClientInfo{Id: "17", Name: "app=web", Ssub: -1, Watch: -1, Host: "127.0.0.1", Port: "1234"},
+		}, {
 			in:         "id=14 addr=127.0.0.1:64958 fd=9 name=foo age=ABCDE idle=0 flags=N db=1 sub=0 psub=0 multi=-1 qbuf=26 qbuf-free=32742 obl=0 oll=0 omem=0 tot-mem=0 events=r cmd=client",
 			expectedOk: false,
 		}, {
@@ -213,13 +217,20 @@ func TestIdleClientMetrics(t *testing.T) {
 		},
 		{name: "custom threshold", threshold: 10, want: 1, input: "id=1 addr=[::1]:1234 idle=11 flags=N\n"},
 		{
+			name: "equals in client metadata", threshold: 60, want: 2,
+			input: "id=1 addr=127.0.0.1:1234 name=app=web idle=61 flags=N\n" +
+				"id=2 addr=127.0.0.1:1235 idle=61 flags=N lib-name=test=lib\n",
+		},
+		{
 			name: "special clients", threshold: 60, want: 1,
 			input: "id=1 addr=127.0.0.1:1234 idle=100 flags=b\n" +
 				"id=2 addr=127.0.0.1:1235 idle=100 flags=P\n" +
 				"id=3 addr=127.0.0.1:1236 idle=100 flags=S\n" +
 				"id=4 addr=127.0.0.1:1237 idle=100 flags=M\n" +
 				"id=5 addr=127.0.0.1:1238 idle=100 flags=bU\n" +
-				"id=6 addr=127.0.0.1:1239 idle=100 flags=x\n",
+				"id=6 addr=127.0.0.1:1239 idle=100 flags=x\n" +
+				"id=7 addr=127.0.0.1:1240 idle=100 flags=O\n" +
+				"id=8 addr=127.0.0.1:1241 idle=100 flags=OU\n",
 		},
 		{
 			name: "invalid or missing idle", threshold: 60,

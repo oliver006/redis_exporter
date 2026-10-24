@@ -57,7 +57,7 @@ func parseClientListString(clientInfo string) (*ClientInfo, bool) {
 	connectedClient.Ssub = -1  // mark it as missing - introduced in Redis 7.0.3
 	connectedClient.Watch = -1 // mark it as missing - introduced in Redis 7.4
 	for kvPart := range strings.SplitSeq(clientInfo, " ") {
-		vPart := strings.Split(kvPart, "=")
+		vPart := strings.SplitN(kvPart, "=", 2)
 		if len(vPart) != 2 {
 			log.Debugf("Invalid format for client list string, got: %s", kvPart)
 			return nil, false
@@ -166,7 +166,7 @@ func (e *Exporter) parseConnectedClientMetrics(input string, ch chan<- prometheu
 			log.Debugf("parseClientListString( %s ) - couldn';t parse input", s)
 			continue
 		}
-		if e.options.ExportClientIdleThreshold > 0 && info.IdleSeconds > e.options.ExportClientIdleThreshold && !strings.ContainsAny(info.Flags, "bPMS") {
+		if e.options.ExportClientIdleThreshold > 0 && info.IdleSeconds > e.options.ExportClientIdleThreshold && !strings.ContainsAny(info.Flags, "bPMSO") {
 			idleClients++
 		}
 		if !e.options.ExportClientList {

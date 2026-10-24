@@ -568,7 +568,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"commands_slowlog_total":                             {txt: `Total number of slowlogged calls per command`, lbls: []string{"cmd"}},
 		"commands_total":                                     {txt: `Total number of calls per command`, lbls: []string{"cmd"}},
 		"active_clients":                                     {txt: `Number of clients active in Redis's rolling activity window`},
-		"idle_clients":                                       {txt: `Number of clients idle longer than the configured threshold in seconds, excluding blocked, pub/sub, and replication clients`},
+		"idle_clients":                                       {txt: `Number of clients idle longer than the configured threshold in seconds, excluding blocked, pub/sub, replication, and MONITOR clients`},
 		"client_processing_events_total":                     {txt: `Total attempts to process client input buffers`},
 		"client_processing_pipeline_batches_total":           {txt: `Total client input parsing batches that parsed at least one command`},
 		"client_processing_pipeline_commands_total":          {txt: `Total commands parsed across client input parsing batches`},
