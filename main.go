@@ -205,6 +205,7 @@ func main() {
 		checkSearchIndexes             = flag.String("check-search-indexes", getEnv("REDIS_EXPORTER_CHECK_SEARCH_INDEXES", ".*"), "Regex pattern for Redis Search indexes to export metrics from FT.INFO command")
 		disableExportingKeyValues      = flag.Bool("disable-exporting-key-values", getEnvBool("REDIS_EXPORTER_DISABLE_EXPORTING_KEY_VALUES", false), "Whether to disable values of keys stored in redis as labels or not when using check-keys/check-single-key")
 		excludeLatencyHistogramMetrics = flag.Bool("exclude-latency-histogram-metrics", getEnvBool("REDIS_EXPORTER_EXCLUDE_LATENCY_HISTOGRAM_METRICS", false), "Do not try to collect latency histogram metrics")
+		excludeSlowlogMetrics          = flag.Bool("exclude-slowlog-metrics", getEnvBool("REDIS_EXPORTER_EXCLUDE_SLOWLOG_METRICS", false), "Do not try to collect slowlog and commandlog metrics (skips the SLOWLOG and COMMANDLOG commands)")
 		redactConfigMetrics            = flag.Bool("redact-config-metrics", getEnvBool("REDIS_EXPORTER_REDACT_CONFIG_METRICS", true), "Whether to redact config settings that include potentially sensitive information like passwords")
 		inclSystemMetrics              = flag.Bool("include-system-metrics", getEnvBool("REDIS_EXPORTER_INCL_SYSTEM_METRICS", false), "Whether to include system metrics like e.g. redis_total_system_memory_bytes")
 		inclRdbFileSizeMetric          = flag.Bool("include-rdb-file-size-metric", getEnvBool("REDIS_EXPORTER_INCL_RDB_FILE_SIZE_METRIC", false), "Whether to include RDB file size metric. Note: Requires the exporter to run on the same host as Redis with read access to the RDB directory. Will not work in remote or containerized deployments where the RDB file is not accessible.")
@@ -284,6 +285,7 @@ func main() {
 			InclConfigMetrics:              *inclConfigMetrics,
 			DisableExportingKeyValues:      *disableExportingKeyValues,
 			ExcludeLatencyHistogramMetrics: *excludeLatencyHistogramMetrics,
+			ExcludeSlowlogMetrics:          *excludeSlowlogMetrics,
 			RedactConfigMetrics:            *redactConfigMetrics,
 			SetClientName:                  *setClientName,
 			IsTile38:                       *isTile38,
