@@ -93,41 +93,61 @@ func TestSlowLog(t *testing.T) {
 	}
 }
 
-func TestExcludeSlowlogMetrics(t *testing.T) {
+func TestExcludeSlowlogAndCommandlogMetrics(t *testing.T) {
 	addr := os.Getenv("TEST_VALKEY9_URI")
 	if addr == "" {
 		t.Skipf("TEST_VALKEY9_URI not set - skipping")
 	}
 
-	logCommands := []string{"slowlog|len", "slowlog|get", "command|info", "commandlog|len"}
-	logMetrics := []string{"slowlog_length", "slowlog_last_id", "last_slow_execution_duration_seconds", "commandlog_slow_length", "commandlog_execution_slower_than"}
+	slowlogCommands := []string{"slowlog|len", "slowlog|get"}
+	slowlogMetrics := []string{"slowlog_length", "slowlog_last_id", "last_slow_execution_duration_seconds"}
+	commandlogCommands := []string{"command|info", "commandlog|len"}
+	commandlogMetrics := []string{"commandlog_slow_length", "commandlog_execution_slower_than"}
 
 	for _, tst := range []struct {
-		name    string
-		exclude bool
+		name              string
+		excludeSlowlog    bool
+		excludeCommandlog bool
 	}{
-		{name: "included", exclude: false},
-		{name: "excluded", exclude: true},
+		{name: "none excluded"},
+		{name: "slowlog excluded", excludeSlowlog: true},
+		{name: "commandlog excluded", excludeCommandlog: true},
+		{name: "both excluded", excludeSlowlog: true, excludeCommandlog: true},
 	} {
 		t.Run(tst.name, func(t *testing.T) {
-			e := getTestExporterWithAddrAndOptions(addr, Options{Namespace: "test", ExcludeSlowlogMetrics: tst.exclude})
+			e := getTestExporterWithAddrAndOptions(addr, Options{
+				Namespace:                "test",
+				ExcludeSlowlogMetrics:    tst.excludeSlowlog,
+				ExcludeCommandlogMetrics: tst.excludeCommandlog,
+			})
 
 			callsBefore := commandCalls(t, addr)
 			names := collectMetricNames(e)
 			callsAfter := commandCalls(t, addr)
 
-			for _, cmd := range logCommands {
-				sent := callsAfter[cmd] > callsBefore[cmd]
-				if sent == tst.exclude {
-					t.Errorf("command %q sent: %t, want %t", cmd, sent, !tst.exclude)
-				}
-			}
-			for _, metric := range logMetrics {
-				if names[metric] == tst.exclude {
-					t.Errorf("metric %q exported: %t, want %t", metric, names[metric], !tst.exclude)
-				}
-			}
+			assertCommandsSent(t, slowlogCommands, callsBefore, callsAfter, !tst.excludeSlowlog)
+			assertMetricsExported(t, slowlogMetrics, names, !tst.excludeSlowlog)
+			assertCommandsSent(t, commandlogCommands, callsBefore, callsAfter, !tst.excludeCommandlog)
+			assertMetricsExported(t, commandlogMetrics, names, !tst.excludeCommandlog)
 		})
+	}
+}
+
+func assertCommandsSent(t *testing.T, cmds []string, before, after map[string]int64, want bool) {
+	t.Helper()
+	for _, cmd := range cmds {
+		if sent := after[cmd] > before[cmd]; sent != want {
+			t.Errorf("command %q sent: %t, want %t", cmd, sent, want)
+		}
+	}
+}
+
+func assertMetricsExported(t *testing.T, metrics []string, names map[string]bool, want bool) {
+	t.Helper()
+	for _, metric := range metrics {
+		if names[metric] != want {
+			t.Errorf("metric %q exported: %t, want %t", metric, names[metric], want)
+		}
 	}
 }
 

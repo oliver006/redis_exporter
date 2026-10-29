@@ -81,6 +81,7 @@ type Options struct {
 	DisableExportingKeyValues      bool
 	ExcludeLatencyHistogramMetrics bool
 	ExcludeSlowlogMetrics          bool
+	ExcludeCommandlogMetrics       bool
 	RedactConfigMetrics            bool
 	InclSystemMetrics              bool
 	InclRdbFileSizeMetric          bool
@@ -1007,6 +1008,8 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 
 	if !e.options.ExcludeSlowlogMetrics {
 		e.extractSlowLogMetrics(ch, c)
+	}
+	if !e.options.ExcludeCommandlogMetrics {
 		e.extractCommandLogMetrics(ch, c)
 	}
 
