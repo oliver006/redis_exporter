@@ -200,6 +200,7 @@ func main() {
 		inclConfigMetrics              = flag.Bool("include-config-metrics", getEnvBool("REDIS_EXPORTER_INCL_CONFIG_METRICS", false), "Whether to include all config settings as metrics")
 		inclModulesMetrics             = flag.Bool("include-modules-metrics", getEnvBool("REDIS_EXPORTER_INCL_MODULES_METRICS", false), "Whether to collect Redis Modules metrics")
 		inclClusterSlotStats           = flag.Bool("include-cluster-slot-stats", getEnvBool("REDIS_EXPORTER_INCL_CLUSTER_SLOT_STATS", false), "Whether to collect per-slot metrics from CLUSTER SLOT-STATS (Valkey 8.0+, up to 16384 slots x 4 series)")
+		inclKeysizesMetrics            = flag.Bool("include-keysizes-metrics", getEnvBool("REDIS_EXPORTER_INCL_KEYSIZES_METRICS", false), "Whether to collect key size distribution metrics from the KEYSIZES section of INFO (Redis 8.0+); one series per non-empty power-of-two bucket per data type, measure and db (theoretically up to 64 buckets)")
 		inclSearchIndexesMetrics       = flag.Bool("include-search-indexes-metrics", getEnvBool("REDIS_EXPORTER_INCL_SEARCH_INDEXES_METRICS", false), "Whether to collect Redis Search indexes metrics")
 		inclSentinelPeerInfo           = flag.Bool("include-sentinel-peer-info", getEnvBool("REDIS_EXPORTER_INCL_SENTINEL_PEER_INFO", false), "Whether to export sentinel_peer_info metrics (high cardinality)")
 		checkSearchIndexes             = flag.String("check-search-indexes", getEnv("REDIS_EXPORTER_CHECK_SEARCH_INDEXES", ".*"), "Regex pattern for Redis Search indexes to export metrics from FT.INFO command")
@@ -292,6 +293,7 @@ func main() {
 			InclModulesMetrics:             *inclModulesMetrics,
 			InclSearchIndexesMetrics:       *inclSearchIndexesMetrics,
 			InclClusterSlotStats:           *inclClusterSlotStats,
+			InclKeysizesMetrics:            *inclKeysizesMetrics,
 			InclSentinelPeerInfo:           *inclSentinelPeerInfo,
 			CheckSearchIndexes:             *checkSearchIndexes,
 			ExportClientList:               *exportClientList,

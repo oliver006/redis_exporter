@@ -161,6 +161,12 @@ func (e *Exporter) extractInfoMetrics(ch chan<- prometheus.Metric, info string, 
 				continue
 			}
 
+		case "Keysizes":
+			if e.options.InclKeysizesMetrics {
+				e.handleMetricsKeysizes(ch, fieldKey, fieldValue)
+			}
+			continue
+
 		case "Sentinel":
 			e.handleMetricsSentinel(ch, fieldKey, fieldValue)
 		}

@@ -76,6 +76,7 @@ type Options struct {
 	InclModulesMetrics             bool
 	InclSearchIndexesMetrics       bool
 	InclClusterSlotStats           bool
+	InclKeysizesMetrics            bool
 	InclSentinelPeerInfo           bool
 	CheckSearchIndexes             string
 	DisableExportingKeyValues      bool
@@ -591,6 +592,7 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 		"db_keys_with_expiring_items":                        {txt: "Total number of keys with expiring items by DB", lbls: []string{"db"}},
 		"errors_total":                                       {txt: `Total number of errors per error type`, lbls: []string{"err"}},
 		"exporter_last_scrape_error":                         {txt: "The last scrape error status.", lbls: []string{"err"}},
+		"keysizes_key_count":                                 {txt: `Number of keys whose value size in bytes ("sizes") or element count ("items") falls into the power-of-two range starting at bucket`, lbls: []string{"db", "type", "measure", "bucket"}},
 		"key_group_count":                                    {txt: `Count of keys in key group`, lbls: []string{"db", "key_group"}},
 		"key_group_memory_usage_bytes":                       {txt: `Total memory usage of key group in bytes`, lbls: []string{"db", "key_group"}},
 		"key_memory_usage_bytes":                             {txt: `The memory usage of "key" in bytes`, lbls: []string{"db", "key"}},
