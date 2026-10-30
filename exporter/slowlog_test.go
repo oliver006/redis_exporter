@@ -2,6 +2,7 @@ package exporter
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -90,6 +91,114 @@ func TestSlowLog(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestExcludeSlowlogAndCommandlogMetrics(t *testing.T) {
+	addr := os.Getenv("TEST_VALKEY9_URI")
+	if addr == "" {
+		t.Skipf("TEST_VALKEY9_URI not set - skipping")
+	}
+
+	slowlogCommands := []string{"slowlog|len", "slowlog|get"}
+	slowlogMetrics := []string{"slowlog_length", "slowlog_last_id", "last_slow_execution_duration_seconds"}
+	commandlogCommands := []string{"command|info", "commandlog|len"}
+	commandlogMetrics := []string{"commandlog_slow_length", "commandlog_execution_slower_than"}
+
+	for _, tst := range []struct {
+		name              string
+		excludeSlowlog    bool
+		excludeCommandlog bool
+	}{
+		{name: "none excluded"},
+		{name: "slowlog excluded", excludeSlowlog: true},
+		{name: "commandlog excluded", excludeCommandlog: true},
+		{name: "both excluded", excludeSlowlog: true, excludeCommandlog: true},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			e := getTestExporterWithAddrAndOptions(addr, Options{
+				Namespace:                "test",
+				ExcludeSlowlogMetrics:    tst.excludeSlowlog,
+				ExcludeCommandlogMetrics: tst.excludeCommandlog,
+			})
+
+			callsBefore := commandCalls(t, addr)
+			names := collectMetricNames(e)
+			callsAfter := commandCalls(t, addr)
+
+			assertCommandsSent(t, slowlogCommands, callsBefore, callsAfter, !tst.excludeSlowlog)
+			assertMetricsExported(t, slowlogMetrics, names, !tst.excludeSlowlog)
+			assertCommandsSent(t, commandlogCommands, callsBefore, callsAfter, !tst.excludeCommandlog)
+			assertMetricsExported(t, commandlogMetrics, names, !tst.excludeCommandlog)
+		})
+	}
+}
+
+func assertCommandsSent(t *testing.T, cmds []string, before, after map[string]int64, want bool) {
+	t.Helper()
+	for _, cmd := range cmds {
+		if sent := after[cmd] > before[cmd]; sent != want {
+			t.Errorf("command %q sent: %t, want %t", cmd, sent, want)
+		}
+	}
+}
+
+func assertMetricsExported(t *testing.T, metrics []string, names map[string]bool, want bool) {
+	t.Helper()
+	for _, metric := range metrics {
+		if names[metric] != want {
+			t.Errorf("metric %q exported: %t, want %t", metric, names[metric], want)
+		}
+	}
+}
+
+func collectMetricNames(e *Exporter) map[string]bool {
+	chM := make(chan prometheus.Metric)
+	go func() {
+		e.Collect(chM)
+		close(chM)
+	}()
+
+	names := map[string]bool{}
+	for m := range chM {
+		if sub := fqNameRE.FindStringSubmatch(m.Desc().String()); sub != nil {
+			names[sub[1]] = true
+		}
+	}
+	return names
+}
+
+// commandCalls returns the per-command call counts from INFO commandstats, keyed like "slowlog|len".
+func commandCalls(t *testing.T, addr string) map[string]int64 {
+	t.Helper()
+
+	c, err := redis.DialURL(addr)
+	if err != nil {
+		t.Fatalf("couldn't connect to %s, err: %s", addr, err)
+	}
+	defer c.Close()
+
+	info, err := redis.String(c.Do("INFO", "commandstats"))
+	if err != nil {
+		t.Fatalf("couldn't read INFO commandstats, err: %s", err)
+	}
+
+	calls := map[string]int64{}
+	for _, line := range strings.Split(info, "\r\n") {
+		rest, ok := strings.CutPrefix(line, "cmdstat_")
+		if !ok {
+			continue
+		}
+		cmd, stats, ok := strings.Cut(rest, ":")
+		if !ok {
+			continue
+		}
+		for _, kv := range strings.Split(stats, ",") {
+			if n, ok := strings.CutPrefix(kv, "calls="); ok {
+				calls[cmd], _ = strconv.ParseInt(n, 10, 64)
+			}
+		}
+	}
+	return calls
 }
 
 func setupSlowLog(t *testing.T, addr string) error {

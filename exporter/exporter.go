@@ -80,6 +80,8 @@ type Options struct {
 	CheckSearchIndexes             string
 	DisableExportingKeyValues      bool
 	ExcludeLatencyHistogramMetrics bool
+	ExcludeSlowlogMetrics          bool
+	ExcludeCommandlogMetrics       bool
 	RedactConfigMetrics            bool
 	InclSystemMetrics              bool
 	InclRdbFileSizeMetric          bool
@@ -1004,8 +1006,12 @@ func (e *Exporter) scrapeRedisHost(ch chan<- prometheus.Metric) error {
 		log.Infof("skipping checkKeys metrics, role: %s  flag: %#v", role, e.options.SkipCheckKeysForRoleMaster)
 	}
 
-	e.extractSlowLogMetrics(ch, c)
-	e.extractCommandLogMetrics(ch, c)
+	if !e.options.ExcludeSlowlogMetrics {
+		e.extractSlowLogMetrics(ch, c)
+	}
+	if !e.options.ExcludeCommandlogMetrics {
+		e.extractCommandLogMetrics(ch, c)
+	}
 
 	if keyConn != nil {
 		e.extractKeyGroupMetrics(ch, scanConn, dbCount)
