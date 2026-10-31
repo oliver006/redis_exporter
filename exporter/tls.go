@@ -133,6 +133,8 @@ func LoadCAFile(caFile string) (*x509.CertPool, error) {
 		return nil, err
 	}
 	pool := x509.NewCertPool()
-	pool.AppendCertsFromPEM(pemCerts)
+	if !pool.AppendCertsFromPEM(pemCerts) {
+		return nil, fmt.Errorf("no PEM certificates found in CA cert file %q", caFile)
+	}
 	return pool, nil
 }
