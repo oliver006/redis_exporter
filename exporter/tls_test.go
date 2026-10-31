@@ -562,3 +562,22 @@ func TestGetConfigForClientFunc(t *testing.T) {
 		t.Errorf("Expected GetConfigForClientFunc() to fail")
 	}
 }
+
+func TestLoadCAFileWithoutCertificates(t *testing.T) {
+	caFile := filepath.Join(t.TempDir(), "ca.crt")
+	if err := os.WriteFile(caFile, []byte("not a certificate\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := LoadCAFile(caFile); err == nil || !strings.Contains(err.Error(), "no PEM certificates found") {
+		t.Fatalf("LoadCAFile() err = %v, want a no PEM certificates error", err)
+	}
+
+	e, err := NewRedisExporter("", Options{CaCertFile: caFile})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+	if _, err := e.CreateClientTLSConfig(); err == nil {
+		t.Fatalf("CreateClientTLSConfig() succeeded with a CA file that has no certificates")
+	}
+}
