@@ -14,7 +14,7 @@ import (
 var (
 	logLatestErrOnce, logHistogramErrOnce sync.Once
 
-	extractUsecRegexp = regexp.MustCompile(`(?m)^cmdstat_([a-zA-Z0-9\|]+):.*usec=([0-9]+).*$`)
+	extractUsecRegexp = regexp.MustCompile(`(?m)^cmdstat_([a-zA-Z0-9_\-\|]+):.*usec=([0-9]+).*$`)
 )
 
 func (e *Exporter) extractLatencyMetrics(ch chan<- prometheus.Metric, infoAll string, c redis.Conn) {

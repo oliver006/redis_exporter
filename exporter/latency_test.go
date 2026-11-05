@@ -130,6 +130,9 @@ cmdstat_testerr2:calls=1,usec=-2,usec_per_call=5.00,rejected_calls=0,failed_call
 cmdstat_testerr3:calls=1,usec=` + fmt.Sprintf("%d1", uint64(math.MaxUint64)) + `,usec_per_call=5.00,rejected_calls=0,failed_calls=0
 cmdstat_config|get:calls=69103,usec=15005068,usec_per_call=217.14,rejected_calls=0,failed_calls=0
 cmdstat_config|set:calls=3,usec=58,usec_per_call=19.33,rejected_calls=0,failed_calls=3
+cmdstat_georadius_ro:calls=4,usec=120,usec_per_call=30.00,rejected_calls=0,failed_calls=0
+cmdstat_restore-asking:calls=2,usec=40,usec_per_call=20.00,rejected_calls=0,failed_calls=0
+cmdstat_client|no-evict:calls=1,usec=7,usec_per_call=7.00,rejected_calls=0,failed_calls=0
 
 # Latencystats
 latency_percentiles_usec_pubsub|channels:p50=5.023,p99=5.023,p99.9=5.023
@@ -143,6 +146,11 @@ latency_percentiles_usec_config|set:p50=23.039,p99=27.007,p99.9=27.007`
 		"testerr":    2 + 0,
 		"testerr2":   0,
 		"testerr3":   0,
+
+		"georadius_ro":    120,
+		"restore-asking":  40,
+		"client|no-evict": 7,
+		"client":          7,
 	}
 
 	for cmd, expected := range testMap {
