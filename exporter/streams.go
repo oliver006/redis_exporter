@@ -39,6 +39,8 @@ type streamGroupsInfo struct {
 	LastDeliveredId          string `redis:"last-delivered-id"`
 	EntriesRead              int64  `redis:"entries-read"`
 	Lag                      int64  `redis:"lag"`
+	EntriesReadUnknown       bool
+	LagUnknown               bool
 	NackedCount              int64
 	NackedCountAvailable     bool
 	StreamGroupConsumersInfo []streamGroupConsumersInfo
@@ -147,6 +149,20 @@ func scanStreamGroups(c redis.Conn, stream string) ([]streamGroupsInfo, error) {
 		if err := redis.ScanStruct(v, &group); err != nil {
 			log.Errorf("Couldn't scan group in stream '%s': %s", stream, err)
 			continue
+		}
+
+		// entries-read and lag are nil when Redis can't determine them,
+		// ScanStruct leaves them at 0 in that case.
+		for idx := 0; idx+1 < len(v); idx += 2 {
+			if v[idx+1] != nil {
+				continue
+			}
+			switch key, _ := redis.String(v[idx], nil); key {
+			case "entries-read":
+				group.EntriesReadUnknown = true
+			case "lag":
+				group.LagUnknown = true
+			}
 		}
 
 		group.StreamGroupConsumersInfo, err = scanStreamGroupConsumers(c, stream, group.Name)
@@ -285,8 +301,12 @@ func (e *Exporter) registerStreamMetrics(ch chan<- prometheus.Metric, dbLabel st
 		e.registerConstMetricGauge(ch, "stream_group_consumers", float64(group.Consumers), dbLabel, key, group.Name)
 		e.registerConstMetricGauge(ch, "stream_group_messages_pending", float64(group.Pending), dbLabel, key, group.Name)
 		e.registerConstMetricGauge(ch, "stream_group_last_delivered_id", parseStreamItemId(group.LastDeliveredId), dbLabel, key, group.Name)
-		e.registerConstMetricGauge(ch, "stream_group_entries_read", float64(group.EntriesRead), dbLabel, key, group.Name)
-		e.registerConstMetricGauge(ch, "stream_group_lag", float64(group.Lag), dbLabel, key, group.Name)
+		if !group.EntriesReadUnknown {
+			e.registerConstMetricGauge(ch, "stream_group_entries_read", float64(group.EntriesRead), dbLabel, key, group.Name)
+		}
+		if !group.LagUnknown {
+			e.registerConstMetricGauge(ch, "stream_group_lag", float64(group.Lag), dbLabel, key, group.Name)
+		}
 		if group.NackedCountAvailable {
 			e.registerConstMetricGauge(ch, "stream_group_messages_nacked", float64(group.NackedCount), dbLabel, key, group.Name)
 		}
