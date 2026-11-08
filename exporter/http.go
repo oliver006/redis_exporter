@@ -74,31 +74,7 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	target = u.String()
 
-	if ck := r.URL.Query().Get("check-keys"); ck != "" {
-		opts.CheckKeys = ck
-	}
-
-	if csk := r.URL.Query().Get("check-single-keys"); csk != "" {
-		opts.CheckSingleKeys = csk
-	}
-
-	if cs := r.URL.Query().Get("check-streams"); cs != "" {
-		opts.CheckStreams = cs
-	}
-
-	if css := r.URL.Query().Get("check-single-streams"); css != "" {
-		opts.CheckSingleStreams = css
-	}
-
-	if cntk := r.URL.Query().Get("count-keys"); cntk != "" {
-		opts.CountKeys = cntk
-	}
-
-	if tlsServerName := r.URL.Query().Get("tls_server_name"); tlsServerName != "" {
-		opts.TLSServerName = tlsServerName
-	} else if tlsServerName := r.URL.Query().Get("tls-server-name"); tlsServerName != "" {
-		opts.TLSServerName = tlsServerName
-	}
+	applyScrapeQueryOptions(&opts, r.URL.Query())
 
 	opts.Registry = prometheus.NewRegistry()
 
@@ -112,6 +88,42 @@ func (e *Exporter) scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	promhttp.HandlerFor(
 		opts.Registry, promhttp.HandlerOpts{ErrorHandling: promhttp.ContinueOnError},
 	).ServeHTTP(w, r)
+}
+
+// firstQueryValue returns the first non-empty value among the given query
+// parameter names.
+func firstQueryValue(q url.Values, names ...string) string {
+	for _, name := range names {
+		if v := q.Get(name); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// applyScrapeQueryOptions overrides opts with the /scrape query parameters.
+// Every parameter is also accepted with underscores (e.g. check_single_keys)
+// because Prometheus label names, and so __param_<name> relabel targets,
+// can't contain dashes.
+func applyScrapeQueryOptions(opts *Options, q url.Values) {
+	if v := firstQueryValue(q, "check-keys", "check_keys"); v != "" {
+		opts.CheckKeys = v
+	}
+	if v := firstQueryValue(q, "check-single-keys", "check_single_keys"); v != "" {
+		opts.CheckSingleKeys = v
+	}
+	if v := firstQueryValue(q, "check-streams", "check_streams"); v != "" {
+		opts.CheckStreams = v
+	}
+	if v := firstQueryValue(q, "check-single-streams", "check_single_streams"); v != "" {
+		opts.CheckSingleStreams = v
+	}
+	if v := firstQueryValue(q, "count-keys", "count_keys"); v != "" {
+		opts.CountKeys = v
+	}
+	if v := firstQueryValue(q, "tls_server_name", "tls-server-name"); v != "" {
+		opts.TLSServerName = v
+	}
 }
 
 func (e *Exporter) discoverClusterNodesHandler(w http.ResponseWriter, r *http.Request) {
