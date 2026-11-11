@@ -116,6 +116,9 @@ the exporter (this means you can currently only use one password across the inst
 exporters if this is a problem). \
 For TLS targets whose certificate hostname differs from the target address, pass `tls_server_name` to `/scrape` (for example via
 the Prometheus relabel target `__param_tls_server_name`).\
+`/scrape` also takes `check-keys`, `check-single-keys`, `check-streams`, `check-single-streams` and `count-keys` to override
+those options per target. Each of them is accepted with underscores too (`check_single_keys`, ...), so it can be set from service
+discovery with a relabel target such as `__param_check_single_keys` (Prometheus label names can't contain `-`).\
 You can also use a json file to supply multiple targets by using `file_sd_configs` like so:
 
 ```yaml
