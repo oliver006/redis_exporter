@@ -111,9 +111,10 @@ scrape_configs:
 ```
 
 The Redis instances are listed under `targets`, the Redis exporter hostname is configured via the last relabel_config rule.\
-If authentication is needed for the Redis instances then you can set the password via the `--redis.password` command line option of
-the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several
-exporters if this is a problem). \
+If authentication is needed for the Redis instances, `--redis.user` and `--redis.password` apply the same credentials to every target.
+For per-target credentials, leave `--redis.password` empty and set `--redis.password-file`: it maps target URIs to passwords and is
+used by `/scrape` too. Keys are full URIs including the scheme and the username, e.g. `redis://exporter@host:6379`
+(see [Authenticating with Redis](#authenticating-with-redis)). \
 For TLS targets whose certificate hostname differs from the target address, pass `tls_server_name` to `/scrape` (for example via
 the Prometheus relabel target `__param_tls_server_name`).\
 You can also use a json file to supply multiple targets by using `file_sd_configs` like so:
