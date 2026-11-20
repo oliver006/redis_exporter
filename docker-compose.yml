@@ -1,14 +1,14 @@
 services:
 
   valkey9:
-    image: valkey/valkey:9
+    image: valkey/valkey:9.2
     command: "valkey-server --enable-debug-command yes --protected-mode no"
     ports:
       - "16382:6379"
       - "6379:6379"
 
   valkey9-replica:
-    image: valkey/valkey:9
+    image: valkey/valkey:9.2
     depends_on:
       - valkey9
     command: "valkey-server --protected-mode no --replicaof valkey9 6379"
@@ -16,7 +16,7 @@ services:
       - "16381:6379"
 
   valkey9-tls:
-    image: valkey/valkey:9
+    image: valkey/valkey:9.2
     volumes:
       - ./contrib/tls:/tls
     command: |
@@ -30,7 +30,7 @@ services:
       - "16386:6379"
 
   valkey9-bundle:
-    image: valkey/valkey-bundle:9
+    image: valkey/valkey-bundle:9.2
     command: "valkey-server --enable-debug-command yes --protected-mode no"
     ports:
       - "16389:6379"
@@ -164,7 +164,7 @@ services:
 
 
   valkey-sentinel:
-    image: valkey/valkey:9
+    image: valkey/valkey:9.2
     depends_on:
       - valkey9
     ports:

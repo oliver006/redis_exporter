@@ -111,11 +111,20 @@ scrape_configs:
 ```
 
 The Redis instances are listed under `targets`, the Redis exporter hostname is configured via the last relabel_config rule.\
-If authentication is needed for the Redis instances then you can set the password via the `--redis.password` command line option of
-the exporter (this means you can currently only use one password across the instances you try to scrape this way. Use several
-exporters if this is a problem). \
+If authentication is needed for the Redis instances, `--redis.password` applies the same password to every target.
+`--redis.user` sets the default username, and a username in the target overrides it: with `--redis.user=alice` and the target
+`redis://bob@server:6379`, the exporter connects as `bob`.
+For per-target passwords, leave `--redis.password` empty and set `--redis.password-file`: it maps target URIs to passwords and is
+used by `/scrape` too. A password-file key must match the target exactly as the exporter looks it up: `redis://` is added when the
+target has no scheme, `valkey://` is changed to `redis://` (and `valkeys://` to `rediss://`), and the key contains a username only
+if one is configured, in the target or via `--redis.user`. For example, `valkey://bob@server:6379` is looked up as
+`redis://bob@server:6379`, and `server:6379` without a username as `redis://server:6379`
+(see [Authenticating with Redis](#authenticating-with-redis)). \
 For TLS targets whose certificate hostname differs from the target address, pass `tls_server_name` to `/scrape` (for example via
 the Prometheus relabel target `__param_tls_server_name`).\
+`/scrape` also takes `check-keys`, `check-single-keys`, `check-streams`, `check-single-streams` and `count-keys` to override
+those options per target. Each of them is accepted with underscores too (`check_single_keys`, ...), so it can be set from service
+discovery with a relabel target such as `__param_check_single_keys` (Prometheus label names can't contain `-`).\
 You can also use a json file to supply multiple targets by using `file_sd_configs` like so:
 
 ```yaml

@@ -12,6 +12,7 @@ import (
 
 	"github.com/gomodule/redigo/redis"
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -893,5 +894,75 @@ func TestRedis88ArrayGetKeyInfo(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("Expected metric: %s but got:\n%s", want, body)
 		}
+	}
+}
+
+// pipelinedRedisConn answers Receive() from a queue, one reply per sent command.
+type pipelinedRedisConn struct {
+	queuedRedisConn
+	sent [][]any
+}
+
+func (c *pipelinedRedisConn) Send(commandName string, args ...any) error {
+	c.sent = append(c.sent, append([]any{commandName}, args...))
+	return nil
+}
+
+func (c *pipelinedRedisConn) Receive() (any, error) {
+	if len(c.replies) == 0 {
+		return nil, fmt.Errorf("no reply queued")
+	}
+	reply := c.replies[0]
+	c.replies = c.replies[1:]
+	return reply.value, reply.err
+}
+
+func TestCheckKeysPipelinedTypeError(t *testing.T) {
+	/*
+		A TYPE error (e.g. NOPERM for a key outside the ACL user's key patterns)
+		must not shift the replies of the keys that follow it.
+	*/
+	e, _ := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+
+	noPerm := redis.Error("NOPERM No permissions to access a key")
+	conn := &pipelinedRedisConn{queuedRedisConn: queuedRedisConn{replies: []redisReply{
+		{value: "OK"},       // SELECT 0
+		{err: noPerm},       // TYPE denied
+		{err: noPerm},       // MEMORY USAGE denied
+		{value: "list"},     // TYPE jobs
+		{value: int64(128)}, // MEMORY USAGE jobs
+		{value: int64(5)},   // LLEN jobs
+	}}}
+
+	ch := make(chan prometheus.Metric, 10)
+	e.extractCheckKeyMetricsPipelined(ch, conn, []dbKeyPair{{db: "0", key: "denied"}, {db: "0", key: "jobs"}})
+	close(ch)
+
+	got := map[string]float64{}
+	for m := range ch {
+		d := &dto.Metric{}
+		if err := m.Write(d); err != nil {
+			t.Fatalf("metric.Write: %v", err)
+		}
+		sub := fqNameRE.FindStringSubmatch(m.Desc().String())
+		if sub == nil {
+			t.Fatalf("cannot read the metric name from %s", m.Desc())
+		}
+		labels := map[string]string{}
+		for _, l := range d.GetLabel() {
+			labels[l.GetName()] = l.GetValue()
+		}
+		got[sub[1]+"{"+labels["key"]+"}"] = d.GetGauge().GetValue()
+	}
+
+	want := map[string]float64{
+		"key_memory_usage_bytes{jobs}": 128,
+		"key_size{jobs}":               5,
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("metrics = %v, want %v", got, want)
+	}
+	if len(conn.replies) != 0 {
+		t.Errorf("%d replies left unread", len(conn.replies))
 	}
 }
