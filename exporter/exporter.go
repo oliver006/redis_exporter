@@ -413,6 +413,10 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_string_interning_store_size":         "search_string_interning_store_size",
 			"search_vector_externing_hash_extern_errors": "search_vector_externing_hash_extern_errors",
 			"search_vector_externing_num_lru_entries":    "search_vector_externing_num_lru_entries",
+			// Valkey Search 1.3 vector registry state. Keep the legacy externing metrics above.
+			"search_vector_registry_entry_cnt":           "search_vector_registry_entry_count",
+			"search_vector_registry_pending_unshare_cnt": "search_vector_registry_pending_unshare_count",
+			"search_vector_registry_sharing_active":      "search_vector_registry_sharing_active",
 		},
 
 		metricMapCounters: map[string]string{
@@ -514,7 +518,11 @@ func NewRedisExporter(uri string, opts Options) (*Exporter, error) {
 			"search_vector_externing_generated_value_cnt": "search_vector_externing_generated_value_count",
 			"search_vector_externing_lru_promote_cnt":     "search_vector_externing_lru_promote_count",
 			"search_vector_externing_deferred_entry_cnt":  "search_vector_externing_deferred_entry_count",
-			"used_active_time_main_thread":                "active_time_main_thread_seconds_total",
+			// Valkey Search 1.3 vector registry events.
+			"search_vector_registry_dedup_cnt":                "search_vector_registry_dedup_count",
+			"search_vector_registry_shared_externally_cnt":    "search_vector_registry_shared_externally_count",
+			"search_vector_registry_shared_externally_errors": "search_vector_registry_shared_externally_errors",
+			"used_active_time_main_thread":                    "active_time_main_thread_seconds_total",
 		},
 	}
 

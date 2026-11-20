@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	dto "github.com/prometheus/client_model/go"
 )
 
 func testModuleMetrics(t *testing.T, addr string, wantedMetrics []string) {
@@ -82,8 +83,8 @@ func TestModulesValkey(t *testing.T) {
 		"search_query_queue_size",
 		"search_writer_queue_size",
 		"search_string_interning_store_size",
-		"search_vector_externing_hash_extern_errors",
-		"search_vector_externing_num_lru_entries",
+		"search_vector_registry_entry_count",
+		"search_vector_registry_pending_unshare_count",
 		"bf_bloom_defrag_hits_total",
 		"bf_bloom_defrag_misses_total",
 		"search_worker_pool_suspend_count",
@@ -103,9 +104,65 @@ func TestModulesValkey(t *testing.T) {
 		"search_hnsw_modify_exceptions_count",
 		"search_hnsw_search_exceptions_count",
 		"search_hnsw_create_exceptions_count",
-		"search_vector_externing_entry_count",
-		"search_vector_externing_generated_value_count",
-		"search_vector_externing_lru_promote_count",
-		"search_vector_externing_deferred_entry_count",
+		"search_vector_registry_sharing_active",
+		"search_vector_registry_dedup_count",
+		"search_vector_registry_shared_externally_count",
+		"search_vector_registry_shared_externally_errors",
 	})
+}
+
+// Exercise INFO MODULES parsing without depending on the installed search module version.
+func TestModuleVectorMetrics(t *testing.T) {
+	for _, tt := range []struct {
+		field   string
+		metric  string
+		counter bool
+	}{
+		{"search_vector_externing_hash_extern_errors", "search_vector_externing_hash_extern_errors", false},
+		{"search_vector_externing_num_lru_entries", "search_vector_externing_num_lru_entries", false},
+		{"search_vector_externing_entry_count", "search_vector_externing_entry_count", true},
+		{"search_vector_externing_generated_value_cnt", "search_vector_externing_generated_value_count", true},
+		{"search_vector_externing_lru_promote_cnt", "search_vector_externing_lru_promote_count", true},
+		{"search_vector_externing_deferred_entry_cnt", "search_vector_externing_deferred_entry_count", true},
+		{"search_vector_registry_entry_cnt", "search_vector_registry_entry_count", false},
+		{"search_vector_registry_pending_unshare_cnt", "search_vector_registry_pending_unshare_count", false},
+		{"search_vector_registry_sharing_active", "search_vector_registry_sharing_active", false},
+		{"search_vector_registry_dedup_cnt", "search_vector_registry_dedup_count", true},
+		{"search_vector_registry_shared_externally_cnt", "search_vector_registry_shared_externally_count", true},
+		{"search_vector_registry_shared_externally_errors", "search_vector_registry_shared_externally_errors", true},
+	} {
+		t.Run(tt.field, func(t *testing.T) {
+			e, err := NewRedisExporter("", Options{Namespace: "test"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, value := range []int{1, 0} {
+				conn := &queuedRedisConn{replies: []redisReply{{value: []byte(fmt.Sprintf("# Modules\r\n%s:%d\r\n", tt.field, value))}}}
+				ch := make(chan prometheus.Metric, 1)
+				e.extractModulesMetrics(ch, conn)
+				close(ch)
+				count := 0
+				for m := range ch {
+					count++
+					if !strings.Contains(m.Desc().String(), `"test_`+tt.metric+`"`) {
+						t.Errorf("unexpected metric: %s", m.Desc())
+					}
+					var metric dto.Metric
+					if err := m.Write(&metric); err != nil {
+						t.Fatal(err)
+					}
+					if tt.counter {
+						if metric.Counter == nil || metric.Counter.GetValue() != float64(value) {
+							t.Errorf("want counter %d, got %s", value, &metric)
+						}
+					} else if metric.Gauge == nil || metric.Gauge.GetValue() != float64(value) {
+						t.Errorf("want gauge %d, got %s", value, &metric)
+					}
+				}
+				if count != 1 {
+					t.Fatalf("got %d metrics, want 1", count)
+				}
+			}
+		})
+	}
 }
