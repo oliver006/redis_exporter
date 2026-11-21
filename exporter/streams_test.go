@@ -281,6 +281,87 @@ func TestStreamMetricsOmitUnavailableIDMPAndXNACKState(t *testing.T) {
 	}
 }
 
+func TestStreamGroupNilLagAndEntriesRead(t *testing.T) {
+	e, err := NewRedisExporter("redis://localhost:6379", Options{Namespace: "test"})
+	if err != nil {
+		t.Fatalf("NewRedisExporter() err: %s", err)
+	}
+
+	for _, test := range []struct {
+		name        string
+		entriesRead any
+		lag         any
+		wantMetrics map[string]float64
+	}{
+		{
+			name:        "known",
+			entriesRead: int64(3),
+			lag:         int64(4),
+			wantMetrics: map[string]float64{"stream_group_entries_read": 3, "stream_group_lag": 4},
+		},
+		{
+			name:        "lag nil",
+			entriesRead: int64(3),
+			lag:         nil,
+			wantMetrics: map[string]float64{"stream_group_entries_read": 3},
+		},
+		{
+			name:        "entries-read and lag nil",
+			entriesRead: nil,
+			lag:         nil,
+			wantMetrics: map[string]float64{},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			conn := &queuedRedisConn{replies: []redisReply{
+				{value: []any{[]any{
+					[]byte("name"), []byte("workers"),
+					[]byte("consumers"), int64(1),
+					[]byte("pending"), int64(2),
+					[]byte("last-delivered-id"), []byte("1638006862521-0"),
+					[]byte("entries-read"), test.entriesRead,
+					[]byte("lag"), test.lag,
+				}}},
+				{value: []any{}},
+			}}
+			groups, err := scanStreamGroups(conn, "events")
+			if err != nil || len(groups) != 1 {
+				t.Fatalf("scanStreamGroups() = %#v, err: %v", groups, err)
+			}
+
+			ch := make(chan prometheus.Metric)
+			go func() {
+				e.registerStreamMetrics(ch, "db0", "events", &streamInfo{StreamGroupsInfo: groups})
+				close(ch)
+			}()
+
+			got := map[string]float64{}
+			pending := false
+			for m := range ch {
+				desc := m.Desc().String()
+				for _, name := range []string{"stream_group_entries_read", "stream_group_lag"} {
+					if strings.Contains(desc, `"test_`+name+`"`) {
+						var metric dto.Metric
+						if err := m.Write(&metric); err != nil {
+							t.Fatalf("Write(%s) err: %s", name, err)
+						}
+						got[name] = metric.GetGauge().GetValue()
+					}
+				}
+				if strings.Contains(desc, `"test_stream_group_messages_pending"`) {
+					pending = true
+				}
+			}
+			if !reflect.DeepEqual(got, test.wantMetrics) {
+				t.Errorf("got metrics %v, want %v", got, test.wantMetrics)
+			}
+			if !pending {
+				t.Errorf("stream_group_messages_pending missing")
+			}
+		})
+	}
+}
+
 func TestStreamsGetStreamInfo(t *testing.T) {
 	if os.Getenv("TEST_REDIS6_URI") == "" {
 		t.Skipf("TEST_REDIS6_URI not set - skipping")
