@@ -177,3 +177,57 @@ func TestConnectToRedisTLSBadPassword(t *testing.T) {
 		})
 	}
 }
+
+// The address can contain the Redis password. When it can't be parsed, the
+// connection error ends up in the err label of exporter_last_scrape_error, so
+// it must not quote the address or any part of it. No Redis server is needed.
+func TestInvalidAddressErrorDoesNotLeakPassword(t *testing.T) {
+	for _, tst := range []struct {
+		name string
+		addr string
+		want string
+	}{
+		{name: "invalid escape", addr: "redis://:s3cret%1@localhost:6379", want: "invalid redis address: invalid URL escape"},
+		{name: "invalid escape followed by password", addr: "redis://:%zzs3cret@localhost:6379", want: "invalid redis address: invalid URL escape"},
+		{name: "invalid port", addr: "redis://:s3cret@localhost:abc", want: "invalid redis address: invalid port"},
+		{name: "missing host", addr: "redis://user:s3cret", want: "invalid redis address: invalid port"},
+		{name: "unescaped slash in password", addr: "redis://:s3cret/pw@localhost:6379", want: "invalid redis address: invalid port"},
+		{name: "invalid host character", addr: "redis://:s3cret@local host:6379", want: "invalid redis address: invalid character in host name"},
+		{name: "invalid userinfo", addr: "redis://:s3cret pw@localhost:6379", want: "invalid redis address: malformed URL"},
+		{name: "invalid IP literal", addr: "redis://[s3cret]:6379", want: "invalid redis address: malformed URL"},
+	} {
+		t.Run(tst.name, func(t *testing.T) {
+			e := connectionTestExporter(t, tst.addr)
+
+			c, err := e.connectToRedis()
+			if c != nil {
+				c.Close()
+			}
+			if err == nil || err.Error() != tst.want {
+				t.Fatalf("connectToRedis() = %v; want %q", err, tst.want)
+			}
+
+			ts := httptest.NewServer(e)
+			defer ts.Close()
+			body := downloadURL(t, ts.URL+"/metrics")
+			if strings.Contains(body, "s3cret") {
+				t.Errorf("metrics contain the password:\n%s", body)
+			}
+			for _, want := range []string{"\ntest_up 0\n", "\ntest_exporter_last_scrape_error{err=\"" + tst.want + "\"} 1\n"} {
+				if !strings.Contains(body, want) {
+					t.Errorf("metrics missing %q:\n%s", want, body)
+				}
+			}
+		})
+	}
+}
+
+func TestRedactURLErrorKeepsOtherErrors(t *testing.T) {
+	if err := redactURLError(nil); err != nil {
+		t.Errorf("redactURLError(nil) = %v; want nil", err)
+	}
+	other := errors.New("dial tcp 127.0.0.1:6379: connect: connection refused")
+	if err := redactURLError(other); err != other {
+		t.Errorf("redactURLError(%v) = %v; want the error unchanged", other, err)
+	}
+}
