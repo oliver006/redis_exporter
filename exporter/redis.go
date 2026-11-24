@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -77,11 +78,37 @@ func (e *Exporter) connectToRedis() (redis.Conn, error) {
 	case "redis", "rediss", "valkey", "valkeys":
 		// Preserve URL credentials, database selection and the original error.
 		log.Debugf("Trying DialURL(): %s", uri)
-		return redis.DialURL(uri, options...)
+		c, err := redis.DialURL(uri, options...)
+		return c, redactURLError(err)
 	default:
 		log.Debugf("Trying Dial(): %s %s", frags[0], frags[1])
 		return redis.Dial(frags[0], frags[1], options...)
 	}
+}
+
+// redactURLError replaces the *url.Error that redis.DialURL returns for an
+// address that can't be parsed. Its text contains the whole address, password
+// included, and the connection error is exposed as the err label of
+// exporter_last_scrape_error. The wrapped reason can quote part of the input too
+// (invalid URL escape "%1", invalid port ":abc" after host), so only the kind
+// of failure is kept. The full error is still logged at debug level.
+func redactURLError(err error) error {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		return err
+	}
+
+	var escapeErr url.EscapeError
+	var hostErr url.InvalidHostError
+	switch {
+	case errors.As(urlErr.Err, &escapeErr):
+		return errors.New("invalid redis address: invalid URL escape")
+	case errors.As(urlErr.Err, &hostErr):
+		return errors.New("invalid redis address: invalid character in host name")
+	case strings.HasPrefix(urlErr.Err.Error(), "invalid port"):
+		return errors.New("invalid redis address: invalid port")
+	}
+	return errors.New("invalid redis address: malformed URL")
 }
 
 func (e *Exporter) connectToRedisCluster() (redis.Conn, error) {
