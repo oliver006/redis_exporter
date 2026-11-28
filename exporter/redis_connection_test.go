@@ -207,6 +207,15 @@ func TestInvalidAddressErrorDoesNotLeakPassword(t *testing.T) {
 				t.Fatalf("connectToRedis() = %v; want %q", err, tst.want)
 			}
 
+			c, err = e.connectToRedisClusterDatabase(3)
+			if c != nil {
+				c.Close()
+				t.Fatal("connectToRedisClusterDatabase returned a connection for an invalid address")
+			}
+			if err == nil || err.Error() != tst.want {
+				t.Fatalf("connectToRedisClusterDatabase(3) = %v; want %q", err, tst.want)
+			}
+
 			ts := httptest.NewServer(e)
 			defer ts.Close()
 			body := downloadURL(t, ts.URL+"/metrics")

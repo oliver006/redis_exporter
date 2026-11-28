@@ -132,7 +132,10 @@ func (e *Exporter) connectToRedisClusterDatabase(db int) (redis.Conn, error) {
 
 	// remove url scheme for redis.Cluster.StartupNodes
 	if strings.Contains(uri, "://") {
-		u, _ := url.Parse(uri)
+		u, err := url.Parse(uri)
+		if err != nil {
+			return nil, redactURLError(err)
+		}
 		if u.Port() == "" {
 			uri = u.Host + ":6379"
 		} else {
