@@ -318,6 +318,21 @@ func TestHttpHandlers(t *testing.T) {
 	}
 }
 
+func TestDiscoverClusterNodesInvalidAddress(t *testing.T) {
+	e, err := NewRedisExporter("redis://:s3cret/pw@localhost:6379", Options{IsCluster: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	w := httptest.NewRecorder()
+	e.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/discover-cluster-nodes", nil))
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d; want %d", w.Code, http.StatusInternalServerError)
+	}
+	if got, want := w.Body.String(), "Couldn't connect to redis cluster: invalid redis address: invalid port\n"; got != want {
+		t.Errorf("body = %q; want %q", got, want)
+	}
+}
+
 func TestHttpDiscoverClusterNodesHandlers(t *testing.T) {
 	clusterAddr := os.Getenv("TEST_VALKEY_CLUSTER_MASTER_URI")
 	nonClusterAddr := os.Getenv("TEST_REDIS_URI")
